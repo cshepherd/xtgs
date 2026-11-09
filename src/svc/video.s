@@ -936,9 +936,9 @@ vid_setmode
  and #$00FF
  cmp #4
  bcc :text                 ; 0-3: text
- cmp #6
- bcs :text                 ; 6,7: not 320 graphics (yet) -> text
- sta gfx_mode              ; 4 or 5
+ cmp #7
+ bcs :text                 ; 7+: text
+ sta gfx_mode              ; 4/5 (320x200x4) or 6 (640x200 mono)
  jmp gfx_setup
 :text
  stz gfx_mode
@@ -960,22 +960,36 @@ gfx_setup
  bcc :cd
  rep #$20
  mx %00
- ldx #0                    ; 200 SCBs = $00 (320 mode, palette 0)
+ lda gfx_mode              ; SCB + palette depend on the mode
+ cmp #6
+ beq :m6
+ ldx #0                    ; 320 mode: SCB $00 (320, palette 0) on every line
  lda #$0000
-:scb
+:scb3
  sta >SHR_SCB,x
  inx
  inx
  cpx #200
- bcc :scb
- lda #$0000                ; palette 0 = CGA SCREEN 1 default (palette 1)
- sta >SHR_PAL
- lda #$00FF                ; 1 = cyan
- sta >SHR_PAL+2
- lda #$0F0F                ; 2 = magenta
- sta >SHR_PAL+4
- lda #$0FFF                ; 3 = white
- sta >SHR_PAL+6
+ bcc :scb3
+ lda #0                    ; default: palette 1, non-intensified, bg 0
+ sta cga_bg                ; (faithful CGA: cyan/magenta/white; palette 0 is
+ sta cga_int               ; green/red/brown)
+ lda #1
+ sta cga_pal
+ stz cga_pd
+ jsr cga_setpal
+ bra :clrpix
+:m6
+ ldx #0                    ; 640 mode: SCB $80 on every line
+ lda #$8080
+:scb6
+ sta >SHR_SCB,x
+ inx
+ inx
+ cpx #200
+ bcc :scb6
+ jsr cga_setpal6
+:clrpix
  ldx #0                    ; clear 32000 SHR pixel bytes
  lda #0
 :clr
@@ -998,6 +1012,74 @@ gfx_setup
  bcc :cfb
  rts
 
+* cga_setpal - set SHR palette 0 entries 0-3 for 320 mode from the
+* current CGA background/palette/intensity. Entry 0 = background,
+* 1-3 = the selected palette's three foreground colours. DBR=$04.
+cga_setpal
+ mx %00
+ lda cga_bg                ; entry 0 = cga_rgb[background]
+ and #$000F
+ asl
+ tax
+ lda cga_rgb,x
+ sta >SHR_PAL
+ lda cga_pal               ; combo = pal*2 + intensity ; base = combo*3
+ and #$0001
+ asl
+ clc
+ adc cga_int
+ sta gL
+ asl
+ clc
+ adc gL                    ; base into fg_tab (0,3,6,9)
+ tax
+ lda fg_tab,x              ; entry 1
+ and #$00FF
+ asl
+ phx
+ tax
+ lda cga_rgb,x
+ sta >SHR_PAL+2
+ plx
+ inx
+ lda fg_tab,x              ; entry 2
+ and #$00FF
+ asl
+ phx
+ tax
+ lda cga_rgb,x
+ sta >SHR_PAL+4
+ plx
+ inx
+ lda fg_tab,x              ; entry 3
+ and #$00FF
+ asl
+ tax
+ lda cga_rgb,x
+ sta >SHR_PAL+6
+ rts
+
+* cga_setpal6 - 640-mode mono palette: cga640_tab emits pixel value
+* 0 (black) or 3 (white); in 640 mode the four pixel positions read
+* groups based at entries 8,12,0,4, so make entry base+0 black and
+* base+3 white for each group. DBR=$04.
+cga_setpal6
+ mx %00
+ ldx #0
+ lda #$0000
+:z
+ sta >SHR_PAL,x
+ inx
+ inx
+ cpx #32
+ bcc :z
+ lda #$0FFF
+ sta >SHR_PAL+6            ; entry 3  (group at base 0)
+ sta >SHR_PAL+14          ; entry 7  (group at base 4)
+ sta >SHR_PAL+22          ; entry 11 (group at base 8)
+ sta >SHR_PAL+30          ; entry 15 (group at base 12)
+ rts
+
 * gfx_flush - repack only the scanlines the guest changed since the
 * last frame. The core sets 64 dirty-page bits in VID_DIRTY (cpu.s
 * vid_mark, one per 256 bytes of the B800 bank). Each page maps to a
@@ -1007,6 +1089,14 @@ gfx_setup
 * either page is dirty, so nothing is missed. DBR=$04.
 gfx_flush
  mx %00
+ lda cga_pd               ; apply a pending COLOR / 3D9h palette change
+ beq :nopd
+ stz cga_pd
+ lda gfx_mode
+ cmp #6
+ beq :nopd                ; mode 6 palette is fixed mono
+ jsr cga_setpal
+:nopd
  stz gPG
 :pg
  ldx gPG
@@ -1112,7 +1202,10 @@ gfx_blit_line
  lda #^CGA_SRC
  sta gSRC+2
  ldy #80                   ; 80 CGA bytes -> 160 SHR bytes
-:px
+ lda gfx_mode
+ cmp #6
+ beq :px6
+:px3                       ; 320 mode: one byte -> two 4bpp bytes
  lda [gSRC]
  and #$00FF
  asl
@@ -1123,8 +1216,22 @@ gfx_blit_line
  inc gDST
  inc gDST
  dey
- bne :px
- pla                       ; drop the saved line
+ bne :px3
+ pla
+ rts
+:px6                       ; 640 mode: one byte -> two 2bpp (mono) bytes
+ lda [gSRC]
+ and #$00FF
+ asl
+ tax
+ lda cga640_tab,x
+ sta [gDST]
+ inc gSRC
+ inc gDST
+ inc gDST
+ dey
+ bne :px6
+ pla
  rts
 
 * gpg_r0/gpg_r1 - for page position p (0-31) within a field, the
@@ -1173,3 +1280,51 @@ cga320_tab
  dw $2032,$2132,$2232,$2332,$3032,$3132,$3232,$3332
  dw $0033,$0133,$0233,$0333,$1033,$1133,$1233,$1333
  dw $2033,$2133,$2233,$2333,$3033,$3133,$3233,$3333
+
+* cga640_tab - one CGA mode-6 byte (8 px x 1 bit) -> a word = two
+* SHR 640-mode bytes. Each CGA bit becomes a 2-bit pixel value 3
+* (white) or 0 (black); cga_setpal6 makes those render mono.
+cga640_tab
+ dw $0000,$0300,$0C00,$0F00,$3000,$3300,$3C00,$3F00
+ dw $C000,$C300,$CC00,$CF00,$F000,$F300,$FC00,$FF00
+ dw $0003,$0303,$0C03,$0F03,$3003,$3303,$3C03,$3F03
+ dw $C003,$C303,$CC03,$CF03,$F003,$F303,$FC03,$FF03
+ dw $000C,$030C,$0C0C,$0F0C,$300C,$330C,$3C0C,$3F0C
+ dw $C00C,$C30C,$CC0C,$CF0C,$F00C,$F30C,$FC0C,$FF0C
+ dw $000F,$030F,$0C0F,$0F0F,$300F,$330F,$3C0F,$3F0F
+ dw $C00F,$C30F,$CC0F,$CF0F,$F00F,$F30F,$FC0F,$FF0F
+ dw $0030,$0330,$0C30,$0F30,$3030,$3330,$3C30,$3F30
+ dw $C030,$C330,$CC30,$CF30,$F030,$F330,$FC30,$FF30
+ dw $0033,$0333,$0C33,$0F33,$3033,$3333,$3C33,$3F33
+ dw $C033,$C333,$CC33,$CF33,$F033,$F333,$FC33,$FF33
+ dw $003C,$033C,$0C3C,$0F3C,$303C,$333C,$3C3C,$3F3C
+ dw $C03C,$C33C,$CC3C,$CF3C,$F03C,$F33C,$FC3C,$FF3C
+ dw $003F,$033F,$0C3F,$0F3F,$303F,$333F,$3C3F,$3F3F
+ dw $C03F,$C33F,$CC3F,$CF3F,$F03F,$F33F,$FC3F,$FF3F
+ dw $00C0,$03C0,$0CC0,$0FC0,$30C0,$33C0,$3CC0,$3FC0
+ dw $C0C0,$C3C0,$CCC0,$CFC0,$F0C0,$F3C0,$FCC0,$FFC0
+ dw $00C3,$03C3,$0CC3,$0FC3,$30C3,$33C3,$3CC3,$3FC3
+ dw $C0C3,$C3C3,$CCC3,$CFC3,$F0C3,$F3C3,$FCC3,$FFC3
+ dw $00CC,$03CC,$0CCC,$0FCC,$30CC,$33CC,$3CCC,$3FCC
+ dw $C0CC,$C3CC,$CCCC,$CFCC,$F0CC,$F3CC,$FCCC,$FFCC
+ dw $00CF,$03CF,$0CCF,$0FCF,$30CF,$33CF,$3CCF,$3FCF
+ dw $C0CF,$C3CF,$CCCF,$CFCF,$F0CF,$F3CF,$FCCF,$FFCF
+ dw $00F0,$03F0,$0CF0,$0FF0,$30F0,$33F0,$3CF0,$3FF0
+ dw $C0F0,$C3F0,$CCF0,$CFF0,$F0F0,$F3F0,$FCF0,$FFF0
+ dw $00F3,$03F3,$0CF3,$0FF3,$30F3,$33F3,$3CF3,$3FF3
+ dw $C0F3,$C3F3,$CCF3,$CFF3,$F0F3,$F3F3,$FCF3,$FFF3
+ dw $00FC,$03FC,$0CFC,$0FFC,$30FC,$33FC,$3CFC,$3FFC
+ dw $C0FC,$C3FC,$CCFC,$CFFC,$F0FC,$F3FC,$FCFC,$FFFC
+ dw $00FF,$03FF,$0CFF,$0FFF,$30FF,$33FF,$3CFF,$3FFF
+ dw $C0FF,$C3FF,$CCFF,$CFFF,$F0FF,$F3FF,$FCFF,$FFFF
+
+* cga_rgb - the 16 CGA colours as IIGS $0RGB palette words.
+cga_rgb
+ dw $0000,$000A,$00A0,$00AA,$0A00,$0A0A,$0A50,$0AAA
+ dw $0555,$055F,$05F5,$05FF,$0F55,$0F5F,$0FF5,$0FFF
+
+* fg_tab - CGA foreground colour indices for the four (palette,
+* intensity) combos, three per combo: pal0/i0, pal0/i1, pal1/i0,
+* pal1/i1. pal0 = green/red/brown, pal1 = cyan/magenta/white.
+fg_tab
+ hex 0204060A0C0E0305070B0D0F

@@ -1,29 +1,50 @@
-# CGA graphics (SCREEN 1)
+# CGA graphics
 
-XT/GS renders **CGA 320x200x4** graphics (BIOS video modes 4 and 5, GW-BASIC
-`SCREEN 1`) on the IIGS Super Hi-Res screen. The resolutions line up by design,
-not coincidence: the IIGS 320 mode is 320x200 at 4 bits a pixel, a strict
-superset of CGA's 320x200 at 2 bits a pixel, so the work is repacking a bitmap,
-not scaling it.
+XT/GS renders CGA graphics on the IIGS Super Hi-Res screen:
+
+- **Mode 4/5** (`SCREEN 1`): 320x200, 4 colours. The IIGS 320 mode is 320x200
+  at 4 bits a pixel, a strict superset of CGA's 2 bits a pixel.
+- **Mode 6** (`SCREEN 2`): 640x200, mono. Maps onto the IIGS 640 mode (the same
+  mode the text screen uses).
+
+The resolutions line up by design, not coincidence, so the work is repacking a
+bitmap, not scaling it. The CGA palette and background colour (the `COLOR`
+statement) are honoured in 320 mode.
 
 ## How it works (`src/svc/video.s`, `src/core/ops_misc.s`)
 
 - **Mode set.** `INT 10h AH=00` (`v10_00` in `bios.s`) calls `vid_setmode`.
-  Modes 4/5 go to `gfx_setup`: it puts the SHR in 320 mode (all 200 SCBs
-  `$00`), loads palette 0 with the CGA colours (0 black, 1 cyan, 2 magenta, 3
-  white), and clears both the SHR and the 16 KB CGA framebuffer. Any other mode
-  restores 640-mode text (`init_shr` + `vid_clear`). GW-BASIC's `SCREEN 1` does
-  reach this path (it sets mode **5**, the burst-off 4-colour variant).
+  Modes 4/5 and 6 go to `gfx_setup`, which configures the SHR and clears it and
+  the 16 KB CGA framebuffer; any other mode restores 640-mode text (`init_shr`
+  + `vid_clear`). For 320 (4/5) it sets every SCB to `$00` and the palette from
+  the CGA colour state (below). For 640 (6) it sets every SCB to `$80` and a
+  mono palette (`cga_setpal6`): `cga640_tab` emits pixel value 3 or 0, and in
+  640 mode the four pixel positions read palette groups based at entries
+  8/12/0/4, so entries 3/7/11/15 are white and the rest black. GW-BASIC's
+  `SCREEN 1` sets mode **5** (the burst-off 4-colour variant); `SCREEN 2` sets
+  mode 6.
 - **The guest draws itself.** GW-BASIC (like most CGA software) bypasses
   `INT 10h` and writes pixels straight into the CGA framebuffer at B800:0000
-  (host `$2B:8000`) - the same 16 KB aperture as text, but as a bitmap: 2 bits
-  a pixel, 4 pixels a byte, 80 bytes a scanline, with the **CGA interleave**
-  (even scanlines at B800:0000, odd at B800:2000).
+  (host `$2B:8000`) - the same 16 KB aperture as text, but as a bitmap, 80
+  bytes a scanline, with the **CGA interleave** (even scanlines at B800:0000,
+  odd at B800:2000). Mode 4/5 is 2 bits a pixel (4 px/byte); mode 6 is 1 bit a
+  pixel (8 px/byte).
 - **Repack.** Each frame `gfx_flush` repacks only the scanlines that changed
   (see below); `gfx_blit_line` de-interleaves one screen line and expands each
-  CGA byte into two SHR bytes through `cga320_tab` (a 256-entry 2bpp->4bpp
-  table; CGA pixel value n maps to SHR palette index n). `shr.py` already
-  understands 320 mode, so the headless screenshot renders correctly.
+  CGA byte into two SHR bytes - through `cga320_tab` in 320 mode or `cga640_tab`
+  in 640 mode. Both modes are 80 CGA bytes -> 160 SHR bytes a line, so the blit
+  structure is identical. `shr.py` understands both SHR modes, so the headless
+  screenshot renders correctly.
+- **Palette / `COLOR`.** The CGA colour-select state (`cga_bg`, `cga_pal`,
+  `cga_int`) is fed by **both** `INT 10h AH=0Bh` (`v10_0B`: `BH=0` background,
+  `BH=1` palette) and a write to port **`3D9h`** (`port_out`: bits 0-3
+  background, bit 4 intensity, bit 5 palette), so GW-BASIC's `COLOR` statement
+  works whichever path it uses. A change sets `cga_pd`, and `gfx_flush` applies
+  it via `cga_setpal`, which writes SHR palette 0 entries 0-3: entry 0 =
+  `cga_rgb[background]`, entries 1-3 = the selected palette's three colours
+  (`fg_tab`: palette 0 = green/red/brown, palette 1 = cyan/magenta/white, dim
+  or intensified). The palette lives separately from the pixels, so a `COLOR`
+  change recolours the screen with no re-blit.
 - **`3DAh` status register** (`port_in8`): returns a free-running value so the
   guest's retrace/display-enable poll loops terminate instead of spinning on a
   constant open-bus read.
@@ -60,13 +81,12 @@ actually changed are repacked each frame.
 
 ## Status and limitations
 
-- **Modes 4/5 only** (`SCREEN 1`, 320x200x4). Mode 6 (`SCREEN 2`, 640x200
-  mono) maps cleanly onto the IIGS 640 mode we already use for text but is not
-  wired yet; EGA/VGA modes are out of scope.
-- **Fixed palette** (black / cyan / magenta / white). The `COLOR` statement's
-  palette and background selection (`INT 10h AH=0Bh`, port `3D9h`) is not
-  honoured, so palette 0 (green/red/brown) and a non-black background don't
-  show. The mode-control/colour ports (`3D8h`/`3D9h`) are still open-bus.
+- **Modes 4/5/6 only.** EGA/VGA modes are out of scope. The mode-control port
+  `3D8h` is still open-bus - the mode comes from `INT 10h AH=00`, which
+  GW-BASIC uses; a program that sets the mode by banging `3D8h` directly would
+  not switch.
+- **Mode 6 is white-on-black.** `SCREEN 2`'s `COLOR` foreground selection is
+  ignored (the 320-mode `COLOR` path is fully honoured).
 - **No composite artifact colour** (the NTSC-bleed trick some CGA games use);
   RGB-style CGA output is what renders.
 - **One stray dotted row** at screen y~=96 (magenta dots every 8 px) appears

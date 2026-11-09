@@ -226,7 +226,7 @@ int_10
  lda #$10
  jmp note_unhandled
 v10_tab da v10_00,v10_01,v10_02,v10_03,v10_nop,v10_nop,v10_06,v10_07
- da v10_08,v10_09,v10_0A,v10_nop,v10_nop,v10_nop,v10_0E,v10_0F
+ da v10_08,v10_09,v10_0A,v10_0B,v10_nop,v10_nop,v10_0E,v10_0F
  da v10_nop,v10_nop,v10_nop,v10_13
 v10_nop
  mx %00
@@ -357,6 +357,24 @@ v10_0A                     ; write char only CX times at the cursor
  mx %00
 :done
  jmp mark_all
+v10_0B                     ; set palette: BH=0 background (BL 0-15),
+ mx %00                    ; BH=1 palette select (BL bit 0). CGA graphics.
+ lda rBX
+ xba
+ and #$00FF                ; BH
+ bne :pal
+ lda rBX                   ; BH=0: background colour
+ and #$000F
+ sta cga_bg
+ bra :mark
+:pal
+ lda rBX                   ; BH=1: palette 0/1
+ and #$0001
+ sta cga_pal
+:mark
+ lda #1
+ sta cga_pd
+ rts
 v10_0E                     ; teletype AL
  mx %00
  lda rAX

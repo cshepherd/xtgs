@@ -61,9 +61,10 @@ and reports the guest state, INT 13h count and screen.
 - **CGA graphics (`SCREEN 1`, 320x200x4) render** (`docs/cga.md`). GW-BASIC's
   `LINE`/`CIRCLE`/etc. draw straight into the B800 bitmap and XT/GS repacks it
   onto the SHR screen in 320 mode. `AUTOEXEC` runs `CGADEMO.BAS` (an X, a box,
-  a circle) as the headless proof. Modes 4/5 only; fixed palette. The repack is
-  per-scanline dirty-region (only changed lines each frame), ~26x the guest
-  throughput of blitting the whole screen every frame.
+  a circle) as the headless proof. Modes 4/5 (`SCREEN 1`, 320x200x4) and 6
+  (`SCREEN 2`, 640x200 mono); the `COLOR` palette/background is honoured. The
+  repack is per-scanline dirty-region (only changed lines each frame), ~26x the
+  guest throughput of blitting the whole screen every frame.
 
 ## The find-file bug (fixed)
 

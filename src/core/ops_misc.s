@@ -94,6 +94,33 @@ port_in16
  rts
 port_out                   ; A = port, tmp0 = value
  mx %00
+ cmp #$03D9                ; CGA colour-select register
+ beq :csel
+ rts
+:csel
+ lda tmp0                  ; bits 0-3 background/border
+ and #$000F
+ sta cga_bg
+ lda tmp0                  ; bit 4 intensity
+ and #$0010
+ beq :i0
+ lda #1
+ sta cga_int
+ bra :pal
+:i0
+ stz cga_int
+:pal
+ lda tmp0                  ; bit 5 palette select
+ and #$0020
+ beq :p0
+ lda #1
+ sta cga_pal
+ bra :pd
+:p0
+ stz cga_pal
+:pd
+ lda #1
+ sta cga_pd
  rts
 op_E4                      ; in AL, imm8
  mx %00

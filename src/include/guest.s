@@ -107,6 +107,10 @@ gPG        DS 2              ; $EE  CGA flush: dirty page index 0..63
 gPAR       DS 2              ; $F0  CGA flush: field parity 0/1
 gROW       DS 2              ; $F2  CGA flush: current row-in-field
 gR1        DS 2              ; $F4  CGA flush: last row-in-field for this page
+cga_bg     DS 2              ; $F6  CGA palette: background colour 0-15 (entry 0)
+cga_pal    DS 2              ; $F8  CGA palette: select 0/1
+cga_int    DS 2              ; $FA  CGA palette: intensity 0/1
+cga_pd     DS 2              ; $FC  CGA palette: needs re-applying to the SHR
            DEND
 
 * JMP (abs) takes a bank-$00 address: the retire vector's.
