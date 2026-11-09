@@ -68,8 +68,22 @@ slot
  bcc :nc
  inc vICOUNT+2
 :nc
- lda vPCMODE               ; running a PC program: once a frame, the
- beq :fetch                ; services poll the keyboard, tick, flush
+ lda vPCMODE               ; running a PC program?
+ beq :fetch                ; bench: no services
+ cmp #2                    ; Mode B: look for a queued keyboard scancode EVERY
+ bne :vbl                  ; slot, not only on the VBL edge, so an async INT 09h
+ lda rFL                   ; reaches a game's own handler promptly like a real
+ and #F_IF                 ; IRQ1. do_int clears IF, so this self-serializes with
+ beq :vbl                  ; the handler; interrupts off -> hold it.
+ lda >KBD_QHEAD
+ and #KBD_QMASK
+ cmp >KBD_QTAIL
+ beq :vbl                  ; scancode queue empty
+ sty rIP
+ lda #9
+ jsr do_int                ; INT 09h (IRQ1): the guest handler reads port 0x60
+ jmp fetch
+:vbl                       ; once-a-frame services + the IRQ0 timer, on the VBL edge
  lda >VBLBAR
  and #$0080
  cmp vVBL
@@ -77,7 +91,7 @@ slot
  sta vVBL
  beq :fetch                ; the falling edge
  sty rIP
- jsl SVC_BASE+15           ; svc_vbl: keyboard, flush, tick accounting
+ jsl SVC_BASE+15           ; svc_vbl: keyboard poll, flush, tick accounting
  ldy rIP
  lda vPCMODE               ; Mode B: deliver the IRQ0 timer tick to the guest
  cmp #2
@@ -86,20 +100,10 @@ slot
  and #F_IF
  beq :fetch                ; interrupts off: hold the tick
  jsl SVC_BASE+27           ; svc_tickdue -> A nonzero if an 18.2 Hz tick is due
- beq :kbd                  ; no timer tick this frame: try a keyboard IRQ instead
+ beq :fetch                ; no tick (the keyboard IRQ is delivered above)
  sty rIP
  lda #8
- jsr do_int                ; INT 08h (IRQ0 timer): priority over the keyboard
- jmp fetch
-:kbd                       ; IRQ1: deliver one queued scancode as INT 09h. do_int
- mx %00                    ; clears IF, so the guest's handler drains port 0x60 and
- lda >KBD_QHEAD            ; IRETs before the next edge can deliver another.
- and #KBD_QMASK
- cmp >KBD_QTAIL
- beq :fetch                ; scancode queue empty
- sty rIP
- lda #9
- jsr do_int                ; INT 09h: the guest's handler reads port 0x60
+ jsr do_int                ; INT 08h (IRQ0 timer)
 :fetch
  jmp fetch
 
