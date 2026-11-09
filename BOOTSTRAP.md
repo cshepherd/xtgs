@@ -1,6 +1,6 @@
 # XT/GS bootstrap: Merlin32 + the MAME harnesses
 
-**Status:** M0, M1, M2, M3 and M4 done (2026-11-08). M4 characterized the interpreter (`tools/profile.py`), added the `MVN` fast path for `REP MOVS` (23x on string moves), and published measured throughput in `docs/benchmarks.md`; lazy flags is the identified, scoped next optimization. `make test-com` runs the
+**Status:** M0-M4 done; M5 (Mode B disk boot) substantially built (2026-11-08). `make boot-dos` boots a real FreeDOS kernel from a disk image: the boot sector runs, INT 13h serves the disk, and the kernel's root-directory read succeeds; it stops in the boot sector's find-file search (docs/mode-b.md has the diagnosis and the next step). M4 characterized the interpreter (`tools/profile.py`), added the `MVN` fast path for `REP MOVS` (23x on string moves), and published measured throughput in `docs/benchmarks.md`; lazy flags is the identified, scoped next optimization. `make test-com` runs the
 nasm `.COM` programs; `make test-dos` runs independently sourced DOS
 utilities (MS-DOS 2.0 and FreeDOS, fetched into `third_party/`). See
 `docs/dos-api.md`, `docs/keyboard.md`, `docs/compatibility-matrix.md`. The tree follows this plan; what

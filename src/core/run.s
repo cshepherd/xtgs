@@ -69,3 +69,52 @@ com_run
 :exit
  lda vEXIT
  rts
+
+* boot_run - the D command: Mode B. Build the stub BIOS/IVT/BDA,
+* load the image's boot sector to 0000:7C00, and run it as an
+* XT would, delivering the IRQ0 timer. The guest's own DOS
+* kernel installs INT 20h-2Fh; we keep serving the BIOS.
+boot_run
+ mx %00
+ jsl SVC_BASE+24           ; svc_bootinit: stubs/IVT/BDA, sector 0 -> 0000:7C00
+ stz rCS
+ stz rDS
+ stz rES
+ stz rSS
+ jsr set_all_bases
+ lda #BOOT_LIN
+ sta rIP
+ lda #$7C00                ; stack just below the boot sector
+ sta rSP
+ stz rAX
+ stz rBX
+ stz rCX
+ stz rDX                   ; DL = 0: floppy A
+ stz rSI
+ stz rDI
+ stz rBP
+ lda #F_FIXED+F_IF         ; interrupts enabled
+ jsr flags_set
+ stz vEXIT
+ stz vHALT
+ stz vVBL
+ lda #2                    ; Mode B
+ sta vPCMODE
+ lda #0
+ sta vTRACE
+ stz vTRPTR
+ lda #$BE57
+ sta >MB_RUNIDX
+ jsr run_guest
+ stz vPCMODE
+ jsl SVC_BASE+18           ; final screen flush
+ lda #$D04E
+ sta >MB_RUNIDX
+ lda vHALT
+ and #$00FF
+ beq :exit
+ lda #$FFFF
+ rts
+:exit
+ lda vEXIT
+ rts

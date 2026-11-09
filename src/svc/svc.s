@@ -27,12 +27,15 @@
  jmp svc_vbl               ; $04000F  once a frame: keyboard, tick, screen flush
  jmp svc_flush             ; $040012  render dirty rows and the cursor
  jmp svc_pcinit            ; $040015  build IVT/BDA/BIOS stubs/PSP/env; A = PSP_SEG
+ jmp svc_bootinit          ; $040018  Mode B: IVT/BDA/stubs, boot sector -> 7C00
+ jmp svc_tickdue           ; $04001B  A = tick_due (then cleared); for the Mode B slot
 
  put video.s
  put pcinit.s
  put bios.s
  put dos.s
  put files.s
+ put disk.s
  put keyboard.s
  put capture.s
  put gen/font.s

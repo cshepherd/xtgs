@@ -9,6 +9,8 @@
 *   V        run the CPU test vectors loaded at DATA_BASE (M1)
 *   C NAME   run the .COM the loader put at PSP_SEG:0100 under the
 *            stub BIOS/DOS until it terminates; A = its exit code
+*   D        boot the disk image (Mode B): load sector 0 to 0000:7C00
+*            and run; the guest's DOS kernel takes over
 *   B        run the program at 0000:0100 until HLT; MB_RUNIDX is
 *            $BE57 while it runs and $D04E after, MB_ICOUNT the
 *            retired-instruction count (bench, tools/bench.py)
@@ -50,10 +52,15 @@ core_entry
  beq :bench
  cmp #'C'
  beq :com
+ cmp #'D'
+ beq :boot
  lda #$FFFF                ; unknown command
  bra :exit
 :com
  jsr com_run
+ bra :exit
+:boot
+ jsr boot_run
  bra :exit
 :probe
  jsr probe_run

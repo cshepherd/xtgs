@@ -10,7 +10,10 @@ import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MSDOS = "https://raw.githubusercontent.com/microsoft/MS-DOS/main/"
+FREEDOS = "https://www.ibiblio.org/pub/micro/pc-stuff/freedos/files/repositories/1.3/base/"
 FILES = {
+    "freedos": [(n + ".zip", FREEDOS + n + ".zip") for n in
+                ("kernel", "freecom", "debug", "tree", "find", "sort")],
     "msdos2": [("LICENSE", MSDOS + "LICENSE")] +
               [(n, MSDOS + "v2.0/bin/" + n) for n in
                ("DEBUG.COM", "EDLIN.COM", "FIND.EXE", "SORT.EXE", "MORE.COM", "EXE2BIN.EXE",

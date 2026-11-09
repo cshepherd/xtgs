@@ -20,13 +20,13 @@ INCLUDES  := src/include/hw.s src/include/mailbox.s src/include/guest.s src/incl
 SYS_SRCS  := src/sys/xtgs.s $(INCLUDES)
 SVC_GEN   := src/svc/gen/font.s src/svc/gen/tables.s src/svc/gen/dostab.s
 SVC_SRCS  := src/svc/svc.s src/svc/video.s src/svc/pcinit.s src/svc/bios.s src/svc/dos.s \
-             src/svc/files.s src/svc/keyboard.s src/svc/capture.s $(SVC_GEN) $(INCLUDES)
+             src/svc/files.s src/svc/disk.s src/svc/keyboard.s src/svc/capture.s $(SVC_GEN) $(INCLUDES)
 CORE_GEN  := src/core/gen/optab.s src/core/gen/eatab.s src/core/gen/alu.s src/core/gen/flagtab.s
 CORE_SRCS := src/core/core.s src/core/probe.s src/core/run.s src/core/cpu.s src/core/flags.s \
              src/core/ops_mov.s src/core/ops_ctrl.s src/core/ops_grp.s src/core/ops_str.s \
              src/core/ops_misc.s src/core/harness.s $(CORE_GEN) $(INCLUDES)
 
-.PHONY: all image test-m0 test-cpu test-com test-dos bench run clean lint
+.PHONY: all image test-m0 test-cpu test-com test-dos bench boot-dos run clean lint
 
 all: $(B)/xtgs.po
 
@@ -114,6 +114,15 @@ test-dos: $(B)/xtgs.po
 # emulated frame count around each tests/bench/*.asm program (nasm).
 bench: $(B)/xtgs.po
 	$(PY) tools/bench.py
+
+# Mode B: boot a real FreeDOS kernel from a disk image (docs/mode-b.md).
+# Builds the FreeDOS floppy (tools/build_freedos.py), then boots it headless.
+FDIMG := third_party/freedos/fd/freedos.img
+$(FDIMG): tools/build_freedos.py tools/make_fat12.py
+	$(PY) tools/fetch_dos.py
+	$(PY) tools/build_freedos.py
+boot-dos: $(B)/xtgs.po $(FDIMG)
+	VOLSIZE=4096KB $(PY) tools/boot_dos.py $(FDIMG) --seconds 120
 
 # ---- interactive ------------------------------------------------------------
 

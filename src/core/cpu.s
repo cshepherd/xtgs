@@ -17,9 +17,35 @@ next
  mx %00
  stz vSEGOVR
  stz vREP
+ lda vTRACE
+ bne trace_log
+next2
+ mx %00
  dec vSLOT
  bne fetch
  jmp slot
+* trace_log - record CS, IP(Y), opcode byte, AX to the ring.
+trace_log
+ mx %00
+ ldx vTRPTR
+ lda rCS
+ sta >TRACE_BASE,x
+ tya
+ sta >TRACE_BASE+2,x
+ lda [bCS],y              ; the upcoming opcode (low byte)
+ and #$00FF
+ sta >TRACE_BASE+4,x
+ lda rFL                  ; log FLAGS (the ZF after compares)
+ sta >TRACE_BASE+6,x
+ txa
+ clc
+ adc #8
+ cmp #TRACE_LEN           ; wrapping ring
+ bcc :keep
+ lda #0
+:keep
+ sta vTRPTR
+ bra next2
 fetch
  mx %00
  lda [bCS],y
@@ -51,8 +77,19 @@ slot
  sta vVBL
  beq :fetch                ; the falling edge
  sty rIP
- jsl SVC_BASE+15
+ jsl SVC_BASE+15           ; svc_vbl: keyboard, flush, tick accounting
  ldy rIP
+ lda vPCMODE               ; Mode B: deliver the IRQ0 timer tick to the guest
+ cmp #2
+ bne :fetch
+ lda rFL
+ and #F_IF
+ beq :fetch                ; interrupts off: hold the tick
+ jsl SVC_BASE+27           ; svc_tickdue -> A nonzero if an 18.2 Hz tick is due
+ beq :fetch
+ sty rIP
+ lda #8
+ jsr do_int                ; INT 08h: vectors to the guest's handler; Y = new IP
 :fetch
  jmp fetch
 

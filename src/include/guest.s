@@ -87,6 +87,9 @@ vVBL       DS 2              ; $B4  last sampled VBL state ($0080 / 0)
 vPCMODE    DS 2              ; $B6  nonzero: the slot runs the PC's VBL work
 pDTA       DS 4              ; $B8  services: host pointer to the DTA
 pARG       DS 4              ; $BC  services: a second guest pointer (parse source, PSP copy)
+pIMG       DS 4              ; $C0  Mode B: host pointer into the disk image
+vTRACE     DS 2              ; $C4  nonzero: log each retired instruction to the ring
+vTRPTR     DS 2              ; $C6  ring write index (bytes, wraps at TRACE_LEN)
            DEND
 
 * JMP (abs) takes a bank-$00 address: the retire vector's.

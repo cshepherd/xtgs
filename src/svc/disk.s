@@ -1,0 +1,419 @@
+*----------------------------------------------------------
+* disk.s - Mode B (disk boot): INT 13h disk services against
+* the raw image loaded into host banks from DISK_BASE, plus
+* the boot setup and the timer-tick BIOS handler.
+*
+* svc_bootinit builds the same stub BIOS/IVT/BDA as Mode A,
+* loads the image's sector 0 to guest 0000:7C00, and leaves
+* the core to enter it with DL=0 (floppy A), DS=ES=SS=0.
+* The guest's own DOS kernel then installs INT 20h-2Fh; our
+* stubs keep serving INT 10h/13h/16h/1Ah/11h/12h and the
+* IRQ0 timer (INT 08h).
+*----------------------------------------------------------
+disk_lba   ds 4              ; working LBA (SVC bank)
+disk_cnt   dw 0              ; sectors this call
+
+svc_bootinit
+ mx %00
+ phb
+ phk
+ plb
+ jsr init_diag
+ jsr build_stubs
+ jsr build_ivt
+ jsr build_bda
+ lda #0
+ sta >MB_INT13N
+ sta >MB_BOOTTRC
+* Load sector 0 (the boot sector) to guest 0000:7C00.
+ stz disk_lba
+ stz disk_lba+2
+ lda #1
+ sta disk_cnt
+ lda #BOOT_LIN             ; guest linear 7C00 -> host $20:7C00
+ sta pGST
+ lda #GUEST_BANK
+ sta pGST+2
+ jsr disk_copy_in
+ lda >GUEST_BASE+$7DFE     ; boot sector signature (AA55) -> boot trace
+ sta >MB_BOOTTRC
+ jsr init_shr
+ jsr vid_clear
+ jsr flush
+ plb
+ lda #0
+ rtl
+
+* disk_copy_in - copy disk_cnt sectors from LBA disk_lba into
+* [pGST] (host pointer). pGST advances. Clobbers A,X,Y,sv*.
+disk_copy_in
+ mx %00
+ lda disk_cnt
+ beq :done
+:sector
+ jsr disk_src             ; pIMG = DISK_BASE + LBA*512
+ ldy #0
+ ldx #0
+:w
+ lda [pIMG],y             ; 256 words = 512 bytes
+ sta [pGST],y
+ iny
+ iny
+ inx
+ cpx #256
+ bcc :w
+ lda pGST                 ; advance guest by 512
+ clc
+ adc #512
+ sta pGST
+ bcc :ng
+ inc pGST+2
+:ng
+ inc disk_lba             ; next LBA
+ bne :nl
+ inc disk_lba+2
+:nl
+ dec disk_cnt
+ bne :sector
+:done
+ rts
+
+* disk_src - pIMG = DISK_BASE + disk_lba*512. The image is at
+* host bank DISK_BANK; LBA*512 = (LBA>>7) banks + (LBA&7F)<<9.
+disk_src
+ mx %00
+ lda disk_lba
+ and #$007F
+ asl                      ; <<9 (but asl once here, then put <<8 via xba)
+ xba                      ; (LBA&7F) << 9 as a 16-bit offset
+ and #$FE00
+ sta pIMG
+ lda disk_lba
+ lsr                      ; LBA >> 7 -> bank offset
+ lsr
+ lsr
+ lsr
+ lsr
+ lsr
+ lsr
+ sta sv8
+ lda disk_lba+1           ; high bits of LBA contribute banks too
+ asl                      ; LBA bit 8.. -> (LBA>>7) high
+ and #$01FE
+ ora sv8
+ clc
+ adc #DISK_BANK
+ and #$00FF
+ sta pIMG+2
+ rts
+
+*----------------------------------------------------------
+* int_13 - the disk BIOS.
+*----------------------------------------------------------
+int_13
+ mx %00
+ lda >MB_INT13N                   ; count served calls (diagnostic)
+ inc
+ sta >MB_INT13N
+ jsr ah_val
+ cmp #$00
+ beq :reset
+ cmp #$02
+ bne :lj1
+ jmp :read
+:lj1
+ cmp #$03
+ bne :lj2
+ jmp :write
+:lj2
+ cmp #$08
+ bne :lj3
+ jmp :params
+:lj3
+ cmp #$15
+ beq :type
+ cmp #$01
+ beq :status
+ cmp #$18
+ beq :setmedia
+ cmp #$41
+ bne :lj4
+ jmp :ext_check
+:lj4
+ cmp #$42
+ bne :lj5
+ jmp :ext_read
+:lj5
+ lda #$01                 ; unsupported: CF, AH=1
+ jsr set_ah
+ jmp set_cf
+:reset
+ lda #0
+ jsr set_ah
+ jmp clr_cf
+:status
+ lda #0
+ jsr set_ah
+ lda #0
+ jsr set_al
+ jmp clr_cf
+:setmedia
+ lda #0
+ jsr set_ah
+ jmp clr_cf
+:type                     ; AH=01 floppy without change-line
+ lda #1
+ jsr set_ah
+ jmp clr_cf
+:params                   ; geometry of a 1.44 MB floppy
+ lda #$0000               ; CH = max cylinder low (79), CL bits: sectors
+ sta rAX                  ; AH = 0
+ lda #DISK_CYLS-1         ; CH
+ xba
+ ora #DISK_SPT            ; CL = sectors/track (cyl high bits 0)
+ sta rCX
+ lda #$0101               ; DH = heads-1 (1), DL = drive count (1)
+ sta rDX
+ lda #$0004               ; BL = 04 (1.44 MB), ES:DI -> DPT (left 0)
+ sta rBX
+ stz rDI
+ stz rES
+ jsr svc_set_es
+ jmp clr_cf
+:read
+ jsr chs_to_lba
+ bcc :lj6
+ jmp :geo_err
+:lj6
+ lda rAX
+ and #$00FF
+ sta disk_cnt
+ beq :read_done
+ ldx #bES
+ lda rBX
+ jsr gptr
+ lda pGST
+ sta sv6                  ; keep ES:BX; disk_copy_in advances pGST
+ lda pGST+2
+ sta sv7
+ jsr disk_copy_in
+:read_done
+ lda rAX                  ; AL = sectors (unchanged), AH = 0
+ and #$00FF
+ sta rAX
+ jmp clr_cf
+:write
+ jsr chs_to_lba
+ bcs :geo_err
+ lda rAX
+ and #$00FF
+ sta disk_cnt
+ beq :write_done
+ ldx #bES
+ lda rBX
+ jsr gptr
+ jsr disk_copy_out
+:write_done
+ lda rAX
+ and #$00FF
+ sta rAX
+ jmp clr_cf
+:geo_err
+ lda #$04                 ; sector not found
+ jsr set_ah
+ jmp set_cf
+:ext_check                ; INT 13h/41h: floppies have no LBA extensions
+ lda #$01
+ jsr set_ah
+ jmp set_cf
+:ext_read                 ; INT 13h/42h: no extensions on a floppy
+ lda #$01
+ jsr set_ah
+ jmp set_cf
+:ext_read_unused
+ ldx #bDS
+ lda rSI
+ jsr gptr
+ ldy #2
+ lda [pGST],y             ; block count
+ and #$00FF
+ sta disk_cnt
+ ldy #8                   ; starting LBA (low 32 bits used)
+ lda [pGST],y
+ sta disk_lba
+ ldy #10
+ lda [pGST],y
+ sta disk_lba+2
+ ldy #4                   ; transfer buffer offset
+ lda [pGST],y
+ sta sv0
+ ldy #6                   ; segment
+ lda [pGST],y
+ sta sv1
+ lda sv0                  ; host pointer of the buffer
+ clc
+ adc #0
+ sta vEA
+ lda sv1
+ asl
+ asl
+ asl
+ asl
+ clc
+ adc sv0
+ sta pGST
+ lda sv1
+ xba
+ lsr
+ lsr
+ lsr
+ lsr
+ and #$000F
+ adc #0
+ and #$000F
+ ora #GUEST_BANK
+ sta pGST+2
+ jsr disk_copy_in
+ lda #0
+ jsr set_ah
+ jmp clr_cf
+
+* disk_copy_out - like disk_copy_in but guest -> image.
+disk_copy_out
+ mx %00
+ lda disk_cnt
+ beq :done
+:sector
+ jsr disk_src
+ ldy #0
+ ldx #0
+:w
+ lda [pGST],y
+ sta [pIMG],y
+ iny
+ iny
+ inx
+ cpx #256
+ bcc :w
+ lda pGST
+ clc
+ adc #512
+ sta pGST
+ bcc :ng
+ inc pGST+2
+:ng
+ inc disk_lba
+ bne :nl
+ inc disk_lba+2
+:nl
+ dec disk_cnt
+ bne :sector
+:done
+ rts
+
+* chs_to_lba - CH=cyl low, CL bits6-7=cyl high + bits0-5=sector(1..),
+* DH=head, into disk_lba. C set on a bad geometry.
+chs_to_lba
+ mx %00
+ lda rCX
+ and #$003F               ; sector 1..63
+ bne :lj7
+ jmp :bad
+:lj7
+ dec
+ sta sv2                  ; sector-1
+ lda rCX
+ and #$00C0               ; cyl high bits
+ asl
+ asl                      ; -> bits 8-9
+ sta sv3
+ lda rCX
+ xba
+ and #$00FF               ; CH = cyl low
+ ora sv3
+ sta sv4                  ; cylinder
+ lda rDX
+ xba
+ and #$00FF               ; DH = head
+ sta sv5
+ cmp #DISK_HEADS
+ bcs :bad
+ ; lba = (cyl*heads + head)*spt + sector-1
+ lda sv4
+ ldx #DISK_HEADS
+ jsr mul_small            ; A = cyl*heads (heads=2 -> asl)
+ clc
+ adc sv5
+ sta sv8                  ; cyl*heads+head
+ lda #DISK_SPT
+ sta sv9
+ jsr mul_track            ; sv8 * SPT -> A (16-bit; images are small)
+ clc
+ adc sv2
+ sta disk_lba
+ lda #0
+ adc #0
+ sta disk_lba+2
+ clc
+ rts
+:bad
+ sec
+ rts
+mul_small                  ; A * 2 (heads=2); X ignored (specialised)
+ mx %00
+ asl
+ rts
+mul_track                  ; sv8 * SPT (18) -> A
+ mx %00
+ lda sv8
+ asl                      ; *2
+ sta sv9
+ asl                      ; *4
+ asl                      ; *8
+ asl                      ; *16
+ clc
+ adc sv9                  ; *16 + *2 = *18
+ rts
+
+*----------------------------------------------------------
+* int_08 - IRQ0 timer: bump the BDA tick, chain INT 1Ch, EOI.
+* Our stub only runs until the guest kernel installs its own.
+*----------------------------------------------------------
+int_08
+ mx %00
+ lda >H_BDA+BDA_TICKS
+ inc
+ sta >H_BDA+BDA_TICKS
+ bne :nc
+ lda >H_BDA+BDA_TICKS+2
+ inc
+ sta >H_BDA+BDA_TICKS+2
+:nc
+ rts                      ; (INT 1Ch chaining is left to the guest kernel's
+                          ;  own INT 08h, which replaces this stub at boot)
+
+*----------------------------------------------------------
+* int_19 - bootstrap loader: a guest that calls it wants to
+* reboot. Treat it as "stop" (the run ends).
+*----------------------------------------------------------
+int_19
+ mx %00
+ lda #$B007               ; a marker exit code for "guest asked to reboot"
+ sta exit_code
+ lda #1
+ sta stop_flag
+ rts
+
+*----------------------------------------------------------
+* svc_tickdue - A nonzero (and cleared) if an 18.2 Hz tick is
+* pending, for the core's Mode B INT 08h delivery.
+*----------------------------------------------------------
+svc_tickdue
+ mx %00
+ phb
+ phk
+ plb
+ lda tick_due
+ stz tick_due
+ plb                       ; restore DBR; A (the tick flag) survives plb
+ rtl

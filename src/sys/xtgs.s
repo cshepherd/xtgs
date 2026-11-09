@@ -20,7 +20,7 @@
 *      return the master ID.
 *   3. Read XTGS.CMD (optional) into the mailbox: the first
 *      line is the command for the core (P probe, V vectors,
-*      B bench, C NAME args: the .COM program). Default: P.
+*      B bench, C NAME: .COM program, D: boot a disk image). Default: P.
 *   4. Read CORE into $03:0000 and SVC into $04:0000 through
 *      the bank-$00 bounce buffer; for a V command, read VEC
 *      into banks from $30 up (claimed first, by its size).
@@ -61,6 +61,7 @@ BOUNCE   = $4000           ; bank-$00 transfer buffer
 CHUNK    = $2000           ; bytes per READ
 CORE_S   = $0BFF           ; native stack top while the core runs
 COM_BASE = $210100         ; the .COM program: guest PSP_SEG:0100
+DISK_DST = $500000         ; the raw disk image for Mode B boot
 
 * Fixed entry points and mailbox: the ABI, do not reorder.
  jmp start                 ; $2000
@@ -164,6 +165,10 @@ start
  jmp fail8
 :have_prefix
 
+* The command first, so tools_up can claim the Mode B disk region
+* only when it is needed (D); it would otherwise block a large VEC load.
+ jsr read_cmd
+
 * Toolbox and memory ownership.
  lda #3
  sta mb_stage
@@ -176,8 +181,7 @@ start
  jmp fail8
 :mm_ok
 
-* The command, then the images.
- jsr read_cmd
+* The images.
  lda #4
  sta mb_stage
  lda #<path_core
@@ -228,13 +232,15 @@ start
  sta ld_alloc
  ldx #$30
  jsr load_file
- bra :loaded
+ jmp :loaded
 :nodata
  lda mb_cmd+1
  cmp #'C'
  bne :nocom
  jsr com_name              ; NAME from the command line into path_com
- bcs :loaded               ; none given: the core will complain
+ bcc :havecom
+ jmp :loaded               ; none given: the core will complain
+:havecom
  lda #7
  sta mb_stage
  lda #<path_com
@@ -259,6 +265,26 @@ start
  stz fail_err+1
  jmp fail8
 :nocom
+ lda mb_cmd+1
+ cmp #'D'
+ bne :nodisk
+ lda #7                    ; D: the raw disk image into host banks from $50
+ sta mb_stage
+ lda #<path_disk
+ sta ld_path
+ lda #>path_disk
+ sta ld_path+1
+ lda #<DISK_DST
+ sta ld_dst
+ lda #>DISK_DST
+ sta ld_dst+1
+ lda #^DISK_DST
+ sta ld_dst+2
+ stz ld_alloc
+ ldx #$30
+ jsr load_file
+ jmp :loaded
+:nodisk
  lda mb_cmd+1
  cmp #'B'
  bne :loaded
@@ -407,8 +433,14 @@ tools_up
  clc
  adc #8
  tax
+ cpx #disk_resv-resv_tab   ; still among the always-claimed entries?
+ bcc :reserve
+ lda mb_cmd+1              ; at the disk region (last entry): claim only for D
+ cmp #'D'
+ bne :reserve_done
  cpx #resv_end-resv_tab
  bcc :reserve
+:reserve_done
  sec
  xce
  mx %11
@@ -1088,6 +1120,7 @@ tn27_end
            adrl SVC_BASE,$10000
            adrl RES_BASE,$10000
            adrl GUEST_BASE,$100000
+disk_resv  adrl DISK_DST,$170000     ; the Mode B disk image: 23 banks ($50-$66)
 resv_end
 
 gp_parms   dfb 1
@@ -1115,6 +1148,7 @@ path_core  str 'CORE'
 path_svc   str 'SVC'
 path_vec   str 'VEC'
 path_bench str 'BENCH'
+path_disk  str 'DISK'
 path_cmd   str 'XTGS.CMD'
 path_com   ds 16
 

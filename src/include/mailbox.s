@@ -40,3 +40,5 @@ GUEST_BANK  = $20
 CORE_BASE   = $030000
 SVC_BASE    = $040000
 RES_BASE    = $050000        ; harness results / trace ring
+TRACE_BASE  = $054000        ; instruction trace ring (8 bytes an entry)
+TRACE_LEN   = $4000          ; 2048 entries

@@ -12,6 +12,7 @@
 *----------------------------------------------------------
 tick_acc   dw 0              ; 18.2 Hz from 60 Hz: += 19886 a frame
 vbl_count  dw 0
+tick_due   dw 0              ; set when an 18.2 Hz period elapsed (Mode B reads it)
 key_pending dw 0             ; scan code owed after an extended key's 0
 
 * svc_vbl - from the core's slot on a VBL edge (Y saved by the core)
@@ -34,6 +35,11 @@ vbl_work                   ; tick, blink, screen flush
  adc #19886
  sta tick_acc
  bcc :noinc
+ lda #1                    ; an 18.2 Hz tick elapsed
+ sta tick_due
+ lda vPCMODE
+ cmp #2
+ beq :noinc                ; Mode B: the guest's INT 08h advances the BDA tick
  lda >H_BDA+BDA_TICKS
  inc
  sta >H_BDA+BDA_TICKS

@@ -26,6 +26,19 @@ LOL_OFF    = $0082               ; list of lists at F800:0082 (first MCB word at
 MCB_FIRST  = $0FFF               ; our one MCB, just below the PSP
 VID_DIRTY  = RES_BASE+$900       ; 16 bytes: a 256-byte page of B800 was written (core hook)
 
+* Mode B (disk boot): the disk image is loaded into host banks from
+* DISK_BASE; INT 13h serves sectors from there. A 1.44 MB floppy is 23
+* banks ($50-$66).
+DISK_BASE  = $500000             ; host address of the image's sector 0
+DISK_BANK  = $50
+BOOT_LIN   = $7C00               ; the boot sector loads to 0000:7C00
+DISK_SPT   = 18                  ; 1.44 MB floppy geometry
+DISK_HEADS = 2
+DISK_CYLS  = 80
+MB_DISKLEN = RES_BASE+$808       ; u32 bytes of the image loaded
+MB_INT13N  = RES_BASE+$80C       ; u16 INT 13h calls served (diagnostic)
+MB_BOOTTRC = RES_BASE+$80E       ; u16 boot trace / stage
+
 * BIOS data area (offsets from 0040:0000)
 BDA_EQUIP  = $10             ; u16 equipment word
 BDA_MEMKB  = $13             ; u16 conventional memory in KB
