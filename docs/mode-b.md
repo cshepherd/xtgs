@@ -115,12 +115,13 @@ guest programs into 8253 channel 0 (18.2 Hz by default). The once-a-frame work
 
 - **Lotus 1-2-3 Release 1A (1983)** boots from its original self-booting
   System disk image (a 320 KB PC-DOS 1.x floppy): PC-DOS 1.x loads and the
-  **Lotus Access System** menu displays (zero unimplemented opcodes). It
-  cannot yet be driven to the worksheet, because Lotus's keyboard driver
-  (`KB.DRV`, loaded by `LTSLOAD`) reads the keyboard at the hardware level
-  (IRQ1/INT 09h + port 0x60), which we do not emulate; the menu and 1-2-3
-  itself ignore the INT 16h/BDA buffer we fill. See the keyboard-controller
-  gap below. (`XTIME` in the stock AUTOEXEC also spins forever probing a
+  **Lotus Access System** menu displays and is driven from the keyboard (zero
+  unimplemented opcodes). The protected `123.EXE` then exits on its
+  copy-protection check, which a sector image cannot satisfy; with that one
+  `INT 13h` patched out of a copy of the image, 1-2-3 runs: the worksheet
+  takes entries and recalculates, and `/Graph View` draws in CGA graphics
+  (the driver sets the mode through port 3D8h; `docs/cga.md`). Details in the
+  next section. (`XTIME` in the stock AUTOEXEC spins forever probing a
   clock/calendar card at I/O ports we don't emulate; booting past it needs an
   edited AUTOEXEC.)
 
@@ -151,8 +152,11 @@ track (it is the only `INT 13h` in the 90 KB binary, and the program has no
 standard `AH=4C`/`INT 20h` exit). A `.img` file stores only normal sector data
 and cannot reproduce that non-standard formatting, so the check fails and
 1-2-3 exits silently back to the menu. This is inherent to the protected 1A
-binary on a sector image, not an XT/GS limitation — an unprotected/cracked 1A
-(or a later unprotected DOS release) would run to the worksheet.
+binary on a sector image, not an XT/GS limitation. With the check removed
+(the two bytes of that `INT 13h` replaced by NOPs in a copy of the image),
+1-2-3 runs to the worksheet: `@SUM` over typed cells evaluates, and a bar
+graph of a range renders through `/Graph View`. The first keystroke a fresh
+worksheet receives is dropped.
 
 ## Not yet implemented (needed for a full boot)
 
