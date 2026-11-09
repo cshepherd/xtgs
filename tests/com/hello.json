@@ -1,0 +1,7 @@
+{
+ "com": "hello.asm",
+ "name": "HELLO.COM",
+ "args": "",
+ "exit": 0,
+ "stdout": "hello.out"
+}

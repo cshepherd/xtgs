@@ -72,7 +72,9 @@ sv6        DS 2
 sv7        DS 2
 pCELL      DS 4              ; $90  SHR cell pointer
 pTXT       DS 4              ; $94  text buffer pointer
-           DS $A0-$98
+pGST       DS 4              ; $98  services: a guest pointer
+sv8        DS 2              ; $9C
+sv9        DS 2              ; $9E
 vCF        DS 2              ; $A0  shift/rotate carry (0/1)
 vFAIL      DS 2              ; $A2  harness: mismatches in this vector
 vTMP       DS 2              ; $A4
@@ -80,13 +82,16 @@ pSTK2      DS 4              ; $A6  stack split path's second byte
 vHALTVEC   DS 2              ; $AA  where HLT goes: step_done (harness) or run_done
 pVEC       DS 4              ; $AC  harness: the vector record
 vEASEG     DS 2              ; $B0  DP offset of the segment base the last EA used
+vEXIT      DS 2              ; $B2  program exit code (hypercall terminate)
+vVBL       DS 2              ; $B4  last sampled VBL state ($0080 / 0)
+vPCMODE    DS 2              ; $B6  nonzero: the slot runs the PC's VBL work
            DEND
 
 * JMP (abs) takes a bank-$00 address: the retire vector's.
 * (A numeric equate: Merlin32 evaluates equates before labels.)
 NEXTVEC    = $103A
 HALTVEC    = $10AA
-SLOT_N     = 64              ; instructions between slot checks
+SLOT_N     = 16              ; instructions between slot checks (VBL polling)
 
 * FLAGS bits
 F_CF       = $0001

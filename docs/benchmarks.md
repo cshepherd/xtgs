@@ -32,6 +32,13 @@ the common ALU path from ~180 toward ~100 cycles. `REP MOVS` has no `MVN`
 fast path yet: the generic path recomputes both pointers and checks the
 segment wrap every word.
 
+## M2 note
+
+The .COM runner polls for the vertical blank from the core's slot check, so
+`SLOT_N` went from 64 to 16 instructions. Re-measured: reg 15,500 / 86,800 IPS,
+mem 15,500 / 86,600, jmp 23,000 / 128,300, str 9,600 / 54,600 (stock / Zip):
+about 1.4% slower, the slot's own cost.
+
 ## What the M5 gate asks
 
 A DOS kernel's boot runs a few million instructions: at these speeds that

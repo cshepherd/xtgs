@@ -42,6 +42,18 @@ slot
  bcc :nc
  inc vICOUNT+2
 :nc
+ lda vPCMODE               ; running a PC program: once a frame, the
+ beq :fetch                ; services poll the keyboard, tick, flush
+ lda >VBLBAR
+ and #$0080
+ cmp vVBL
+ beq :fetch
+ sta vVBL
+ beq :fetch                ; the falling edge
+ sty rIP
+ jsl SVC_BASE+15
+ ldy rIP
+:fetch
  jmp fetch
 
 *--- prefixes: note it and fetch the next byte

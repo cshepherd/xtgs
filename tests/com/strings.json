@@ -1,0 +1,13 @@
+{
+ "com": "strings.asm",
+ "name": "STRINGS.COM",
+ "args": "",
+ "exit": 7,
+ "stdout": "strings.out",
+ "screen": {
+  "10": {
+   "col": 20,
+   "text": "AT 10,20Cursor: 10,28"
+  }
+ }
+}

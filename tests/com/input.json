@@ -1,0 +1,17 @@
+{
+ "com": "input.asm",
+ "name": "INPUT.COM",
+ "args": "",
+ "exit": 0,
+ "stdout": "input.out",
+ "keys": [
+  {
+   "at": 90,
+   "key": "xtgs"
+  },
+  {
+   "at": 150,
+   "coded": "{ENTER}"
+  }
+ ]
+}

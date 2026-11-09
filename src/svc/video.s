@@ -32,6 +32,12 @@ svc_init
  phb
  phk
  plb
+ jsr init_shr
+ plb
+ lda #0
+ rtl
+init_shr                   ; DBR = $04
+ mx %00
  sep #$20
  mx %10
  lda >NEWVIDEO
@@ -66,9 +72,7 @@ svc_init
  inx
  cpx #32000
  bcc :clr
- plb
- lda #0
- rtl
+ rts
 
 * Palette 0: each 640-mode pixel group gets black, dark
 * grey, light grey, white for values 0-3.
@@ -363,3 +367,488 @@ svc_testframe
  rtl
 
 msg_title asc 'XT/GS M0  80x25 TEXT ON SUPER HI-RES 640',00
+
+*==========================================================
+* The text screen as the PC sees it: operations on the
+* B800 buffer that mark rows dirty, flushed once a frame.
+*==========================================================
+BLANK      = $0720           ; space, light grey on black
+
+dirty_rows ds 25
+dirty_any  dw 0
+cur_on     dw 0              ; an underline cursor is drawn
+cur_at     dw 0              ; where: col | row<<8
+blink      dw 0              ; frame counter; bit 5 = cursor visible
+tty_attr   dw $FFFF          ; $FFFF: teletype keeps the cell's attribute
+
+mark_row                   ; A = row
+ mx %00
+ cmp #25
+ bcs :out
+ tax
+ sep #$20
+ mx %10
+ lda #1
+ sta dirty_rows,x
+ sta dirty_any
+ rep #$20
+ mx %00
+:out
+ rts
+mark_all
+ mx %00
+ ldx #0
+ sep #$20
+ mx %10
+ lda #1
+:l
+ sta dirty_rows,x
+ inx
+ cpx #25
+ bcc :l
+ sta dirty_any
+ rep #$20
+ mx %00
+ rts
+
+* row_off - A = row -> A = row*160
+row_off
+ mx %00
+ asl
+ asl
+ asl
+ asl
+ asl
+ sta sv9
+ asl
+ asl
+ clc
+ adc sv9
+ rts
+* cell_off - A = col | row<<8 -> A = row*160 + col*2 (text buffer offset)
+cell_off
+ mx %00
+ pha
+ xba
+ and #$00FF
+ jsr row_off
+ sta sv9
+ pla
+ and #$00FF
+ asl
+ clc
+ adc sv9
+ rts
+* cell_shr - A = col | row<<8 -> A = row*1280 + col*2 (SHR offset)
+cell_shr
+ mx %00
+ pha
+ xba
+ and #$00FF
+ asl
+ asl
+ asl
+ asl
+ asl
+ asl
+ asl
+ asl
+ sta sv9
+ asl
+ asl
+ clc
+ adc sv9
+ sta sv9
+ pla
+ and #$00FF
+ asl
+ clc
+ adc sv9
+ rts
+* cell_ptrs - sv4 = row, sv5 = col -> pTXT, pCELL for render_cell
+cell_ptrs
+ mx %00
+ lda sv4
+ jsr row_off
+ clc
+ adc sv5
+ clc
+ adc sv5
+ clc
+ adc #TXT_BASE
+ sta pTXT
+ lda #^TXT_BASE
+ sta pTXT+2
+ lda sv4
+ xba
+ ora sv5
+ jsr cell_shr
+ clc
+ adc #SHR_PIX
+ sta pCELL
+ lda #^SHR_PIX
+ sta pCELL+2
+ rts
+
+*--- svc_flush: dirty rows, then the cursor
+svc_flush
+ mx %00
+ phb
+ phk
+ plb
+ jsr flush
+ plb
+ rtl
+flush
+ mx %00
+ lda dirty_any
+ beq :cursor
+ stz dirty_any
+ lda #0
+:row
+ pha
+ tax
+ sep #$20
+ mx %10
+ lda dirty_rows,x
+ stz dirty_rows,x
+ rep #$20
+ mx %00
+ and #$00FF
+ beq :next
+ lda 1,s
+ jsr render_row
+ lda cur_on                ; the row's cursor underline went with it
+ beq :next
+ lda cur_at
+ xba
+ and #$00FF
+ cmp 1,s
+ bne :next
+ stz cur_on
+:next
+ pla
+ inc
+ cmp #25
+ bcc :row
+:cursor
+ lda blink
+ and #$0020
+ bne :want
+ lda cur_on
+ beq :done
+ jmp cursor_erase
+:want
+ lda >H_BDA+BDA_CURPOS
+ sta sv8
+ lda cur_on
+ beq :draw
+ lda cur_at
+ cmp sv8
+ beq :done
+ jsr cursor_erase
+:draw
+ lda sv8
+ sta cur_at
+ jsr cursor_draw
+ lda #1
+ sta cur_on
+:done
+ rts
+cursor_draw                ; underline (pixel rows 6-7) at cur_at
+ mx %00
+ lda cur_at
+ jsr cell_shr
+ tax
+ lda #$FFFF
+ sta >SHR_PIX+960,x
+ sta >SHR_PIX+1120,x
+ rts
+cursor_erase               ; re-render the cell under the cursor
+ mx %00
+ lda cur_at
+ xba
+ and #$00FF
+ sta sv4
+ lda cur_at
+ and #$00FF
+ sta sv5
+ jsr cell_ptrs
+ jsr render_cell
+ stz cur_on
+ rts
+
+*--- vid_clear: the whole buffer blank, cursor home
+vid_clear
+ mx %00
+ ldx #$8000
+ lda #BLANK
+:f
+ sta >H_TXTBANK,x
+ inx
+ inx
+ cpx #$8000+TXT_LEN
+ bcc :f
+ lda #0
+ sta >H_BDA+BDA_CURPOS
+ jmp mark_all
+
+*--- vid_tty: A = character (low byte). BIOS teletype on page
+* 0: BEL ignored, BS, CR, LF with scrolling, else the character
+* at the cursor (attribute kept unless tty_attr says otherwise)
+* and the cursor advances with wrap.
+vid_tty
+ mx %00
+ and #$00FF
+ sta sv0
+ lda >H_BDA+BDA_CURPOS
+ and #$00FF
+ sta sv1                   ; col
+ lda >H_BDA+BDA_CURPOS
+ xba
+ and #$00FF
+ sta sv2                   ; row
+ lda sv0
+ cmp #$0D
+ beq :cr
+ cmp #$0A
+ beq :lf
+ cmp #$08
+ beq :bs
+ cmp #$07
+ beq :done
+ lda sv2
+ jsr row_off
+ clc
+ adc sv1
+ clc
+ adc sv1
+ clc
+ adc #$8000
+ tax
+ lda tty_attr
+ cmp #$FFFF
+ beq :charonly
+ xba
+ and #$FF00
+ ora sv0
+ sta >H_TXTBANK,x
+ bra :advance
+:charonly
+ sep #$20
+ mx %10
+ lda sv0
+ sta >H_TXTBANK,x
+ rep #$20
+ mx %00
+:advance
+ lda sv2
+ jsr mark_row
+ inc sv1
+ lda sv1
+ cmp #80
+ bcc :store
+ stz sv1
+:lf
+ inc sv2
+ lda sv2
+ cmp #25
+ bcc :store
+ dec sv2
+ jsr vid_scroll_all
+ bra :store
+:cr
+ stz sv1
+ bra :store
+:bs
+ lda sv1
+ beq :store
+ dec sv1
+:store
+ lda sv2
+ xba
+ ora sv1
+ sta >H_BDA+BDA_CURPOS
+:done
+ rts
+
+*--- vid_scroll_all: up one line, the last row blank
+vid_scroll_all
+ mx %00
+ phb
+ ldx #$80A0
+ ldy #$8000
+ lda #TXT_LEN-160-1
+ mvn $2B,$2B
+ plb
+ ldx #$8000+TXT_LEN-160
+ lda #BLANK
+:f
+ sta >H_TXTBANK,x
+ inx
+ inx
+ cpx #$8000+TXT_LEN
+ bcc :f
+ jmp mark_all
+
+*--- vid_scroll_win: INT 10h 06/07. sv0 = lines (0 = clear),
+* sv1 = blank word, sv2 = top, sv3 = left, sv4 = bottom,
+* sv5 = right, sv6 = 0 up / 1 down.
+vid_scroll_win
+ mx %00
+ lda sv4
+ cmp #25
+ bcc :b1
+ lda #24
+ sta sv4
+:b1
+ lda sv5
+ cmp #80
+ bcc :b2
+ lda #79
+ sta sv5
+:b2
+ lda sv4
+ sec
+ sbc sv2
+ bpl :go
+ rts
+:go
+ inc
+ sta sv7                   ; height
+ lda sv0
+ beq :clear
+ cmp sv7
+ bcs :clear
+ lda sv6
+ bne :down
+ lda sv2
+ sta sv8                   ; up: dst rows from the top
+:uploop
+ lda sv8
+ clc
+ adc sv0
+ cmp sv4
+ beq :upcopy
+ bcs :upblank
+:upcopy
+ sta sv9                   ; src = dst + lines
+ jsr copy_row
+ inc sv8
+ bra :uploop
+:upblank
+ lda sv8
+ cmp sv4
+ beq :ub
+ bcs :marks
+:ub
+ jsr blank_row
+ inc sv8
+ bra :upblank
+:down
+ lda sv4
+ sta sv8                   ; down: dst rows from the bottom
+:dnloop
+ lda sv8
+ cmp sv0
+ bcc :dnblank
+ sec
+ sbc sv0
+ cmp sv2
+ bcc :dnblank
+ sta sv9                   ; src = dst - lines
+ jsr copy_row
+ dec sv8
+ bra :dnloop
+:dnblank
+ lda sv8
+ cmp #25
+ bcs :marks
+ cmp sv2
+ bcc :marks
+ jsr blank_row
+ dec sv8
+ bra :dnblank
+:clear
+ lda sv2
+ sta sv8
+:cl
+ lda sv8
+ cmp sv4
+ beq :cl1
+ bcs :marks
+:cl1
+ jsr blank_row
+ inc sv8
+ bra :cl
+:marks
+ lda sv2
+:mk
+ cmp sv4
+ beq :mk1
+ bcs :out
+:mk1
+ pha
+ jsr mark_row
+ pla
+ inc
+ bra :mk
+:out
+ rts
+copy_row                   ; row sv9 -> row sv8, columns sv3..sv5
+ mx %00
+ lda sv9
+ jsr row_off
+ clc
+ adc #TXT_BASE
+ sta pTXT
+ lda #^TXT_BASE
+ sta pTXT+2
+ lda sv8
+ jsr row_off
+ clc
+ adc #TXT_BASE
+ sta pCELL
+ lda #^TXT_BASE
+ sta pCELL+2
+ lda sv5
+ asl
+ sta sv9
+ lda sv3
+ asl
+ tay
+:c
+ lda [pTXT],y
+ sta [pCELL],y
+ iny
+ iny
+ tya
+ cmp sv9
+ bcc :c
+ beq :c
+ rts
+blank_row                  ; row sv8, columns sv3..sv5 <- sv1
+ mx %00
+ lda sv8
+ jsr row_off
+ clc
+ adc #TXT_BASE
+ sta pCELL
+ lda #^TXT_BASE
+ sta pCELL+2
+ lda sv5
+ asl
+ sta sv9
+ lda sv3
+ asl
+ tay
+:b
+ lda sv1
+ sta [pCELL],y
+ iny
+ iny
+ tya
+ cmp sv9
+ bcc :b
+ beq :b
+ rts

@@ -1,0 +1,7 @@
+{
+ "com": "arith.asm",
+ "name": "ARITH.COM",
+ "args": "",
+ "exit": 0,
+ "stdout": "arith.out"
+}

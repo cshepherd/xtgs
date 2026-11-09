@@ -284,8 +284,13 @@ op_FE
  iny
  sty rIP
  jsl SVC_BASE+12
+ bcs :stop
  ldy rIP
  jmp (NEXTVEC)
+:stop                      ; the program terminated: A = exit code
+ sta vEXIT
+ ldy rIP
+ jmp (HALTVEC)
 gFE_tab da gFE_0,gFE_1,op_bad,op_bad,op_bad,op_bad,op_bad,op_bad
 gFE_0                      ; inc r/m8
  mx %00

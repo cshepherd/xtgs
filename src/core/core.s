@@ -7,6 +7,8 @@
 * The command is the Pascal string at MB_CMD:
 *   P        memory probe and the 80x25 test frame (M0)
 *   V        run the CPU test vectors loaded at DATA_BASE (M1)
+*   C NAME   run the .COM the loader put at PSP_SEG:0100 under the
+*            stub BIOS/DOS until it terminates; A = its exit code
 *   B        run the program at 0000:0100 until HLT; MB_RUNIDX is
 *            $BE57 while it runs and $D04E after, MB_ICOUNT the
 *            retired-instruction count (bench, tools/bench.py)
@@ -19,6 +21,7 @@
  put ../include/hw.s
  put ../include/mailbox.s
  put ../include/guest.s
+ put ../include/pc.s
 
 core_entry
  phb
@@ -45,7 +48,12 @@ core_entry
  beq :vectors
  cmp #'B'
  beq :bench
+ cmp #'C'
+ beq :com
  lda #$FFFF                ; unknown command
+ bra :exit
+:com
+ jsr com_run
  bra :exit
 :probe
  jsr probe_run

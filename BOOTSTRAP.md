@@ -1,6 +1,7 @@
 # XT/GS bootstrap: Merlin32 + the MAME harnesses
 
-**Status:** M0 and M1 done (2026-11-08). The tree follows this plan; what
+**Status:** M0, M1 and M2 done (2026-11-08). The `.COM` runner is
+`make test-com` (tests/com, docs/dos-api.md, docs/keyboard.md). The tree follows this plan; what
 was measured since is in `docs/benchmarks.md` (guest instructions a second)
 and `docs/cpu-compatibility.md` (8088 behaviour the vectors forced). Section
 8's numbers are the pre-measurement hypothesis and are superseded by

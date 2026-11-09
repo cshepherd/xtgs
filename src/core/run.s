@@ -40,3 +40,41 @@ bench_run
  sta >MB_RUNIDX
  lda #0
  rts
+
+* com_run - the C command: the PC the program expects, then run
+* it until a terminate hypercall (or HLT: exit code $FFFF).
+com_run
+ mx %00
+ jsl SVC_BASE+21           ; pcinit; A = PSP_SEG
+ sta rCS
+ sta rDS
+ sta rES
+ sta rSS
+ jsr set_all_bases
+ lda #$100
+ sta rIP
+ stz rSP                   ; push16 makes it $FFFE with a zero word
+ lda #0
+ jsr push16
+ lda #F_FIXED+F_IF
+ jsr flags_set
+ stz vEXIT
+ stz vHALT
+ stz vVBL
+ lda #1
+ sta vPCMODE
+ lda #$BE57
+ sta >MB_RUNIDX
+ jsr run_guest
+ stz vPCMODE
+ jsl SVC_BASE+18           ; final screen flush
+ lda #$D04E
+ sta >MB_RUNIDX
+ lda vHALT                 ; a byte: HLT ended the run
+ and #$00FF
+ beq :exit
+ lda #$FFFF
+ rts
+:exit
+ lda vEXIT
+ rts

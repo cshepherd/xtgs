@@ -20,7 +20,7 @@
 *      return the master ID.
 *   3. Read XTGS.CMD (optional) into the mailbox: the first
 *      line is the command for the core (P probe, V vectors,
-*      B bench, C program). Default: P.
+*      B bench, C NAME args: the .COM program). Default: P.
 *   4. Read CORE into $03:0000 and SVC into $04:0000 through
 *      the bank-$00 bounce buffer; for a V command, read VEC
 *      into banks from $30 up (claimed first, by its size).
@@ -60,6 +60,7 @@ IOBUF    = $0C00           ; ProDOS 8 I/O buffer (1 KB, page-aligned)
 BOUNCE   = $4000           ; bank-$00 transfer buffer
 CHUNK    = $2000           ; bytes per READ
 CORE_S   = $0BFF           ; native stack top while the core runs
+COM_BASE = $210100         ; the .COM program: guest PSP_SEG:0100
 
 * Fixed entry points and mailbox: the ABI, do not reorder.
  jmp start                 ; $2000
@@ -229,6 +230,37 @@ start
  jsr load_file
  bra :loaded
 :nodata
+ lda mb_cmd+1
+ cmp #'C'
+ bne :nocom
+ jsr com_name              ; NAME from the command line into path_com
+ bcs :loaded               ; none given: the core will complain
+ lda #7
+ sta mb_stage
+ lda #<path_com
+ sta ld_path
+ lda #>path_com
+ sta ld_path+1
+ lda #<COM_BASE
+ sta ld_dst
+ lda #>COM_BASE
+ sta ld_dst+1
+ lda #^COM_BASE
+ sta ld_dst+2
+ stz ld_alloc
+ ldx #$50
+ jsr load_file
+ lda mb_filelen+2          ; a .COM is at most 65,024 bytes
+ bne :toobig
+ lda mb_filelen+1
+ cmp #$FE
+ bcc :loaded
+:toobig
+ ldx #$5F
+ stz fail_err
+ stz fail_err+1
+ jmp fail8
+:nocom
  lda mb_cmd+1
  cmp #'B'
  bne :loaded
@@ -807,6 +839,42 @@ load_file
  jmp fail8
 
 *----------------------------------------------------------
+* com_name - the token after "C " in mb_cmd into path_com
+* (Pascal string). Carry set when there is none.
+*----------------------------------------------------------
+com_name
+ mx %11
+ ldx #2
+:skip
+ cpx mb_cmd
+ bcs :none
+ lda mb_cmd+1,x
+ cmp #' '
+ bne :copy
+ inx
+ bne :skip
+:copy
+ ldy #0
+:c
+ cpx mb_cmd
+ bcs :done
+ lda mb_cmd+1,x
+ cmp #' '
+ beq :done
+ sta path_com+1,y
+ inx
+ iny
+ cpy #15
+ bcc :c
+:done
+ sty path_com
+ clc
+ rts
+:none
+ sec
+ rts
+
+*----------------------------------------------------------
 * alloc_data - claim (filelen rounded up to banks) at ld_dst
 * for the master ID; the handle is kept in data_h. Emulation
 * in/out; carry set on error (fail_err = tool error).
@@ -1050,6 +1118,7 @@ path_svc   str 'SVC'
 path_vec   str 'VEC'
 path_bench str 'BENCH'
 path_cmd   str 'XTGS.CMD'
+path_com   ds 16
 
 tools_on   dw 0
 mm_started dw 0
