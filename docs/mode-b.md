@@ -110,13 +110,30 @@ and the tick flag already lives in A, which `plb` does not touch.
   clock/calendar card at I/O ports we don't emulate; booting past it needs an
   edited AUTOEXEC.)
 
+## The hardware keyboard (IRQ1/INT 09h + ports 0x60/0x64)
+
+Besides the BDA buffer / INT 16h path, XT/GS now presents a hardware keyboard,
+for programs that install their own INT 09h handler and read scancodes from the
+8042 data port (many DOS games). `kb_poll` (`keyboard.s`) enqueues each key's
+make and break codes into a scancode ring (`KBD_Q*` in `pc.s`); the slot check
+(`cpu.s`) delivers one as IRQ1/INT 09h on the VBL edge (after the IRQ0 timer,
+so the timer keeps priority), and the core serves port 0x60 (pop a scancode)
+and 0x64 (status) in `port_in8`. The default INT 09h handler is `PUSH AX; IN
+AL,60h; POP AX; IRET`, so the ring still drains when nothing hooks the vector.
+`kb_poll` keeps filling the INT 16h ring too, so INT 16h programs are
+unaffected (verified: GW-BASIC and FreeDOS still take input). Note this is a
+make/break stream for the translated key; it does not yet inject separate
+Shift/Ctrl make/break for shifted characters.
+
+**Lotus 1-2-3 1A, as it happens, reads the keyboard through INT 16h** (its
+`KB.DRV` calls INT 16h, not port 0x60), and our INT 16h is byte-exact (Enter
+returns AX=1C0D as on a real PC). Its Access System menu **navigates** under
+XT/GS (the arrow keys move the highlight), but selecting 1-2-3 with Enter does
+not yet launch the worksheet even though the identical key reaches the guest —
+an open issue in the LTSLOAD menu's select path still under investigation.
+
 ## Not yet implemented (needed for a full boot)
 
-- **The hardware keyboard: IRQ1/INT 09h + the 8042 ports 0x60/0x64.** We
-  deliver keystrokes only through the BDA buffer / INT 16h. Programs that
-  install their own INT 09h handler and read scancodes from port 0x60 (Lotus
-  1-2-3, many games) get no input. This is the main gate to driving real
-  interactive software.
 - The 8259 PIC and 8253 PIT ports are open-bus; a kernel that programs them
   for exact timing may need real behaviour.
 - A20 and INT 15h services.

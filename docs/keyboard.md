@@ -32,3 +32,9 @@ Home/End/PgUp/PgDn/Del/Insert have no spare IIGS key, so they are Option
 a spreadsheet like Lotus 1-2-3. Not yet: Alt+key codes beyond the function
 keys, Shift/Ctrl/Alt + function-key chords (WordPerfect's command set), and the
 keypad as a keypad.
+
+Besides this INT 16h / BDA-buffer path, `kb_poll` also feeds a **hardware
+keyboard**: it enqueues each key's make and break scancodes into a ring the
+core serves at port 0x60 and delivers as IRQ1/INT 09h, for programs that read
+the 8042 directly instead of calling INT 16h (see `docs/mode-b.md`). The INT
+16h ring is still filled unchanged, so INT 16h programs are unaffected.
