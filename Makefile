@@ -27,7 +27,7 @@ CORE_SRCS := src/core/core.s src/core/probe.s src/core/run.s src/core/jit.s src/
              src/core/ops_mov.s src/core/ops_ctrl.s src/core/ops_grp.s src/core/ops_str.s \
              src/core/ops_misc.s src/core/harness.s $(CORE_GEN) $(INCLUDES)
 
-.PHONY: all image test-m0 test-cpu test-com test-dos bench boot-dos run run-dos clean lint
+.PHONY: all image test-m0 test-cpu test-com test-dos bench boot-dos run run-dos dos-image clean lint
 
 all: $(B)/xtgs.po
 
@@ -130,14 +130,14 @@ boot-dos: $(B)/xtgs.po $(FDIMG)
 run: $(B)/xtgs.po
 	tools/mame/run-mame.sh $<
 
-# Boot FreeDOS (Mode B) interactively in Ample's MAME. Builds a separate
-# volume build/boot/boot.po with the disk image staged as DISK and the
-# command set to D, then opens it so you can type at the A:\> prompt.
-# Kernel init is slow (~15K guest IPS): the prompt takes a while to appear.
-# The floppy includes GW-BASIC 3.23 (if third_party/gwbasic/GWBASIC.EXE is
-# present): AUTOEXEC runs a demo, then at A:\> type GWBASIC for the live Ok
-# interpreter. See docs/mode-b.md.
-run-dos: $(B)/xtgs $(B)/core $(B)/svc $(FDIMG) tools/make_image.sh
+# dos-image: build/boot/boot.po, a bootable 4 MB ProDOS 8 volume that boots
+# XT/GS, loads the FreeDOS floppy (Mode B, command D) to the A:\> prompt, with
+# GW-BASIC 3.23 and the demos on it. This is image-build only (no emulator), so
+# it also serves a real IIGS - put the .po on a FloppyEmu/CFFA/SCSI volume.
+# GW-BASIC 3.23 is included when third_party/gwbasic/GWBASIC.EXE is present;
+# AUTOEXEC runs a demo, then at A:\> type GWBASIC for the live Ok interpreter.
+dos-image: $(B)/boot/boot.po
+$(B)/boot/boot.po: $(B)/xtgs $(B)/core $(B)/svc $(FDIMG) tools/make_image.sh
 	@mkdir -p $(B)/boot
 	cp $(B)/xtgs $(B)/boot/XTGS.SYSTEM\#FF2000
 	cp $(B)/core $(B)/boot/CORE\#060000
@@ -147,6 +147,10 @@ run-dos: $(B)/xtgs $(B)/core $(B)/svc $(FDIMG) tools/make_image.sh
 	VOLSIZE=4096KB tools/make_image.sh $(B)/boot/boot.po \
 	    $(B)/boot/XTGS.SYSTEM\#FF2000 $(B)/boot/CORE\#060000 $(B)/boot/SVC\#060000 \
 	    $(B)/boot/DISK\#060000 $(B)/boot/XTGS.CMD\#040000
+
+# Boot that image (Mode B) interactively in Ample's MAME. Kernel init is slow
+# (~15K guest IPS): the A:\> prompt takes a while to appear. See docs/mode-b.md.
+run-dos: $(B)/boot/boot.po
 	tools/mame/run-mame.sh $(B)/boot/boot.po
 
 lint: $(B)/xtgs $(B)/core $(B)/svc

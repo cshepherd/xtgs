@@ -86,10 +86,20 @@ slot
  and #F_IF
  beq :fetch                ; interrupts off: hold the tick
  jsl SVC_BASE+27           ; svc_tickdue -> A nonzero if an 18.2 Hz tick is due
- beq :fetch
+ beq :kbd                  ; no timer tick this frame: try a keyboard IRQ instead
  sty rIP
  lda #8
- jsr do_int                ; INT 08h: vectors to the guest's handler; Y = new IP
+ jsr do_int                ; INT 08h (IRQ0 timer): priority over the keyboard
+ jmp fetch
+:kbd                       ; IRQ1: deliver one queued scancode as INT 09h. do_int
+ mx %00                    ; clears IF, so the guest's handler drains port 0x60 and
+ lda >KBD_QHEAD            ; IRETs before the next edge can deliver another.
+ and #KBD_QMASK
+ cmp >KBD_QTAIL
+ beq :fetch                ; scancode queue empty
+ sty rIP
+ lda #9
+ jsr do_int                ; INT 09h: the guest's handler reads port 0x60
 :fetch
  jmp fetch
 

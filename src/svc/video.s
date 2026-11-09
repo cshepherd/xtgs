@@ -644,6 +644,96 @@ vid_clear
  sta >H_BDA+BDA_CURPOS
  jmp mark_all
 
+*--- post_banner: the boot-time BIOS sign-on, teletyped into
+* the freshly-cleared screen at the home cursor before the
+* guest's boot sector runs, so it reads like a PC POST: a
+* title line and the conventional-RAM figure (from the BDA,
+* not a second copy of the constant). Drawn in bright white
+* via tty_attr, restored to "keep the cell attribute" after.
+post_banner
+ mx %00
+ lda #$000F                ; white on black (attribute in tty_attr's low byte)
+ sta tty_attr
+ ldx #0
+:t
+ lda post_msg,x
+ and #$00FF
+ beq :ram
+ phx
+ jsr vid_tty
+ plx
+ inx
+ bra :t
+:ram
+ lda >H_BDA+BDA_MEMKB      ; the conventional RAM figure, in KB
+ jsr post_dec             ; e.g. "640"
+ ldx #0
+:k
+ lda post_kb,x
+ and #$00FF
+ beq :done
+ phx
+ jsr vid_tty
+ plx
+ inx
+ bra :k
+:done
+ lda #$FFFF                ; teletype keeps each cell's attribute again
+ sta tty_attr
+ rts
+
+*--- post_dec: teletype the 16-bit value in A as decimal with
+* no leading zeros. State lives in sv6/sv7/sv8 (vid_tty only
+* touches sv0-sv2); X is saved around each vid_tty.
+post_dec
+ mx %00
+ sta sv6                   ; the running value
+ stz sv7                   ; 0 until the first significant digit prints
+ ldx #0
+:place
+ lda post_pow,x
+ bmi :units                ; $FFFF sentinel = the ones place (always print)
+ sta sv8
+ ldy #0
+:sub
+ lda sv6
+ cmp sv8
+ bcc :emit
+ sec
+ sbc sv8
+ sta sv6
+ iny
+ bra :sub
+:emit
+ tya
+ ora sv7                   ; print this digit if non-zero or one already did
+ beq :next
+ tya
+ ora #$0030
+ phx
+ jsr vid_tty
+ plx
+ lda #1
+ sta sv7
+:next
+ inx
+ inx
+ bra :place
+:units
+ lda sv6
+ ora #$0030
+ phx
+ jsr vid_tty
+ plx
+ rts
+
+post_msg  asc 'XT/GS 65816 Native BIOS Active'
+          hex 0D0A00
+post_kb   asc ' KB RAM OK'
+          hex 0D0A0D0A00
+post_pow  dw 10000,1000,100,10
+          dw $FFFF
+
 *--- vid_tty: A = character (low byte). BIOS teletype on page
 * 0: BEL ignored, BS, CR, LF with scrolling, else the character
 * at the cursor (attribute kept unless tty_attr says otherwise)
@@ -1328,3 +1418,137 @@ cga_rgb
 * pal1/i1. pal0 = green/red/brown, pal1 = cyan/magenta/white.
 fg_tab
  hex 0204060A0C0E0305070B0D0F
+
+
+
+*==========================================================
+* WIP, NOT WIRED IN: no caller, and not yet confirmed to emit
+* sound under MAME in this ProDOS 8 environment (see memory
+* xtgs-doc-sound). The reference that does work is
+* ../somi-iigs-port/iigs/asm/audio_doc.s (GS/OS).
+*
+* PC speaker via the Ensoniq DOC (ES5503), after somi-iigs-
+* port's audio_doc.s but reaching the sound GLU at $E0:C03C
+* (MAME maps $E0:C000-C07F to the GLU unconditionally, unlike
+* bank 0 which depends on the I/O soft switch). One oscillator
+* free-runs a 256-byte square wave (no $00, which would halt
+* it); its frequency tracks the guest PIT. Init follows the
+* DOC bring-up: halt all 32 oscillators, zero all volumes,
+* enable one, configure, then key it on.
+*==========================================================
+SGCTL  = $E0C03C
+SGDATA = $E0C03D
+SGADRL = $E0C03E
+SGADRH = $E0C03F
+R_FCL  = $00
+R_FCH  = $20
+R_VOL  = $40
+R_PTR  = $80
+R_CTL  = $A0
+R_SIZ  = $C0
+R_OSCENA = $E1
+
+snd_vol    dw 0
+snd_ctlreg dw 0              ; registers + auto-increment + volume
+snd_ctlram dw 0              ; RAM + auto-increment + volume
+snd_fc     dw 0
+
+* snd_wreg - DOC register X(8) = A(8). 8-bit A/X. DBR any.
+snd_wreg
+ pha
+ lda snd_ctlreg
+ sta >SGCTL
+ txa
+ sta >SGADRL
+ lda #0
+ sta >SGADRH
+ pla
+ sta >SGDATA
+ rts
+
+* snd_fill - Y bytes of A to the DOC target the address points at. 8-bit.
+snd_fill
+:l sta >SGDATA
+ dey
+ bne :l
+ rts
+
+* snd_init - silence the DOC, load the square wave, enable one
+* oscillator, configure it. DBR=$04. 16-bit in/out.
+snd_init
+ mx %00
+ php
+ sei
+ sep #$30
+ mx %11
+ lda #$0F                  ; master volume (full)
+ sta snd_vol
+ ora #$20
+ sta snd_ctlreg            ; registers, auto-increment, volume
+ lda snd_vol
+ ora #$60
+ sta snd_ctlram            ; RAM, auto-increment, volume
+ lda snd_ctlreg            ; halt all 32 oscillators
+ sta >SGCTL
+ lda #R_CTL
+ sta >SGADRL
+ lda #0
+ sta >SGADRH
+ ldy #32
+ lda #$01
+ jsr snd_fill
+ lda snd_ctlreg            ; all 32 volumes 0
+ sta >SGCTL
+ lda #R_VOL
+ sta >SGADRL
+ lda #0
+ sta >SGADRH
+ ldy #32
+ lda #0
+ jsr snd_fill
+ lda snd_ctlram            ; square wave to DOC RAM page 0
+ sta >SGCTL
+ lda #0
+ sta >SGADRL
+ sta >SGADRH
+ ldx #0
+:sq
+ lda sqwave,x
+ sta >SGDATA
+ inx
+ bne :sq
+ ldx #R_OSCENA             ; enable 1 oscillator ((1-1)*2 = 0)
+ lda #0
+ jsr snd_wreg
+ ldx #R_VOL                ; osc 0 volume full
+ lda #$FF
+ jsr snd_wreg
+ ldx #R_PTR                ; wavetable page 0
+ lda #0
+ jsr snd_wreg
+ ldx #R_SIZ                ; 256 bytes, resolution 0
+ lda #0
+ jsr snd_wreg
+ ldx #R_FCL
+ lda #0
+ jsr snd_wreg
+ ldx #R_FCH
+ lda #0
+ jsr snd_wreg
+ ldx #R_CTL                ; halted
+ lda #$01
+ jsr snd_wreg
+ rep #$30
+ mx %00
+ plp
+ rts
+
+sqwave
+ hex FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+ hex FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+ hex FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+ hex FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+ hex 01010101010101010101010101010101
+ hex 01010101010101010101010101010101
+ hex 01010101010101010101010101010101
+ hex 01010101010101010101010101010101

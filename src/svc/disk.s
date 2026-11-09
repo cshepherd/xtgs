@@ -12,6 +12,7 @@
 *----------------------------------------------------------
 disk_lba   ds 4              ; working LBA (SVC bank)
 disk_cnt   dw 0              ; sectors this call
+cur_spt    dw 18             ; sectors/track, from the booted disk's BPB
 
 svc_bootinit
  mx %00
@@ -19,6 +20,9 @@ svc_bootinit
  phk
  plb
  jsr init_diag
+ lda #0
+ sta >KBD_QHEAD            ; empty the hardware-keyboard scancode ring
+ sta >KBD_QTAIL
  jsr build_stubs
  jsr build_ivt
  jsr build_bda
@@ -35,10 +39,17 @@ svc_bootinit
  lda #GUEST_BANK
  sta pGST+2
  jsr disk_copy_in
+ lda >GUEST_BASE+$7C18     ; BPB sectors/track (offset 0x18) sets the geometry
+ and #$00FF                ; so Mode B serves 320K/720K/1.2M/1.44M alike
+ bne :spt
+ lda #DISK_SPT             ; a boot sector with no BPB: assume 1.44 MB
+:spt
+ sta cur_spt
  lda >GUEST_BASE+$7DFE     ; boot sector signature (AA55) -> boot trace
  sta >MB_BOOTTRC
  jsr init_shr
  jsr vid_clear
+ jsr post_banner          ; PC-style BIOS sign-on at the top of the screen
  jsr flush
  plb
  lda #0
@@ -170,7 +181,7 @@ int_13
  sta rAX                  ; AH = 0
  lda #DISK_CYLS-1         ; CH
  xba
- ora #DISK_SPT            ; CL = sectors/track (cyl high bits 0)
+ ora cur_spt              ; CL = sectors/track (cyl high bits 0)
  sta rCX
  lda #$0101               ; DH = heads-1 (1), DL = drive count (1)
  sta rDX
@@ -345,9 +356,7 @@ chs_to_lba
  clc
  adc sv5
  sta sv8                  ; cyl*heads+head
- lda #DISK_SPT
- sta sv9
- jsr mul_track            ; sv8 * SPT -> A (16-bit; images are small)
+ jsr mul_track            ; sv8 * cur_spt -> A (16-bit; images are small)
  clc
  adc sv2
  sta disk_lba
@@ -363,16 +372,17 @@ mul_small                  ; A * 2 (heads=2); X ignored (specialised)
  mx %00
  asl
  rts
-mul_track                  ; sv8 * SPT (18) -> A
+mul_track                  ; sv8 * cur_spt -> A (cur_spt is 8/9/15/18...)
  mx %00
- lda sv8
- asl                      ; *2
- sta sv9
- asl                      ; *4
- asl                      ; *8
- asl                      ; *16
+ lda #0
+ ldx cur_spt
+ beq :done                ; guard: never divide the geometry by zero
+:loop
  clc
- adc sv9                  ; *16 + *2 = *18
+ adc sv8
+ dex
+ bne :loop
+:done
  rts
 
 *----------------------------------------------------------

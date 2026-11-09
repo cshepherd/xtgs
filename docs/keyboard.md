@@ -13,6 +13,9 @@ programs that read the BDA directly all see the same thing.
 | Up arrow | `$0B` | Up | `48:00` |
 | Down arrow | `$0A` | Down | `50:00` |
 | Delete | `$7F` | Backspace | `0E:08` |
+| Option + ←/→/↑/↓ | arrows | Home/End/PgUp/PgDn | `47/4F/49/51:00` |
+| Option + Delete | `$7F` | Del (forward) | `53:00` |
+| Ctrl + Delete | `$7F` | Insert | `52:00` |
 | Return | `$0D` | Enter | `1C:0D` |
 | Esc | `$1B` | Esc | `01:1B` |
 | Tab | `$09` | Tab | `0F:09` |
@@ -24,5 +27,8 @@ Consequences: Backspace is the IIGS Delete key, since `$08` is taken by the
 left arrow; Ctrl-H therefore also reads as Left. Shift, Ctrl, Caps Lock and
 Option set the BDA shift flags (left shift, ctrl, caps, alt).
 
-Not yet: Home/End/PgUp/PgDn/Insert (no IIGS keys spare without a chord),
-Alt+key codes beyond the function keys, the keypad as a keypad.
+Home/End/PgUp/PgDn/Del/Insert have no spare IIGS key, so they are Option
+(and Control) chords with the arrow and Delete keys, as above — enough to drive
+a spreadsheet like Lotus 1-2-3. Not yet: Alt+key codes beyond the function
+keys, Shift/Ctrl/Alt + function-key chords (WordPerfect's command set), and the
+keypad as a keypad.

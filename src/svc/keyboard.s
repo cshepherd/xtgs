@@ -79,7 +79,11 @@ kb_poll
  mx %00
  jsr kb_flags
  jsr kb_translate
- jmp kb_push
+ pha                       ; the key word (scan<<8 | ascii)
+ jsr kb_push               ; -> BDA ring buffer (INT 16h path, unchanged)
+ pla
+ jsr kb_scpush             ; -> port-0x60 scancode ring (IRQ1/INT 09h path)
+ rts
 :none
  rep #$20
  mx %00
@@ -130,29 +134,65 @@ kb_translate
  lda sv0
  and #$00FF
  sta sv0
- cmp #$08
+ cmp #$08                  ; Left  / Option+Left  = Home
  bne :n1
+ lda sv1
+ and #$0040
+ bne :hm
  lda #$4B00                ; Left
  rts
+:hm
+ lda #$4700                ; Home
+ rts
 :n1
- cmp #$15
+ cmp #$15                  ; Right / Option+Right = End
  bne :n2
+ lda sv1
+ and #$0040
+ bne :en
  lda #$4D00                ; Right
  rts
+:en
+ lda #$4F00                ; End
+ rts
 :n2
- cmp #$0B
+ cmp #$0B                  ; Up    / Option+Up    = PgUp
  bne :n3
+ lda sv1
+ and #$0040
+ bne :pu
  lda #$4800                ; Up
  rts
+:pu
+ lda #$4900                ; PgUp
+ rts
 :n3
- cmp #$0A
+ cmp #$0A                  ; Down  / Option+Down  = PgDn
  bne :n4
+ lda sv1
+ and #$0040
+ bne :pd
  lda #$5000                ; Down
  rts
+:pd
+ lda #$5100                ; PgDn
+ rts
 :n4
- cmp #$7F
+ cmp #$7F                  ; Delete: Backspace, Option=Del, Ctrl=Insert
  bne :n5
+ lda sv1
+ and #$0040
+ bne :dl
+ lda sv1
+ and #$0002
+ bne :in
  lda #$0E08                ; Backspace
+ rts
+:dl
+ lda #$5300                ; Del (forward delete)
+ rts
+:in
+ lda #$5200                ; Insert
  rts
 :n5
  lda sv1
@@ -205,6 +245,55 @@ kb_push
  sta >H_BDA,x
  lda sv3
  sta >H_BDA+BDA_KBTAIL
+:full
+ rts
+
+* kb_scpush - A = key word (scancode in the high byte). Queue the make
+* and break codes into the hardware-keyboard scancode ring that the core
+* serves at port 0x60 and delivers as IRQ1/INT 09h. Mode B only (nothing
+* reads port 0x60 in the other modes). Programs with their own INT 09h
+* handler (Lotus 1-2-3's KB.DRV, many games) read keys this way.
+kb_scpush
+ mx %00
+ pha                       ; save the key word
+ lda vPCMODE
+ cmp #2
+ bne :drop
+ pla
+ xba
+ and #$00FF                ; A = scancode (0 = none)
+ beq :done
+ sta sv2
+ jsr sc_enq                ; make code
+ lda sv2
+ ora #$0080                ; break code = make | $80
+ jsr sc_enq
+:done
+ rts
+:drop
+ pla
+ rts
+
+* sc_enq - A low byte = scancode -> the scancode ring (dropped when full)
+sc_enq
+ mx %00
+ and #$00FF
+ sta sv3
+ lda >KBD_QTAIL
+ and #KBD_QMASK
+ tax
+ lda sv3
+ sep #$20
+ mx %10
+ sta >KBD_QBUF,x           ; store the scancode byte (long,x)
+ rep #$20
+ mx %00
+ txa
+ inc
+ and #KBD_QMASK
+ cmp >KBD_QHEAD            ; next tail == head -> ring full, drop
+ beq :full
+ sta >KBD_QTAIL
 :full
  rts
 

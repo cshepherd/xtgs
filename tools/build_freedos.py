@@ -32,6 +32,7 @@ def main():
     k = zipfile.ZipFile(os.path.join(FD, "kernel.zip"))
     open(os.path.join(OUT, "KERNEL.SYS"), "wb").write(k.read("BIN/KERNL86.SYS"))
     open(os.path.join(OUT, "SOURCES.ZIP"), "wb").write(k.read("SOURCE/KERNEL/SOURCES.ZIP"))
+    open(os.path.join(OUT, "SETVER.SYS"), "wb").write(k.read("BIN/SETVER.SYS"))
     c = zipfile.ZipFile(os.path.join(FD, "freecom.zip"))
     open(os.path.join(OUT, "COMMAND.COM"), "wb").write(c.read("BIN/COMMAND.COM"))
     sz = zipfile.ZipFile(os.path.join(OUT, "SOURCES.ZIP"))
@@ -39,7 +40,7 @@ def main():
     subprocess.run(["nasm", "-dISFAT12", "-f", "bin", "-o", os.path.join(OUT, "boot.bin"),
                     os.path.join(OUT, "boot.asm")], check=True)
     with open(os.path.join(OUT, "FDCONFIG.SYS"), "w", newline="\r\n") as f:
-        f.write("LASTDRIVE=Z\nSHELL=A:\\COMMAND.COM /P\n")
+        f.write("LASTDRIVE=Z\nDEVICE=A:\\SETVER.SYS\nSHELL=A:\\COMMAND.COM /P\n")
     # A short BASIC program GW-BASIC loads and runs, then exits to DOS. A
     # headless boot then proves GW-BASIC launched, rendered (its direct B800
     # writes) and ran guest BASIC, without needing interactive keystrokes.
@@ -58,18 +59,16 @@ def main():
                 '60 CIRCLE (160,100),70,3\n'
                 '70 A$=INPUT$(1)\n'
                 '80 SCREEN 0:SYSTEM\n')
-    with open(os.path.join(OUT, "AUTOEXEC.BAT"), "w", newline="\r\n") as f:
-        f.write("@ECHO OFF\n"
-                "ECHO XT/GS: FreeDOS booted. CGA demo (press a key to exit to A:).\n"
-                "GWBASIC CGADEMO.BAS\n")
+    # No AUTOEXEC.BAT: FreeDOS boots straight to the A:\ prompt. GWBASIC.EXE
+    # and the demo .BAS files are on the volume to run by hand.
     # GW-BASIC 3.23 (third_party/gwbasic/, not fetched by fetch_dos.py); added
     # only if present so the FreeDOS image still builds without it.
     gwbasic = os.path.join(ROOT, "third_party", "gwbasic", "GWBASIC.EXE")
     files = [
         "KERNEL.SYS=" + os.path.join(OUT, "KERNEL.SYS"),
+        "SETVER.SYS=" + os.path.join(OUT, "SETVER.SYS"),
         "COMMAND.COM=" + os.path.join(OUT, "COMMAND.COM"),
         "FDCONFIG.SYS=" + os.path.join(OUT, "FDCONFIG.SYS"),
-        "AUTOEXEC.BAT=" + os.path.join(OUT, "AUTOEXEC.BAT"),
         "HELLO.BAS=" + os.path.join(OUT, "HELLO.BAS"),
         "CGADEMO.BAS=" + os.path.join(OUT, "CGADEMO.BAS"),
     ]

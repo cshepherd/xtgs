@@ -69,9 +69,45 @@ op_D6                      ; salc (undocumented): AL = CF ? $FF : 0
 cga_stat   dw 0
 port_in8                   ; A = port -> A = value (8-bit in the low byte)
  mx %00
+ cmp #$0060
+ beq :kbdata
+ cmp #$0064
+ beq :kbstat
  cmp #$03DA
  beq :cgastat
  lda #$00FF
+ rts
+:kbdata                    ; 8042 data: pop the next scancode (make/break)
+ lda >KBD_QHEAD
+ and #KBD_QMASK
+ cmp >KBD_QTAIL
+ beq :kbempty
+ tax
+ sep #$20
+ mx %10
+ lda >KBD_QBUF,x           ; the scancode byte (long,x)
+ rep #$20
+ mx %00
+ and #$00FF
+ pha
+ txa
+ inc
+ and #KBD_QMASK
+ sta >KBD_QHEAD            ; advance the read index
+ pla
+ rts
+:kbempty
+ lda #$0000
+ rts
+:kbstat                    ; 8042 status: bit0 (OBF) = a scancode is waiting
+ lda >KBD_QHEAD
+ and #KBD_QMASK
+ cmp >KBD_QTAIL
+ beq :kbstat0
+ lda #$0001
+ rts
+:kbstat0
+ lda #$0000
  rts
 :cgastat
  lda cga_stat              ; free-running: all (bit0,bit3) states appear

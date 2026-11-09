@@ -590,6 +590,13 @@ build_stubs
  inx
  inc sv0
  bne :s
+ ldx #9*STUB_LEN           ; INT 09h (IRQ1) default: IN AL,60h; IRET. Drains the
+ lda #$E4                  ; scancode port so our queue advances even when no guest
+ sta >H_BIOS,x             ; handler is installed; a program that hooks INT 09h
+ lda #$60                  ; (Lotus KB.DRV) replaces this and reads port 0x60 itself.
+ sta >H_BIOS+1,x
+ lda #$CF
+ sta >H_BIOS+2,x
  ldx #CALL5_OFF            ; mov ah,cl / int 21h / retf
  lda #$88
  sta >H_BIOS,x

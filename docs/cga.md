@@ -96,5 +96,9 @@ actually changed are repacked each frame.
 ## Try it
 
 `make run-dos`, then at `A:\>` run `GWBASIC CGADEMO.BAS` (on the floppy) or
-write your own `SCREEN 1` program. Headless proof: the FreeDOS floppy's
-`AUTOEXEC` runs `CGADEMO.BAS`, and a boot renders `build/boot/boot.png`.
+write your own `SCREEN 1` program. To load it from inside the interpreter,
+quote the name: `LOAD "CGADEMO.BAS"` then `RUN`. GW-BASIC's `LOAD` takes a
+string, so an unquoted `LOAD CGADEMO.BAS` is parsed as a numeric variable and
+errors `Type mismatch` (standard GW-BASIC, not an XT/GS limitation). Headless
+proof: the `tools/cga_*` harnesses build a floppy whose AUTOEXEC runs a given
+`.BAS` and render the SHR to PNG.

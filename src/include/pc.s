@@ -69,5 +69,12 @@ DIAG_UNHN  = RES_BASE+$804   ; u16 unhandled calls
 DIAG_LAST  = RES_BASE+$806   ; u16 last INT 21h function seen (AH)
 DIAG_FNMAP = RES_BASE+$810   ; 16 bytes: bit AH set for each unhandled/failed INT 21h function
 DIAG_INTMAP = RES_BASE+$820  ; 32 bytes: bit n set for each unhandled INT n
+* Hardware keyboard: a scancode ring the core serves at port 0x60 and the
+* slot check delivers as IRQ1/INT 09h. Shared by CORE (port read, IRQ) and
+* SVC (kb_poll enqueues make+break). 32 entries, head==tail = empty.
+KBD_QHEAD  = RES_BASE+$844   ; u16 read index (0..31)
+KBD_QTAIL  = RES_BASE+$846   ; u16 write index (0..31)
+KBD_QBUF   = RES_BASE+$850   ; 32 scancode bytes
+KBD_QMASK  = $001F
 CAP_BUF    = RES_BASE+$1000
 CAP_MAX    = $7000

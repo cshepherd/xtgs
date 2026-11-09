@@ -174,8 +174,16 @@ op_CE                      ; into
  jsr do_int
 :no
  jmp (NEXTVEC)
-op_F4                      ; hlt: leave the loop through the halt vector
- mx %00
+op_F4                      ; hlt. In Mode B an idle STI;HLT waits for the next
+ mx %00                    ; interrupt, not a program exit: resume and let the
+ lda vPCMODE               ; slot check deliver IRQ0 and poll the keyboard. The
+ cmp #2                    ; bench/.COM paths (HLT = exit) and a genuine CLI;HLT
+ bne :term                 ; (nothing can wake it) still end the run.
+ lda rFL
+ and #F_IF
+ beq :term
+ jmp (NEXTVEC)
+:term
  lda #1
  sta vHALT
  jmp (HALTVEC)
