@@ -70,11 +70,19 @@ slot
 :nc
  lda vPCMODE               ; running a PC program?
  beq :fetch                ; bench: no services
- cmp #2                    ; Mode B: look for a queued keyboard scancode EVERY
- bne :vbl                  ; slot, not only on the VBL edge, so an async INT 09h
- lda rFL                   ; reaches a game's own handler promptly like a real
- and #F_IF                 ; IRQ1. do_int clears IF, so this self-serializes with
- beq :vbl                  ; the handler; interrupts off -> hold it.
+ cmp #2                    ; Mode B: the interrupt lines, looked at EVERY slot
+ bne :vbl                  ; (not only on the VBL edge) so they reach the guest's
+ lda rFL                   ; handlers promptly. do_int clears IF, so delivery
+ and #F_IF                 ; self-serializes with the handler; interrupts off ->
+ beq :vbl                  ; hold them (vTICK counts the IRQ0s owed).
+ lda vTICK                 ; IRQ0: the DOC timer oscillator wrapped (sound.s)
+ beq :kbd
+ dec vTICK                 ; (one instruction: the interrupt cannot split it)
+ sty rIP
+ lda #8
+ jsr do_int                ; INT 08h
+ jmp fetch
+:kbd                       ; IRQ1: a queued keyboard scancode
  lda >KBD_QHEAD
  and #KBD_QMASK
  cmp >KBD_QTAIL
@@ -83,27 +91,17 @@ slot
  lda #9
  jsr do_int                ; INT 09h (IRQ1): the guest handler reads port 0x60
  jmp fetch
-:vbl                       ; once-a-frame services + the IRQ0 timer, on the VBL edge
+:vbl                       ; once-a-frame services, on entering the vertical blank
  lda >VBLBAR
  and #$0080
  cmp vVBL
  beq :fetch
  sta vVBL
- beq :fetch                ; the falling edge
+ tax                       ; (STA sets no flags) one edge a frame, not both
+ beq :fetch
  sty rIP
- jsl SVC_BASE+15           ; svc_vbl: keyboard poll, flush, tick accounting
+ jsl SVC_BASE+15           ; svc_vbl: keyboard poll, screen flush, the Mode A tick
  ldy rIP
- lda vPCMODE               ; Mode B: deliver the IRQ0 timer tick to the guest
- cmp #2
- bne :fetch
- lda rFL
- and #F_IF
- beq :fetch                ; interrupts off: hold the tick
- jsl SVC_BASE+27           ; svc_tickdue -> A nonzero if an 18.2 Hz tick is due
- beq :fetch                ; no tick (the keyboard IRQ is delivered above)
- sty rIP
- lda #8
- jsr do_int                ; INT 08h (IRQ0 timer)
 :fetch
  jmp fetch
 

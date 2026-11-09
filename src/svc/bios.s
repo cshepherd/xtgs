@@ -331,7 +331,7 @@ v10_09                     ; write char + attr CX times at the cursor
  dey
  bne :w
 :done
- jmp mark_all
+ jmp mark_run
 v10_0A                     ; write char only CX times at the cursor
  mx %00
  lda >H_BDA+BDA_CURPOS
@@ -356,6 +356,23 @@ v10_0A                     ; write char only CX times at the cursor
  rep #$20
  mx %00
 :done
+ jmp mark_run
+* mark_run - CX cells from the cursor were written: its row is
+* dirty, or every row when the run goes past the end of the line.
+mark_run
+ mx %00
+ lda >H_BDA+BDA_CURPOS
+ and #$00FF
+ clc
+ adc rCX
+ bcs :all
+ cmp #81
+ bcs :all
+ lda >H_BDA+BDA_CURPOS
+ xba
+ and #$00FF
+ jmp mark_row
+:all
  jmp mark_all
 v10_0B                     ; set palette: BH=0 background (BL 0-15),
  mx %00                    ; BH=1 palette select (BL bit 0). CGA graphics.
@@ -485,6 +502,32 @@ int_1A
  jsr set_cf
  lda #$1A
  jmp note_unhandled
+* INT 15h: only the joystick (AH=84h), and that with nothing
+* attached. GW-BASIC asks for the buttons on every timer tick;
+* left unserviced, AL kept whatever it held and read as buttons.
+* Everything else is the XT's answer: CF set, AH=86h.
+int_15
+ mx %00
+ jsr ah_val
+ cmp #$84
+ bne :unk
+ lda rDX
+ beq :btn
+ cmp #1
+ bne :unk
+ stz rAX                   ; positions: all four axes 0 (no adapter)
+ stz rBX
+ stz rCX
+ stz rDX
+ jmp clr_cf
+:btn
+ lda #$F0                  ; switches in bits 4-7, 1 = not pressed
+ jsr set_al
+ jmp clr_cf
+:unk
+ lda #$86
+ jsr set_ah
+ jmp set_cf
 int_29                     ; fast console out AL
  mx %00
  lda rAX
@@ -505,7 +548,43 @@ int_16
  beq :push
  rts                       ; 03 typematic etc.: nothing
 :read
+ lda vPCMODE
+ cmp #2
+ beq :readb
  jsr kb_wait
+ sta rAX
+ rts
+* Mode B: waiting here would stop the guest's interrupts (the
+* IRQ0 timer above all) while a prompt sits idle. Wait only
+* until there is a key or an interrupt to deliver; for an
+* interrupt, go back to this stub's hypercall with interrupts on
+* (the PC BIOS's STI-and-loop) and have the slot look at once.
+:readb
+ jsr kb_pop
+ bcs :gotb
+:idle
+ jsr kb_poll
+ jsr vbl_check
+ jsr kb_pop
+ bcs :gotb
+ lda vTICK                 ; IRQ0 owed?
+ bne :again
+ lda >KBD_QHEAD            ; IRQ1: a scancode queued?
+ and #KBD_QMASK
+ cmp >KBD_QTAIL
+ beq :idle
+:again
+ lda rIP
+ sec
+ sbc #4                    ; FE 38 16 00
+ sta rIP
+ lda rFL
+ ora #F_IF
+ sta rFL
+ lda #1
+ sta vSLOT                 ; the slot runs before the next instruction
+ rts
+:gotb
  sta rAX
  rts
 :peek

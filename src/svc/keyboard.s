@@ -10,9 +10,7 @@
 * scan_tab (gen/tables.s). Control characters keep their
 * letter's scan code.
 *----------------------------------------------------------
-tick_acc   dw 0              ; 18.2 Hz from 60 Hz: += 19886 a frame
-vbl_count  dw 0
-tick_due   dw 0              ; set when an 18.2 Hz period elapsed (Mode B reads it)
+vbl_count  dw 0              ; frames seen (svc_vbl and vbl_check)
 key_pending dw 0             ; scan code owed after an extended key's 0
 
 * svc_vbl - from the core's slot on a VBL edge (Y saved by the core)
@@ -32,27 +30,30 @@ svc_vbl
  plb
  rtl
 
-vbl_work                   ; tick, blink, screen flush
+* vbl_work - once a frame: blink, the Mode A ticks, screen flush.
+* The tick is the DOC timer oscillator's interrupt (sound.s),
+* which counts in vTICK. In Mode B the core's slot turns each
+* into INT 08h and the guest's handler counts it; in Mode A
+* nothing is delivered to the guest, so they are counted here.
+vbl_work
  mx %00
  inc vbl_count
  inc blink
- lda tick_acc
- clc
- adc #19886
- sta tick_acc
- bcc :noinc
- lda #1                    ; an 18.2 Hz tick elapsed
- sta tick_due
  lda vPCMODE
  cmp #2
- beq :noinc                ; Mode B: the guest's INT 08h advances the BDA tick
+ beq :noinc
+:tick
+ lda vTICK
+ beq :noinc
+ dec vTICK                 ; (one instruction: the interrupt cannot split it)
  lda >H_BDA+BDA_TICKS
  inc
  sta >H_BDA+BDA_TICKS
- bne :noinc
+ bne :tick
  lda >H_BDA+BDA_TICKS+2
  inc
  sta >H_BDA+BDA_TICKS+2
+ bra :tick
 :noinc
  jmp flush
 
@@ -64,7 +65,8 @@ vbl_check
  cmp vVBL
  beq :same
  sta vVBL
- beq :same                 ; the falling edge
+ tax                       ; (STA sets no flags) the frame's work is done on
+ beq :same                 ; one edge only: entering the blank
  jmp vbl_work
 :same
  rts

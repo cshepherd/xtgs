@@ -18,6 +18,14 @@ KEYMOD    = $E0C025          ; modifier keys
 NEWVIDEO  = $E0C029          ; bit 7 SHR, bit 6 linear
 BORDER    = $E0C034          ; low nibble = border colour
 VBLBAR    = $E0C019          ; bit 7 = in vertical blank (ROM 3: 1 during VBL)
+SPKR      = $E0C030          ; any access toggles the Apple speaker
+GLU_CTL   = $E0C03C          ; sound GLU: bit 7 busy, 6 RAM (0 DOC registers),
+                             ; 5 auto-increment, 3-0 master volume
+GLU_DATA  = $E0C03D          ; a read returns the access before it
+GLU_ADRL  = $E0C03E
+GLU_ADRH  = $E0C03F
+MVOLSHAD  = $E100CA          ; the Control Panel's volume (low nibble)
+DOCVEC    = $E1002C          ; the firmware's sound-interrupt JML
 SHR_PIX   = $E12000          ; 200 lines x 160 bytes
 SHR_SCB   = $E19D00          ; 200 scan-line control bytes
 SHR_PAL   = $E19E00          ; 16 palettes x 16 words

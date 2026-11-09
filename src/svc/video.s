@@ -72,7 +72,7 @@ init_shr                   ; DBR = $04
  inx
  cpx #32000
  bcc :clr
- rts
+ jmp shd_inval
 
 * Palette 0: each 640-mode pixel group gets black, dark
 * grey, light grey, white for values 0-3.
@@ -126,7 +126,21 @@ svc_render_row
 *----------------------------------------------------------
 * render_row - A = row. DBR = $04. Clobbers A, X, Y, sv0-sv3,
 * pCELL, pTXT.
+*
+* Only the cells that differ from txt_shadow (what the screen
+* shows) are drawn: a guest that rewrites B800 with what is
+* already there (GW-BASIC's idle prompt does, every tick)
+* marks its rows dirty every frame, and drawing all 80 cells
+* of a row costs 14 ms against under 1 ms to compare them.
+* shd_ok is 0 for a row whose pixels are not the shadow's
+* (after a clear or a graphics mode); it is drawn in full.
 *----------------------------------------------------------
+txt_shadow ds TXT_LEN        ; the char/attribute words on the screen
+shd_ok     ds 50             ; a word a row: the shadow matches the pixels
+shd_part   dw 0              ; this row: nonzero = changed cells only
+shd_end    dw 0              ; text offset just past this row
+shd_cell   dw 0              ; pCELL = this + the text offset
+
 render_row
  mx %00
  sta sv3
@@ -140,11 +154,14 @@ render_row
  asl
  clc
  adc sv2                   ; row * 160 = text offset
+ sta sv2
  clc
- adc #TXT_BASE
- sta pTXT
+ adc #160
+ sta shd_end
  lda #^TXT_BASE
  sta pTXT+2
+ lda #^SHR_PIX
+ sta pCELL+2
  lda sv3
  asl                       ; row * 1280 = row * 256 * 5
  asl
@@ -154,30 +171,60 @@ render_row
  asl
  asl
  asl
- sta sv2                   ; row * 256
+ sta sv1                   ; row * 256
  asl
  asl
  clc
- adc sv2
+ adc sv1
  clc
  adc #SHR_PIX
- sta pCELL
- lda #^SHR_PIX
- sta pCELL+2
- lda #80
- sta sv3
+ sec
+ sbc sv2                   ; the cell at text offset x is at this + x
+ sta shd_cell
+ lda sv3
+ asl
+ tax
+ lda shd_ok,x
+ sta shd_part
+ lda #1
+ sta shd_ok,x
+ ldx sv2
 :cell
- jsr render_cell
- lda pTXT
- inc
- inc
+ lda >TXT_BASE,x
+ ldy shd_part
+ beq :draw
+ cmp txt_shadow,x
+ beq :skip
+:draw
+ sta txt_shadow,x
+ stx sv2
+ txa
+ clc
+ adc #TXT_BASE
  sta pTXT
- lda pCELL
- inc
- inc
+ txa
+ clc
+ adc shd_cell
  sta pCELL
- dec sv3
- bne :cell
+ jsr render_cell
+ ldx sv2
+:skip
+ inx
+ inx
+ cpx shd_end
+ bcc :cell
+ rts
+
+* shd_inval - the pixels are no longer the shadow's (cleared, or
+* a graphics mode drew over them): every row is drawn in full next.
+shd_inval
+ mx %00
+ ldx #48
+:l
+ stz shd_ok,x
+ dex
+ dex
+ bpl :l
  rts
 
 * rrow - one font row (]1 = 0-7) of the cell: X = glyph
@@ -522,16 +569,17 @@ flush
  mx %00
  and #$00FF
  beq :next
- lda 1,s
- jsr render_row
- lda cur_on                ; the row's cursor underline went with it
- beq :next
- lda cur_at
+ lda cur_on                ; the cursor is in this row: take it off
+ beq :draw                 ; first (a changed cell would be drawn
+ lda cur_at                ; over half of it)
  xba
  and #$00FF
  cmp 1,s
- bne :next
- stz cur_on
+ bne :draw
+ jsr cursor_erase
+:draw
+ lda 1,s
+ jsr render_row
 :next
  pla
  inc
@@ -548,12 +596,12 @@ flush
  lda >H_BDA+BDA_CURPOS
  sta sv8
  lda cur_on
- beq :draw
+ beq :put
  lda cur_at
  cmp sv8
  beq :done
  jsr cursor_erase
-:draw
+:put
  lda sv8
  sta cur_at
  jsr cursor_draw
@@ -625,6 +673,12 @@ cursor_erase               ; re-render the cell under the cursor
  and #$00FF
  sta sv5
  jsr cell_ptrs
+ lda pTXT                  ; what is drawn goes in the shadow too
+ sec
+ sbc #TXT_BASE
+ tax
+ lda [pTXT]
+ sta txt_shadow,x
  jsr render_cell
  stz cur_on
  rts
@@ -1080,6 +1134,7 @@ apply_cgamode
  bcc :md
  rep #$20
  mx %00
+ jsr shd_inval             ; the text pixels are gone
 :done
  rts
 
@@ -1101,6 +1156,7 @@ vid_setmode
 * framebuffer cleared. DBR=$04.
 gfx_setup
  mx %00
+ jsr shd_inval             ; the text pixels are gone
  ldx #0                    ; clear the 64 dirty-page marks
  sep #$20
  mx %10
@@ -1480,137 +1536,3 @@ cga_rgb
 * pal1/i1. pal0 = green/red/brown, pal1 = cyan/magenta/white.
 fg_tab
  hex 0204060A0C0E0305070B0D0F
-
-
-
-*==========================================================
-* WIP, NOT WIRED IN: no caller, and not yet confirmed to emit
-* sound under MAME in this ProDOS 8 environment (see memory
-* xtgs-doc-sound). The reference that does work is
-* ../somi-iigs-port/iigs/asm/audio_doc.s (GS/OS).
-*
-* PC speaker via the Ensoniq DOC (ES5503), after somi-iigs-
-* port's audio_doc.s but reaching the sound GLU at $E0:C03C
-* (MAME maps $E0:C000-C07F to the GLU unconditionally, unlike
-* bank 0 which depends on the I/O soft switch). One oscillator
-* free-runs a 256-byte square wave (no $00, which would halt
-* it); its frequency tracks the guest PIT. Init follows the
-* DOC bring-up: halt all 32 oscillators, zero all volumes,
-* enable one, configure, then key it on.
-*==========================================================
-SGCTL  = $E0C03C
-SGDATA = $E0C03D
-SGADRL = $E0C03E
-SGADRH = $E0C03F
-R_FCL  = $00
-R_FCH  = $20
-R_VOL  = $40
-R_PTR  = $80
-R_CTL  = $A0
-R_SIZ  = $C0
-R_OSCENA = $E1
-
-snd_vol    dw 0
-snd_ctlreg dw 0              ; registers + auto-increment + volume
-snd_ctlram dw 0              ; RAM + auto-increment + volume
-snd_fc     dw 0
-
-* snd_wreg - DOC register X(8) = A(8). 8-bit A/X. DBR any.
-snd_wreg
- pha
- lda snd_ctlreg
- sta >SGCTL
- txa
- sta >SGADRL
- lda #0
- sta >SGADRH
- pla
- sta >SGDATA
- rts
-
-* snd_fill - Y bytes of A to the DOC target the address points at. 8-bit.
-snd_fill
-:l sta >SGDATA
- dey
- bne :l
- rts
-
-* snd_init - silence the DOC, load the square wave, enable one
-* oscillator, configure it. DBR=$04. 16-bit in/out.
-snd_init
- mx %00
- php
- sei
- sep #$30
- mx %11
- lda #$0F                  ; master volume (full)
- sta snd_vol
- ora #$20
- sta snd_ctlreg            ; registers, auto-increment, volume
- lda snd_vol
- ora #$60
- sta snd_ctlram            ; RAM, auto-increment, volume
- lda snd_ctlreg            ; halt all 32 oscillators
- sta >SGCTL
- lda #R_CTL
- sta >SGADRL
- lda #0
- sta >SGADRH
- ldy #32
- lda #$01
- jsr snd_fill
- lda snd_ctlreg            ; all 32 volumes 0
- sta >SGCTL
- lda #R_VOL
- sta >SGADRL
- lda #0
- sta >SGADRH
- ldy #32
- lda #0
- jsr snd_fill
- lda snd_ctlram            ; square wave to DOC RAM page 0
- sta >SGCTL
- lda #0
- sta >SGADRL
- sta >SGADRH
- ldx #0
-:sq
- lda sqwave,x
- sta >SGDATA
- inx
- bne :sq
- ldx #R_OSCENA             ; enable 1 oscillator ((1-1)*2 = 0)
- lda #0
- jsr snd_wreg
- ldx #R_VOL                ; osc 0 volume full
- lda #$FF
- jsr snd_wreg
- ldx #R_PTR                ; wavetable page 0
- lda #0
- jsr snd_wreg
- ldx #R_SIZ                ; 256 bytes, resolution 0
- lda #0
- jsr snd_wreg
- ldx #R_FCL
- lda #0
- jsr snd_wreg
- ldx #R_FCH
- lda #0
- jsr snd_wreg
- ldx #R_CTL                ; halted
- lda #$01
- jsr snd_wreg
- rep #$30
- mx %00
- plp
- rts
-
-sqwave
- hex FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
- hex FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
- hex FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
- hex FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
- hex 01010101010101010101010101010101
- hex 01010101010101010101010101010101
- hex 01010101010101010101010101010101
- hex 01010101010101010101010101010101

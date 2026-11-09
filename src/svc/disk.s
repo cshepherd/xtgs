@@ -386,8 +386,8 @@ mul_track                  ; sv8 * cur_spt -> A (cur_spt is 8/9/15/18...)
  rts
 
 *----------------------------------------------------------
-* int_08 - IRQ0 timer: bump the BDA tick, chain INT 1Ch, EOI.
-* Our stub only runs until the guest kernel installs its own.
+* int_08 - IRQ0 timer: bump the BDA tick. The stub at
+* F000:TICK_OFF (build_stubs) then chains INT 1Ch itself.
 *----------------------------------------------------------
 int_08
  mx %00
@@ -399,8 +399,7 @@ int_08
  inc
  sta >H_BDA+BDA_TICKS+2
 :nc
- rts                      ; (INT 1Ch chaining is left to the guest kernel's
-                          ;  own INT 08h, which replaces this stub at boot)
+ rts
 
 *----------------------------------------------------------
 * int_19 - bootstrap loader: a guest that calls it wants to
@@ -413,17 +412,3 @@ int_19
  lda #1
  sta stop_flag
  rts
-
-*----------------------------------------------------------
-* svc_tickdue - A nonzero (and cleared) if an 18.2 Hz tick is
-* pending, for the core's Mode B INT 08h delivery.
-*----------------------------------------------------------
-svc_tickdue
- mx %00
- phb
- phk
- plb
- lda tick_due
- stz tick_due
- plb                       ; restore DBR; A (the tick flag) survives plb
- rtl

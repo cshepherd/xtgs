@@ -601,6 +601,23 @@ build_stubs
  sta >H_BIOS+3,x
  lda #$CF
  sta >H_BIOS+4,x
+ lda #$CF                  ; INT 1Ch (the user timer hook): a bare IRET
+ sta >H_BIOS+$8C           ; (1Ch * STUB_LEN)
+ ldx #TICK_OFF             ; INT 08h (IRQ0): hypercall 8 (the BDA tick), then
+ lda #$FE                  ; INT 1Ch as the BIOS does, so a program's hook on
+ sta >H_BIOS,x             ; the user timer vector runs; IRET
+ lda #$38
+ sta >H_BIOS+1,x
+ lda #$08
+ sta >H_BIOS+2,x
+ lda #$00
+ sta >H_BIOS+3,x
+ lda #$CD
+ sta >H_BIOS+4,x
+ lda #$1C
+ sta >H_BIOS+5,x
+ lda #$CF
+ sta >H_BIOS+6,x
  ldx #CALL5_OFF            ; mov ah,cl / int 21h / retf
  lda #$88
  sta >H_BIOS,x
@@ -649,6 +666,8 @@ build_ivt
  inx
  cpx #1024
  bcc :v
+ lda #TICK_OFF             ; INT 08h has the longer stub (it chains INT 1Ch)
+ sta >H_IVT+$20
  rts
 
 build_bda
@@ -909,7 +928,6 @@ state_init
  mx %00
  stz cur_on
  stz blink
- stz tick_acc
  stz vbl_count
  stz key_pending
  stz stop_flag

@@ -27,7 +27,7 @@ Unlisted functions do nothing but are counted: the judge reports them
 Direct writes to `B800:0000` are stored (the buffer is real guest memory)
 but not yet detected for rendering: M3.
 
-## INT 16h (keyboard), 11h, 12h, 1Ah, 29h
+## INT 16h (keyboard), 11h, 12h, 15h, 1Ah, 29h
 
 | INT/AH | Function |
 | --- | --- |
@@ -37,7 +37,8 @@ but not yet detected for rendering: M3.
 | 16h/05 | push key |
 | 11h | equipment word (`0021h`) |
 | 12h | memory size (640) |
-| 1Ah/00,01 | get/set tick count (18.2 Hz, from the VBL) |
+| 15h/84 | joystick: no switches pressed (DX=0), no sticks (DX=1). Other INT 15h functions: CF set, AH=86h |
+| 1Ah/00,01 | get/set tick count (18.2 Hz, from the DOC timer: `docs/sound.md`) |
 | 1Ah/02,04 | RTC time/date: fixed 12:00:00, 1987-01-01 until M3 |
 | 29h | fast console output |
 

@@ -29,8 +29,10 @@ and reports the guest state, INT 13h count and screen.
   image there; `svc_bootinit` builds the IVT (BIOS vectors to the hypercall
   stubs), the BIOS data area, and copies the image's sector 0 to 0000:7C00.
 - The core enters the boot sector at 0000:7C00 with DL=0 (floppy A), and
-  delivers the IRQ0 timer (INT 08h) to the guest ~18.2 times a second from
-  the slot check when interrupts are enabled.
+  delivers the IRQ0 timer (INT 08h) to the guest from the slot check when
+  interrupts are enabled: 18.2 times a second, or at the rate the guest
+  programs into the 8253. The tick is the Ensoniq DOC's timer oscillator, and
+  the PC speaker is two more of its oscillators (`docs/sound.md`).
 - **INT 13h** (`src/svc/disk.s`): reset, read (AH=02, CHS), write, get
   params (AH=08), type (AH=15). The geometry (sectors/track) is read from the
   booted disk's BPB at `svc_bootinit`, so Mode B serves 320K/720K/1.2M/1.44M
@@ -56,7 +58,8 @@ and reports the guest state, INT 13h count and screen.
   `.EXE`, and XT/GS supplies only the CPU, INT 10h/16h and the direct video
   path. GW-BASIC bypasses INT 10h and writes straight to the B800 text buffer;
   those stores are caught by the core's `VID_DIRTY` page marks (`cpu.s`) and
-  rendered by `svc_flush`, so its output appears on the SHR screen. The binary
+  rendered by `svc_flush` (only the cells that changed: `render_row` keeps a
+  shadow of what is on screen), so its output appears on the SHR screen. The binary
   is **tkchia's MIT-licensed rebuild** (gitlab.com/tkchia/GW-BASIC) of
   Microsoft's open-sourced source; it is FreeDOS-compatible, unlike the
   Microsoft 3.23 binary which errors "You can not SHELL to BASIC" when run
@@ -86,7 +89,7 @@ the IRQ0 timer: with it disabled the boot worked, with it enabled find-file
 failed, and the outcome depended on exactly which instruction the first tick
 landed on.
 
-Root cause: `svc_tickdue` (`src/svc/disk.s`) saved the tick flag with a 16-bit
+Root cause: `svc_tickdue` (then in `src/svc/disk.s`) saved the tick flag with a 16-bit
 `pha` and then restored the data bank with a 1-byte `plb`, a width mismatch.
 The `plb` pulled the high byte of the pushed tick value (0x00) into DBR
 instead of the saved core bank ($03). Every timer tick therefore returned
@@ -96,6 +99,17 @@ flag table from bank $00 (zeros). Result: ZF (and every arithmetic flag)
 came out wrong after the first tick, so the comparison that follows a tick
 mis-set ZF. The fix is to drop the `pha`/`pla`; a single `plb` restores DBR
 and the tick flag already lives in A, which `plb` does not touch.
+
+Two follow-up errors in the same VBL-polled timer then made the guest clock
+run fast: `plb` set Z from the restored bank rather than from the tick flag
+the core tested, so INT 08h fired on every VBL edge; and the "VBL edge" was
+detected on both transitions of the VBL bit (entering and leaving the blank),
+which was papered over for a while with a recalibrated accumulator. All of
+that code is gone. **IRQ0 is now the Ensoniq DOC's timer oscillator**
+(`docs/sound.md`): its interrupt counts ticks owed in `vTICK`, the slot check
+delivers one INT 08h for each while IF is set, and the rate is whatever the
+guest programs into 8253 channel 0 (18.2 Hz by default). The once-a-frame work
+(keyboard poll, screen flush) runs on one VBL edge a frame.
 
 ## Real applications
 
@@ -116,8 +130,8 @@ Besides the BDA buffer / INT 16h path, XT/GS now presents a hardware keyboard,
 for programs that install their own INT 09h handler and read scancodes from the
 8042 data port (many DOS games). `kb_poll` (`keyboard.s`) enqueues each key's
 make and break codes into a scancode ring (`KBD_Q*` in `pc.s`); the slot check
-(`cpu.s`) delivers one as IRQ1/INT 09h on the VBL edge (after the IRQ0 timer,
-so the timer keeps priority), and the core serves port 0x60 (pop a scancode)
+(`cpu.s`) delivers one as IRQ1/INT 09h (after any IRQ0 owed, so the timer
+keeps priority), and the core serves port 0x60 (pop a scancode)
 and 0x64 (status) in `port_in8`. The default INT 09h handler is `PUSH AX; IN
 AL,60h; POP AX; IRET`, so the ring still drains when nothing hooks the vector.
 `kb_poll` keeps filling the INT 16h ring too, so INT 16h programs are
@@ -142,7 +156,10 @@ binary on a sector image, not an XT/GS limitation — an unprotected/cracked 1A
 
 ## Not yet implemented (needed for a full boot)
 
-- The 8259 PIC and 8253 PIT ports are open-bus; a kernel that programs them
-  for exact timing may need real behaviour.
-- A20 and INT 15h services.
+- The 8259 PIC: no mask register and no EOI; IRQ0 and IRQ1 are delivered
+  whenever IF is set. The 8253 PIT's channels 0 and 2 and port 61h are served
+  by the DOC (`docs/sound.md`: the tick and the speaker), square-wave mode
+  only, with synthetic counter reads.
+- A20, and INT 15h beyond AH=84h (the joystick, answered "none"); the rest
+  return CF set, AH=86h.
 - Writes persist only to the in-memory image (no write-back to the volume).

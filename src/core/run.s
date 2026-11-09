@@ -7,6 +7,7 @@ run_guest                  ; until HLT; rIP = IP after it
  mx %00
  lda #0
  sta >CGA_MODECHG          ; no CGA mode-control (0x3D8) write pending yet
+ sta >PIT_CTR              ; seed the free-running PIT state
  lda #run_done
  sta vHALTVEC
  lda #next
@@ -58,7 +59,9 @@ com_run
  sta vPCMODE
  lda #$BE57
  sta >MB_RUNIDX
+ jsl SVC_BASE+27           ; svc_sndopen: the DOC is the speaker and the IRQ0 timer
  jsr run_guest
+ jsl SVC_BASE+30           ; svc_sndclose
  stz vPCMODE
  jsl SVC_BASE+18           ; final screen flush
  lda #$D04E
@@ -107,7 +110,9 @@ boot_run
  stz vTRPTR
  lda #$BE57
  sta >MB_RUNIDX
+ jsl SVC_BASE+27           ; svc_sndopen: the DOC is the speaker and the IRQ0 timer
  jsr run_guest
+ jsl SVC_BASE+30           ; svc_sndclose
  stz vPCMODE
  jsl SVC_BASE+18           ; final screen flush
  lda #$D04E

@@ -6,6 +6,7 @@ screen rows, against tests/com/NAME.json:
     {"com": "hello.asm", "name": "HELLO.COM", "args": "", "exit": 0,
      "stdout": "hello.out",                       # tests/expected/, exact bytes
      "screen": {"10": {"col": 20, "text": "..."}},  # row 10 from column 20
+                                                  # (and the SHR pixels must show the text buffer)
      "keys": [{"at": 90, "key": "xtgs"}, {"at": 150, "coded": "{ENTER}"}]}
     {"bin": "third_party/msdos2/DEBUG.COM", "name": "DEBUG.COM",  # a real program
      "files": ["hello.txt"],                      # tests/data/ copied onto the volume
@@ -30,6 +31,7 @@ sys.path.insert(0, HERE)
 import mamerun  # noqa: E402
 import shr  # noqa: E402
 import symbols  # noqa: E402
+import textshr  # noqa: E402
 
 RES_BASE = 0x050000
 CAP_LEN, DIAG_UNH, DIAG_UNHN, DIAG_LAST = RES_BASE + 0x800, RES_BASE + 0x802, RES_BASE + 0x804, RES_BASE + 0x806
@@ -118,7 +120,12 @@ def run_test(path, syms, workdir, seconds):
     for i, row in enumerate(rows):
         if row.strip():
             print(f"  {i:2d}|{row.rstrip()}")
-    png, _lines = shr.render(bytes.fromhex(r["dumps"]["shr"]["hex"]))
+    shr_dump = bytes.fromhex(r["dumps"]["shr"]["hex"])
+    if textshr.is_text(shr_dump):                    # the pixels are the text buffer's
+        bad = textshr.mismatches(bytes.fromhex(r["dumps"]["txt"]["hex"]), shr_dump)
+        if bad:
+            problems.append(f"{len(bad)} screen cells do not show the text buffer (first row,col {bad[0]})")
+    png, _lines = shr.render(shr_dump)
     with open(os.path.join(workdir, name + ".png"), "wb") as f:
         f.write(png)
     if problems:

@@ -1004,7 +1004,8 @@ mli_glue
  phb
  phd
  php
- rep #$30
+ sei                       ; the DOC timer interrupt is live while a guest runs
+ rep #$30                  ; (sound.s): none across the switch to emulation mode
  pea $0000
  plb
  plb                       ; DBR = $00

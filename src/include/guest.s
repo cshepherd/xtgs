@@ -111,6 +111,7 @@ cga_bg     DS 2              ; $F6  CGA palette: background colour 0-15 (entry 0
 cga_pal    DS 2              ; $F8  CGA palette: select 0/1
 cga_int    DS 2              ; $FA  CGA palette: intensity 0/1
 cga_pd     DS 2              ; $FC  CGA palette: needs re-applying to the SHR
+vTICK      DS 2              ; $FE  IRQ0s owed: the DOC timer's interrupts not yet delivered
            DEND
 
 * JMP (abs) takes a bank-$00 address: the retire vector's.

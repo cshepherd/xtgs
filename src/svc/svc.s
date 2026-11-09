@@ -28,7 +28,9 @@
  jmp svc_flush             ; $040012  render dirty rows and the cursor
  jmp svc_pcinit            ; $040015  build IVT/BDA/BIOS stubs/PSP/env; A = PSP_SEG
  jmp svc_bootinit          ; $040018  Mode B: IVT/BDA/stubs, boot sector -> 7C00
- jmp svc_tickdue           ; $04001B  A = tick_due (then cleared); for the Mode B slot
+ jmp svc_sndopen           ; $04001B  take the DOC: speaker and the IRQ0 timer
+ jmp svc_sndclose          ; $04001E  give it back
+ jmp svc_sndport           ; $040021  a write to port A (40h-61h), value in tmp0
 
  put video.s
  put pcinit.s
@@ -37,6 +39,7 @@
  put files.s
  put disk.s
  put keyboard.s
+ put sound.s
  put capture.s
  put gen/font.s
  put gen/tables.s

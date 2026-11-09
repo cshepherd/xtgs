@@ -73,9 +73,35 @@ port_in8                   ; A = port -> A = value (8-bit in the low byte)
  beq :kbdata
  cmp #$0064
  beq :kbstat
+ cmp #$0040
+ beq :pit
+ cmp #$0042
+ beq :pit
+ cmp #$0061
+ beq :ppib
  cmp #$03DA
  beq :cgastat
  lda #$00FF
+ rts
+:ppib                      ; 8255 port B: what was written (the speaker bits a
+ lda cga_stat              ; program ORs into), with bits 4 and 5 moving as an
+ clc                       ; AT's refresh and timer-2 output do, so a loop that
+ adc #$0010                ; waits on either ends
+ sta cga_stat
+ and #$0030
+ sta tmp6
+ lda >SPK_PORT
+ and #$00CF
+ ora tmp6
+ rts
+:pit                       ; 8253 PIT counter: we don't model the real 1.19 MHz
+ lda vICOUNT               ; timer, but a free-running pseudo-random value keeps a
+ clc                       ; guest that seeds or samples the PIT (for an RNG or a
+ adc >PIT_CTR              ; busy-wait) from stalling. Mix the retired-instruction
+ clc                       ; count with an accumulating odd step so reads differ.
+ adc #$9E37
+ sta >PIT_CTR
+ and #$00FF
  rts
 :kbdata                    ; 8042 data: pop the next scancode (make/break)
  lda >KBD_QHEAD
@@ -130,6 +156,13 @@ port_in16
  rts
 port_out                   ; A = port, tmp0 = value
  mx %00
+ cmp #$0040                ; 40h-61h: the 8253 (channel 0 the IRQ0 rate, channel 2
+ bcc :other                ; the speaker's pitch) and the 8255's port B (speaker
+ cmp #$0062                ; gate and data): sound.s plays them on the DOC
+ bcs :other
+ jsl SVC_BASE+33           ; svc_sndport (keeps Y)
+ rts
+:other
  cmp #$03D8                ; CGA mode-control register (Lotus sets the mode here)
  beq :mctl
  cmp #$03D9                ; CGA colour-select register
