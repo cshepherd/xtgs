@@ -23,7 +23,7 @@ SVC_GEN   := src/svc/gen/font.s src/svc/gen/tables.s src/svc/gen/dostab.s
 SVC_SRCS  := src/svc/svc.s src/svc/video.s src/svc/pcinit.s src/svc/bios.s src/svc/dos.s \
              src/svc/files.s src/svc/disk.s src/svc/keyboard.s src/svc/capture.s $(SVC_GEN) $(INCLUDES)
 CORE_GEN  := src/core/gen/optab.s src/core/gen/eatab.s src/core/gen/alu.s src/core/gen/flagtab.s
-CORE_SRCS := src/core/core.s src/core/probe.s src/core/run.s src/core/cpu.s src/core/flags.s \
+CORE_SRCS := src/core/core.s src/core/probe.s src/core/run.s src/core/jit.s src/core/jit2.s src/core/cpu.s src/core/flags.s \
              src/core/ops_mov.s src/core/ops_ctrl.s src/core/ops_grp.s src/core/ops_str.s \
              src/core/ops_misc.s src/core/harness.s $(CORE_GEN) $(INCLUDES)
 
@@ -134,6 +134,9 @@ run: $(B)/xtgs.po
 # volume build/boot/boot.po with the disk image staged as DISK and the
 # command set to D, then opens it so you can type at the A:\> prompt.
 # Kernel init is slow (~15K guest IPS): the prompt takes a while to appear.
+# The floppy includes GW-BASIC 3.23 (if third_party/gwbasic/GWBASIC.EXE is
+# present): AUTOEXEC runs a demo, then at A:\> type GWBASIC for the live Ok
+# interpreter. See docs/mode-b.md.
 run-dos: $(B)/xtgs $(B)/core $(B)/svc $(FDIMG) tools/make_image.sh
 	@mkdir -p $(B)/boot
 	cp $(B)/xtgs $(B)/boot/XTGS.SYSTEM\#FF2000

@@ -380,6 +380,9 @@ cur_on     dw 0              ; an underline cursor is drawn
 cur_at     dw 0              ; where: col | row<<8
 blink      dw 0              ; frame counter; bit 5 = cursor visible
 tty_attr   dw $FFFF          ; $FFFF: teletype keeps the cell's attribute
+gfx_mode   dw 0              ; 0 = text; 4/5 = CGA 320x200x4 graphics (SCREEN 1)
+gfx_ctr    dw 0              ; frames until the next full CGA blit (throttle)
+GFX_THROTTLE = 59            ; blit the full screen every 60th frame (~1 Hz)
 
 mark_row                   ; A = row
  mx %00
@@ -501,6 +504,16 @@ svc_flush
  rtl
 flush
  mx %00
+ lda gfx_mode
+ beq :txt
+ dec gfx_ctr              ; CGA graphics: throttle the full-screen repack
+ bmi :doblit
+ rts
+:doblit
+ lda #GFX_THROTTLE
+ sta gfx_ctr
+ jmp gfx_blit             ; repack, skip text flush/cursor (rts)
+:txt
  jsr pages_to_rows
  lda dirty_any
  beq :cursor
@@ -910,3 +923,170 @@ blank_row                  ; row sv8, columns sv3..sv5 <- sv1
  bcc :b
  beq :b
  rts
+
+*==========================================================
+* CGA graphics (SCREEN 1): mode 4/5, 320x200x4. The guest's
+* CGA framebuffer is the same B800 segment ($2B:8000, 16 KB)
+* used for text, but as a bitmap: 2 bits a pixel, 4 pixels a
+* byte, 80 bytes a scanline, even scanlines at B800:0000 and
+* odd scanlines at B800:2000 (the CGA interleave). It is
+* repacked each frame into IIGS SHR 320 mode (4 bits a pixel,
+* 2 pixels a byte, 160 bytes a line, linear at $E1:2000) via
+* a 256-entry expand table. vid_setmode switches in and out.
+*==========================================================
+CGA_SRC    = $2B8000          ; B800:0000, the even field
+CGA_ODD    = $2BA000          ; B800:2000, the odd field
+
+* vid_setmode - A = BIOS video mode (low 7 bits). Modes 4 and
+* 5 select CGA 320 graphics; everything else is text. DBR=$04.
+vid_setmode
+ mx %00
+ and #$00FF
+ cmp #4
+ bcc :text                 ; 0-3: text
+ cmp #6
+ bcs :text                 ; 6,7: not 320 graphics (yet) -> text
+ sta gfx_mode              ; 4 or 5
+ jmp gfx_setup
+:text
+ stz gfx_mode
+ jsr init_shr              ; 640 text mode, text palette, pixels cleared
+ jmp vid_clear             ; blank the text buffer, home the cursor (rts)
+
+* gfx_setup - SHR to 320 mode, CGA palette, screen and the CGA
+* framebuffer cleared. DBR=$04.
+gfx_setup
+ mx %00
+ stz gfx_ctr               ; blit on the first graphics frame
+ ldx #0                    ; 200 SCBs = $00 (320 mode, palette 0)
+ lda #$0000
+:scb
+ sta >SHR_SCB,x
+ inx
+ inx
+ cpx #200
+ bcc :scb
+ lda #$0000                ; palette 0 = CGA SCREEN 1 default (palette 1)
+ sta >SHR_PAL
+ lda #$00FF                ; 1 = cyan
+ sta >SHR_PAL+2
+ lda #$0F0F                ; 2 = magenta
+ sta >SHR_PAL+4
+ lda #$0FFF                ; 3 = white
+ sta >SHR_PAL+6
+ ldx #0                    ; clear 32000 SHR pixel bytes
+ lda #0
+:clr
+ sta >SHR_PIX,x
+ inx
+ inx
+ cpx #32000
+ bcc :clr
+ lda #<CGA_SRC             ; clear the 16 KB CGA framebuffer
+ sta gDST
+ lda #^CGA_SRC
+ sta gDST+2
+ ldy #0
+ lda #0
+:cfb
+ sta [gDST],y
+ iny
+ iny
+ cpy #$4000
+ bcc :cfb
+ rts
+
+* gfx_blit - repack the whole CGA 320 framebuffer into SHR 320.
+* Runs once a frame while gfx_mode is set. DBR=$04.
+gfx_blit
+ mx %00
+ lda #<SHR_PIX
+ sta gDST
+ lda #^SHR_PIX
+ sta gDST+2                ; gDST = $E1:2000 (SHR line 0)
+ lda #$8000
+ sta gE                    ; even-field B800 offset
+ lda #$A000
+ sta gO                    ; odd-field B800 offset
+ stz gL
+:line
+ lda gL
+ lsr
+ bcc :even                 ; L even -> even field
+ lda gO
+ bra :setsrc
+:even
+ lda gE
+:setsrc
+ sta gSRC
+ lda #^CGA_SRC
+ sta gSRC+2                ; bank $2B
+ ldy #80                   ; 80 CGA bytes -> 160 SHR bytes
+:px
+ lda [gSRC]
+ and #$00FF
+ asl
+ tax
+ lda cga320_tab,x
+ sta [gDST]
+ inc gSRC
+ inc gDST
+ inc gDST
+ dey
+ bne :px
+ lda gL                    ; advance the field offset just used
+ lsr
+ bcc :bumpe
+ lda gO
+ clc
+ adc #80
+ sta gO
+ bra :nextline
+:bumpe
+ lda gE
+ clc
+ adc #80
+ sta gE
+:nextline
+ inc gL
+ lda gL
+ cmp #200
+ bcc :line
+ rts
+
+* cga320_tab - one CGA byte (4 pixels x 2 bits) -> a word = two
+* SHR 320 bytes (4 pixels x 4 bits). CGA pixel value n maps to
+* SHR palette index n (palette 0 holds the CGA colours).
+cga320_tab
+ dw $0000,$0100,$0200,$0300,$1000,$1100,$1200,$1300
+ dw $2000,$2100,$2200,$2300,$3000,$3100,$3200,$3300
+ dw $0001,$0101,$0201,$0301,$1001,$1101,$1201,$1301
+ dw $2001,$2101,$2201,$2301,$3001,$3101,$3201,$3301
+ dw $0002,$0102,$0202,$0302,$1002,$1102,$1202,$1302
+ dw $2002,$2102,$2202,$2302,$3002,$3102,$3202,$3302
+ dw $0003,$0103,$0203,$0303,$1003,$1103,$1203,$1303
+ dw $2003,$2103,$2203,$2303,$3003,$3103,$3203,$3303
+ dw $0010,$0110,$0210,$0310,$1010,$1110,$1210,$1310
+ dw $2010,$2110,$2210,$2310,$3010,$3110,$3210,$3310
+ dw $0011,$0111,$0211,$0311,$1011,$1111,$1211,$1311
+ dw $2011,$2111,$2211,$2311,$3011,$3111,$3211,$3311
+ dw $0012,$0112,$0212,$0312,$1012,$1112,$1212,$1312
+ dw $2012,$2112,$2212,$2312,$3012,$3112,$3212,$3312
+ dw $0013,$0113,$0213,$0313,$1013,$1113,$1213,$1313
+ dw $2013,$2113,$2213,$2313,$3013,$3113,$3213,$3313
+ dw $0020,$0120,$0220,$0320,$1020,$1120,$1220,$1320
+ dw $2020,$2120,$2220,$2320,$3020,$3120,$3220,$3320
+ dw $0021,$0121,$0221,$0321,$1021,$1121,$1221,$1321
+ dw $2021,$2121,$2221,$2321,$3021,$3121,$3221,$3321
+ dw $0022,$0122,$0222,$0322,$1022,$1122,$1222,$1322
+ dw $2022,$2122,$2222,$2322,$3022,$3122,$3222,$3322
+ dw $0023,$0123,$0223,$0323,$1023,$1123,$1223,$1323
+ dw $2023,$2123,$2223,$2323,$3023,$3123,$3223,$3323
+ dw $0030,$0130,$0230,$0330,$1030,$1130,$1230,$1330
+ dw $2030,$2130,$2230,$2330,$3030,$3130,$3230,$3330
+ dw $0031,$0131,$0231,$0331,$1031,$1131,$1231,$1331
+ dw $2031,$2131,$2231,$2331,$3031,$3131,$3231,$3331
+ dw $0032,$0132,$0232,$0332,$1032,$1132,$1232,$1332
+ dw $2032,$2132,$2232,$2332,$3032,$3132,$3232,$3332
+ dw $0033,$0133,$0233,$0333,$1033,$1133,$1233,$1333
+ dw $2033,$2133,$2233,$2333,$3033,$3133,$3233,$3333

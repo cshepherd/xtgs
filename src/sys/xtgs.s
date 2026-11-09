@@ -287,8 +287,11 @@ start
 :nodisk
  lda mb_cmd+1
  cmp #'B'
+ beq :loadbench
+ cmp #'K'                  ; K: JIT runs the same bench at 0000:0100
  bne :loaded
- lda #7                    ; B: the bench program into guest 0000:0100
+:loadbench
+ lda #7                    ; load the bench program into guest 0000:0100
  sta mb_stage
  lda #<path_bench
  sta ld_path

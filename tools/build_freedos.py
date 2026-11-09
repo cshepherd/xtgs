@@ -40,15 +40,46 @@ def main():
                     os.path.join(OUT, "boot.asm")], check=True)
     with open(os.path.join(OUT, "FDCONFIG.SYS"), "w", newline="\r\n") as f:
         f.write("LASTDRIVE=Z\nSHELL=A:\\COMMAND.COM /P\n")
+    # A short BASIC program GW-BASIC loads and runs, then exits to DOS. A
+    # headless boot then proves GW-BASIC launched, rendered (its direct B800
+    # writes) and ran guest BASIC, without needing interactive keystrokes.
+    with open(os.path.join(OUT, "HELLO.BAS"), "w", newline="\r\n") as f:
+        f.write('10 PRINT "HELLO FROM GW-BASIC 3.23 ON XT/GS"\n'
+                '20 PRINT "2 + 2 ="; 2 + 2\n'
+                '30 SYSTEM\n')
+    # CGA 320x200 graphics (SCREEN 1) demo. Loops at the end so a headless
+    # boot can screenshot the drawn frame.
+    with open(os.path.join(OUT, "CGADEMO.BAS"), "w", newline="\r\n") as f:
+        f.write('10 SCREEN 1\n'
+                '20 CLS\n'
+                '30 LINE (0,0)-(319,199),1\n'
+                '40 LINE (319,0)-(0,199),2\n'
+                '50 LINE (40,30)-(279,170),3,B\n'
+                '60 CIRCLE (160,100),70,3\n'
+                '70 A$=INPUT$(1)\n'
+                '80 SCREEN 0:SYSTEM\n')
     with open(os.path.join(OUT, "AUTOEXEC.BAT"), "w", newline="\r\n") as f:
-        f.write("@ECHO OFF\nECHO XT/GS: FreeDOS booted.\nVER\n")
+        f.write("@ECHO OFF\n"
+                "ECHO XT/GS: FreeDOS booted. CGA demo (press a key to exit to A:).\n"
+                "GWBASIC CGADEMO.BAS\n")
+    # GW-BASIC 3.23 (third_party/gwbasic/, not fetched by fetch_dos.py); added
+    # only if present so the FreeDOS image still builds without it.
+    gwbasic = os.path.join(ROOT, "third_party", "gwbasic", "GWBASIC.EXE")
+    files = [
+        "KERNEL.SYS=" + os.path.join(OUT, "KERNEL.SYS"),
+        "COMMAND.COM=" + os.path.join(OUT, "COMMAND.COM"),
+        "FDCONFIG.SYS=" + os.path.join(OUT, "FDCONFIG.SYS"),
+        "AUTOEXEC.BAT=" + os.path.join(OUT, "AUTOEXEC.BAT"),
+        "HELLO.BAS=" + os.path.join(OUT, "HELLO.BAS"),
+        "CGADEMO.BAS=" + os.path.join(OUT, "CGADEMO.BAS"),
+    ]
+    if os.path.exists(gwbasic):
+        files.append("GWBASIC.EXE=" + gwbasic)
+    else:
+        print("note: " + gwbasic + " absent; image built without GW-BASIC")
     img = os.path.join(OUT, "freedos.img")
     subprocess.run([sys.executable, "-I", os.path.join(HERE, "make_fat12.py"),
-                    os.path.join(OUT, "boot.bin"), img,
-                    "KERNEL.SYS=" + os.path.join(OUT, "KERNEL.SYS"),
-                    "COMMAND.COM=" + os.path.join(OUT, "COMMAND.COM"),
-                    "FDCONFIG.SYS=" + os.path.join(OUT, "FDCONFIG.SYS"),
-                    "AUTOEXEC.BAT=" + os.path.join(OUT, "AUTOEXEC.BAT")], check=True)
+                    os.path.join(OUT, "boot.bin"), img] + files, check=True)
     print(f"built {img}")
 
 

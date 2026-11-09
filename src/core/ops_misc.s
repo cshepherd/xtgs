@@ -61,14 +61,36 @@ op_D6                      ; salc (undocumented): AL = CF ? $FF : 0
  mx %00
  jmp (NEXTVEC)
 
-*--- ports: no devices yet; reads return the open bus
+*--- ports: mostly open bus. The CGA status register 3DAh is
+* special: GW-BASIC (and other CGA code) polls its display-enable
+* (bit 0) and vertical-retrace (bit 3) bits and waits on the edges
+* before touching video memory. Return a value that toggles both
+* each read so those wait loops always terminate promptly.
+cga_stat   dw 0
 port_in8                   ; A = port -> A = value (8-bit in the low byte)
  mx %00
+ cmp #$03DA
+ beq :cgastat
  lda #$00FF
+ rts
+:cgastat
+ lda cga_stat              ; free-running: all (bit0,bit3) states appear
+ inc
+ sta cga_stat
+ and #$00FF
  rts
 port_in16
  mx %00
+ cmp #$03DA
+ beq :cgastat
  lda #$FFFF
+ rts
+:cgastat
+ lda cga_stat
+ inc
+ sta cga_stat
+ and #$00FF
+ ora #$FF00
  rts
 port_out                   ; A = port, tmp0 = value
  mx %00

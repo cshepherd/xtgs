@@ -26,8 +26,12 @@ make run          Ample's MAME with the claudebridge Lua bridge
 
 The core's command comes from `XTGS.CMD` on the volume: `P` probe, `V` run
 the vectors in `VEC`, `B` run `BENCH` at 0000:0100 until HLT, `C NAME args`
-run the .COM file NAME under the stub BIOS/DOS (docs/dos-api.md). Never rebuild
-while a sweep is running: it reads `build/stage/` and `build/xtgs.lst`.
+run the .COM file NAME under the stub BIOS/DOS (docs/dos-api.md), `D` boot the
+`DISK` image (Mode B, `make run-dos` / `tools/boot_dos.py`; docs/mode-b.md),
+`J` the M6 JIT spike (hand-translated `BENCH` loop; `tools/jit_spike.py`), `K`
+the M6 runtime block translator on `BENCH` (`src/core/jit2.s`; docs/jit.md).
+Never rebuild while a sweep is running: it reads `build/stage/` and
+`build/xtgs.lst`.
 
 Toolchain: `merlin32` 1.1.10, `cadius`, Homebrew `mame` (headless runs) and
 Ample's `mame64` with its ROM set in `~/Library/Application Support/Ample`,

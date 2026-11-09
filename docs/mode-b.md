@@ -46,6 +46,24 @@ and reports the guest state, INT 13h count and screen.
   IPS (kernel init plus the COMMAND.COM load is a lot of guest work); it is
   not a hang.
 
+- **Real DOS applications run.** GW-BASIC 3.23 (`GWBASIC.EXE`, 80 KB; in
+  `third_party/gwbasic/`, added to the floppy by `tools/build_freedos.py` when
+  present) launches under FreeDOS and works: FreeDOS loads and relocates the
+  `.EXE`, and XT/GS supplies only the CPU, INT 10h/16h and the direct video
+  path. GW-BASIC bypasses INT 10h and writes straight to the B800 text buffer;
+  those stores are caught by the core's `VID_DIRTY` page marks (`cpu.s`) and
+  rendered by `svc_flush`, so its output appears on the SHR screen. The default
+  `AUTOEXEC.BAT` runs `GWBASIC HELLO.BAS`, which prints and computes, then
+  `SYSTEM` returns to `A:\>`; a headless `make boot-dos` captures the result.
+  At the `A:\>` prompt (`make run-dos`) typing `GWBASIC` gives the live `Ok`
+  interpreter with real keyboard input.
+
+- **CGA graphics (`SCREEN 1`, 320x200x4) render** (`docs/cga.md`). GW-BASIC's
+  `LINE`/`CIRCLE`/etc. draw straight into the B800 bitmap and XT/GS repacks it
+  onto the SHR screen in 320 mode. `AUTOEXEC` runs `CGADEMO.BAS` (an X, a box,
+  a circle) as the headless proof. Modes 4/5 only; fixed palette; the repack is
+  throttled to ~1 Hz (dirty-region blitting is the production follow-up).
+
 ## The find-file bug (fixed)
 
 For a long time the boot sector's `repe cmpsb` in the find-file loop returned

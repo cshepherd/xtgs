@@ -90,6 +90,19 @@ pARG       DS 4              ; $BC  services: a second guest pointer (parse sour
 pIMG       DS 4              ; $C0  Mode B: host pointer into the disk image
 vTRACE     DS 2              ; $C4  nonzero: log each retired instruction to the ring
 vTRPTR     DS 2              ; $C6  ring write index (bytes, wraps at TRACE_LEN)
+pEMIT      DS 4              ; $C8  M6 JIT: emit pointer into the code cache ($06:off)
+jEntry     DS 2              ; $CC  native offset where the block being built started
+pMAP       DS 4              ; $CE  pointer to the current block-map slot
+jLIN       DS 4              ; $D2  guest linear IP (CS*16+IP, 20 bits)
+jtmp       DS 2              ; $D6
+jtmp2      DS 2              ; $D8
+jPrevFlag  DS 2              ; $DA  JIT: DP offset the last emitted flag-op wrote (0 none)
+pENTER     DS 4              ; $DC  JIT: pointer used by jml [] to enter a block
+gSRC       DS 4              ; $E0  CGA blit: source pointer (B800 field)
+gDST       DS 4              ; $E4  CGA blit: dest pointer (SHR line)
+gE         DS 2              ; $E8  CGA blit: even-field running B800 offset
+gO         DS 2              ; $EA  CGA blit: odd-field running B800 offset
+gL         DS 2              ; $EC  CGA blit: line counter 0..199
            DEND
 
 * JMP (abs) takes a bank-$00 address: the retire vector's.

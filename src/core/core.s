@@ -14,6 +14,8 @@
 *   B        run the program at 0000:0100 until HLT; MB_RUNIDX is
 *            $BE57 while it runs and $D04E after, MB_ICOUNT the
 *            retired-instruction count (bench, tools/bench.py)
+*   J        M6 JIT spike: run the hand-translated native reg loop
+*            with the same MB_RUNIDX marks (tools/jit_spike.py)
 *----------------------------------------------------------
  typ $06
  dsk core
@@ -54,7 +56,17 @@ core_entry
  beq :com
  cmp #'D'
  beq :boot
+ cmp #'J'
+ beq :jit
+ cmp #'K'
+ beq :jitk
  lda #$FFFF                ; unknown command
+ bra :exit
+:jit
+ jsr jit_run
+ bra :exit
+:jitk
+ jsr jitk_run
  bra :exit
 :com
  jsr com_run
@@ -78,6 +90,8 @@ core_entry
 
  put probe.s
  put run.s
+ put jit.s
+ put jit2.s
  put cpu.s
  put flags.s
  put ops_mov.s

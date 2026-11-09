@@ -231,7 +231,7 @@ v10_tab da v10_00,v10_01,v10_02,v10_03,v10_nop,v10_nop,v10_06,v10_07
 v10_nop
  mx %00
  rts
-v10_00                     ; set mode: text modes only; clear unless AL bit 7
+v10_00                     ; set mode: text, or CGA 320 graphics (4/5)
  mx %00
  lda rAX
  and #$007F
@@ -242,11 +242,8 @@ v10_00                     ; set mode: text modes only; clear unless AL bit 7
  sta >H_BDA+BDA_VMODE
  rep #$20
  mx %00
- lda rAX
- and #$0080
- bne :noclear
- jsr vid_clear
-:noclear
+ lda sv8
+ jsr vid_setmode
  rts
 v10_01                     ; cursor shape
  mx %00
