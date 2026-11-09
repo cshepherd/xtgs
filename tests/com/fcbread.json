@@ -1,0 +1,2 @@
+{"com": "fcbread.asm", "name": "FCBREAD.COM", "args": "", "files": ["hello.txt"],
+ "stdout_contains": ["AL="], "show_output": true, "no_unhandled": false, "exit": 0}

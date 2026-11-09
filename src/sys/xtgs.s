@@ -250,10 +250,8 @@ start
  stz ld_alloc
  ldx #$50
  jsr load_file
- lda mb_filelen+2          ; a .COM is at most 65,024 bytes
- bne :toobig
- lda mb_filelen+1
- cmp #$FE
+ lda mb_filelen+2          ; a program fits below A000:0000 (576 KB)
+ cmp #9
  bcc :loaded
 :toobig
  ldx #$5F

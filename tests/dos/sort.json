@@ -1,0 +1,14 @@
+{
+ "bin": "third_party/msdos2/SORT.EXE",
+ "name": "SORT.EXE",
+ "args": "< WORDS.TXT",
+ "files": [
+  "words.txt"
+ ],
+ "stdout_contains": [
+  "apple\r\nmango\r\npear"
+ ],
+ "show_output": true,
+ "no_unhandled": false,
+ "exit": 0
+}

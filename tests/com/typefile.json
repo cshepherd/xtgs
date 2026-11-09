@@ -1,0 +1,3 @@
+{"com": "typefile.asm", "name": "TYPEFILE.COM", "args": "", "files": ["hello.txt"],
+ "stdout_contains": ["first line", "second line", "third line, with a longer tail of text"],
+ "show_output": true, "no_unhandled": false, "exit": 0}

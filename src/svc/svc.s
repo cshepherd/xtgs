@@ -32,6 +32,7 @@
  put pcinit.s
  put bios.s
  put dos.s
+ put files.s
  put keyboard.s
  put capture.s
  put gen/font.s

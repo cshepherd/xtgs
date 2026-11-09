@@ -1,0 +1,17 @@
+{
+ "bin": "third_party/msdos2/FIND.EXE",
+ "name": "FIND.EXE",
+ "args": "\"line\" HELLO.TXT",
+ "files": [
+  "hello.txt"
+ ],
+ "stdout_contains": [
+  "HELLO.TXT",
+  "first line",
+  "second line",
+  "third line"
+ ],
+ "show_output": true,
+ "no_unhandled": false,
+ "exit": 0
+}

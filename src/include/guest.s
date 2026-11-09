@@ -85,6 +85,8 @@ vEASEG     DS 2              ; $B0  DP offset of the segment base the last EA us
 vEXIT      DS 2              ; $B2  program exit code (hypercall terminate)
 vVBL       DS 2              ; $B4  last sampled VBL state ($0080 / 0)
 vPCMODE    DS 2              ; $B6  nonzero: the slot runs the PC's VBL work
+pDTA       DS 4              ; $B8  services: host pointer to the DTA
+pARG       DS 4              ; $BC  services: a second guest pointer (parse source, PSP copy)
            DEND
 
 * JMP (abs) takes a bank-$00 address: the retire vector's.

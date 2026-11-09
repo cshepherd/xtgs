@@ -3,7 +3,8 @@
 #   make             build/xtgs.po: XTGS.SYSTEM + CORE + SVC, command P (probe)
 #   make test-m0     boot it headless in MAME; judge the memory probe and the
 #                    80x25 test frame (build/m0.png)
-#   make test-cpu OP=xx   SingleStepTests vectors; make test-com   the .COM programs
+#   make test-cpu OP=xx   SingleStepTests vectors; make test-com   nasm .COM programs
+#   make test-dos         independently sourced DOS utilities (third_party/)
 #   make run         boot the image in Ample's MAME with the claudebridge plugin
 #   make clean
 #
@@ -19,13 +20,13 @@ INCLUDES  := src/include/hw.s src/include/mailbox.s src/include/guest.s src/incl
 SYS_SRCS  := src/sys/xtgs.s $(INCLUDES)
 SVC_GEN   := src/svc/gen/font.s src/svc/gen/tables.s src/svc/gen/dostab.s
 SVC_SRCS  := src/svc/svc.s src/svc/video.s src/svc/pcinit.s src/svc/bios.s src/svc/dos.s \
-             src/svc/keyboard.s src/svc/capture.s $(SVC_GEN) $(INCLUDES)
+             src/svc/files.s src/svc/keyboard.s src/svc/capture.s $(SVC_GEN) $(INCLUDES)
 CORE_GEN  := src/core/gen/optab.s src/core/gen/eatab.s src/core/gen/alu.s src/core/gen/flagtab.s
 CORE_SRCS := src/core/core.s src/core/probe.s src/core/run.s src/core/cpu.s src/core/flags.s \
              src/core/ops_mov.s src/core/ops_ctrl.s src/core/ops_grp.s src/core/ops_str.s \
              src/core/ops_misc.s src/core/harness.s $(CORE_GEN) $(INCLUDES)
 
-.PHONY: all image test-m0 test-cpu test-com bench run clean lint
+.PHONY: all image test-m0 test-cpu test-com test-dos bench run clean lint
 
 all: $(B)/xtgs.po
 
@@ -102,6 +103,12 @@ test-cpu: $(B)/xtgs.po
 COM ?=
 test-com: $(B)/xtgs.po
 	$(PY) tools/judge_com.py $(if $(COM),tests/com/$(COM).json,)
+
+# The independently sourced DOS programs (third_party/, fetched by
+# tools/fetch_dos.py). tests/dos/NAME.json names the binary and its checks.
+test-dos: $(B)/xtgs.po
+	$(PY) tools/fetch_dos.py
+	$(PY) tools/judge_com.py $(if $(DOS),tests/dos/$(DOS).json,$(wildcard tests/dos/*.json))
 
 # Guest instructions a second, stock 2.8 MHz and 16 MHz ZipGS, from MAME's
 # emulated frame count around each tests/bench/*.asm program (nasm).

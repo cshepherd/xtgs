@@ -4,13 +4,14 @@
 * capture/diagnostic area in bank $05.
 *----------------------------------------------------------
 PSP_SEG    = $1000           ; program segment prefix; the program at PSP:0100
-ENV_SEG    = $0FF0           ; environment block (256 bytes at phys FF00)
+ENV_SEG    = $0FE0           ; environment block (256 bytes at phys FE00)
 BIOS_SEG   = $F000           ; stub BIOS: 256 five-byte hypercall stubs
 TOP_PARA   = $A000           ; 640 KB
 
 H_IVT      = GUEST_BASE          ; $200000
 H_BDA      = GUEST_BASE+$400     ; $200400
-H_ENV      = GUEST_BASE+$FF00    ; $20FF00
+H_ENV      = GUEST_BASE+$FE00    ; $20FE00
+H_MCB      = GUEST_BASE+$FFF0    ; the one memory control block, below the PSP
 H_PSP      = GUEST_BASE+$10000   ; $210000
 H_COM      = GUEST_BASE+$10100   ; $210100  (the loader puts the .COM here)
 H_TXTBANK  = $2B0000             ; text buffer bank; cells at $8000 + row*160 + col*2
@@ -18,6 +19,12 @@ H_TXT      = $2B8000
 H_BIOS     = GUEST_BASE+$F0000   ; $2F0000
 STUB_LEN   = 5                   ; FE 38 lo hi CF
 CALL5_OFF  = $0500               ; PSP:0005's far target: mov ah,cl / int 21h / retf
+DOSDATA_SEG = $F800              ; DOS's visible data: the fake DPB and list of lists
+H_DOSDATA  = GUEST_BASE+$F8000
+DPB_OFF    = $0040               ; DPB at F800:0040
+LOL_OFF    = $0082               ; list of lists at F800:0082 (first MCB word at -2)
+MCB_FIRST  = $0FFF               ; our one MCB, just below the PSP
+VID_DIRTY  = RES_BASE+$900       ; 16 bytes: a 256-byte page of B800 was written (core hook)
 
 * BIOS data area (offsets from 0040:0000)
 BDA_EQUIP  = $10             ; u16 equipment word
@@ -45,5 +52,7 @@ CAP_LEN    = RES_BASE+$800   ; u16 bytes captured
 DIAG_UNH   = RES_BASE+$802   ; u16 first unhandled: vector | AH<<8 ($FFFF none)
 DIAG_UNHN  = RES_BASE+$804   ; u16 unhandled calls
 DIAG_LAST  = RES_BASE+$806   ; u16 last INT 21h function seen (AH)
+DIAG_FNMAP = RES_BASE+$810   ; 16 bytes: bit AH set for each unhandled/failed INT 21h function
+DIAG_INTMAP = RES_BASE+$820  ; 32 bytes: bit n set for each unhandled INT n
 CAP_BUF    = RES_BASE+$1000
 CAP_MAX    = $7000

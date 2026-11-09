@@ -112,6 +112,10 @@ str_dst                    ; pDST = ES:DI
  and #$000F
  ora #GUEST_BANK
  sta pDST+2
+ cmp #^H_TXT
+ bne :ok
+ jmp vid_mark_dst
+:ok
  rts
 adv_si1
  mx %00

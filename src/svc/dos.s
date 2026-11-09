@@ -171,7 +171,9 @@ dos_0A                     ; buffered line input at DS:DX
  lda [pGST]
  and #$00FF
  sta sv6                   ; max (including the CR)
- beq :end
+ bne :lj1
+ jmp :end
+:lj1
  stz sv7                   ; count
 :key
  jsr dos_getkey
@@ -357,30 +359,19 @@ dos_36                     ; disk free space (a fixed, plausible disk)
  lda #2000
  sta rDX
  rts
-dos_3C                     ; create / open: no files yet (M3)
-dos_3D
-dos_4B
- mx %00
- lda #2                    ; file not found
-dos_fail
- mx %00
- sta rAX
- jsr set_cf
- lda #$21
- jmp note_unhandled
-dos_41
-dos_43
-dos_56
+dos_4B                     ; exec: not yet
  mx %00
  lda #2
- jmp dos_fail
-dos_3E                     ; close: fine
+dos_fail                   ; A = DOS error: noted (with the function in AH), then AX, CF
  mx %00
- jmp clr_cf
-dos_3F                     ; read handle BX: stdin reads a line
+ pha
+ lda #$21
+ jsr note_unhandled
+ pla
+ sta rAX
+ jmp set_cf
+dos_3F_con                 ; read handle: the console reads a line
  mx %00
- lda rBX
- bne :bad
  jsr read_line             ; linebuf, sv7 = length including CR LF
  ldx #bDS
  lda rDX
@@ -390,7 +381,7 @@ dos_3F                     ; read handle BX: stdin reads a line
  bcc :n
  lda sv7
 :n
- sta sv6                   ; bytes to copy
+ sta sv6
  sta rAX
  ldy #0
 :cp
@@ -408,19 +399,8 @@ dos_3F                     ; read handle BX: stdin reads a line
  bra :cp
 :done
  jmp clr_cf
-:bad
- lda #6
- jmp dos_fail
-dos_40                     ; write handle BX: 1 and 2 are the console
+dos_40_con                 ; write handle: the console
  mx %00
- lda rBX
- cmp #1
- beq :con
- cmp #2
- beq :con
- lda #6
- jmp dos_fail
-:con
  ldx #bDS
  lda rDX
  jsr gptr
@@ -436,20 +416,40 @@ dos_40                     ; write handle BX: 1 and 2 are the console
  lda rCX
  sta rAX
  jmp clr_cf
-dos_42                     ; seek: no files
- mx %00
- lda #6
- jmp dos_fail
-dos_44                     ; IOCTL: AL=0 get device info for the console handles
+dos_44                     ; IOCTL: AL=0 device info for BX
  mx %00
  lda rAX
  and #$00FF
- bne :unk
+ bne :other
  lda rBX
- cmp #3
+ jsr h_lookup
  bcs :bad
+ lda htab,x
+ and #$00FF
+ cmp #H_FILE
+ beq :file
+ lda htab,x
+ xba
+ and #$00FF
+ beq :con
+ lda #$80C4                ; NUL and the rest: a device, not the console
+ bra :info
+:con
  lda #$80D3
+ bra :info
+:file
+ lda #$0002                ; drive C, a file
+:info
  sta rDX
+ jmp clr_cf
+:other
+ cmp #1
+ beq :ok
+ cmp #8                    ; removable? no
+ bne :unk
+ stz rAX
+ jmp clr_cf
+:ok
  jmp clr_cf
 :bad
  lda #6
@@ -457,18 +457,6 @@ dos_44                     ; IOCTL: AL=0 get device info for the console handles
 :unk
  lda #1
  jmp dos_fail
-dos_47                     ; current directory: the root
- mx %00
- ldx #bDS
- lda rSI
- jsr gptr
- sep #$20
- mx %10
- lda #0
- sta [pGST]
- rep #$20
- mx %00
- jmp clr_cf
 dos_48                     ; allocate BX paragraphs
  mx %00
  lda alloc_next
@@ -499,11 +487,393 @@ dos_4D                     ; child's return code
  mx %00
  stz rAX
  rts
-dos_51                     ; PSP segment
+cur_psp    dw 0
+dos_50                     ; set current PSP = BX
+ mx %00
+ lda rBX
+ sta cur_psp
+ rts
+dos_51                     ; get current PSP -> BX
 dos_62
  mx %00
- lda #PSP_SEG
+ lda cur_psp
  sta rBX
+ rts
+dos_26                     ; create a PSP at segment DX: a copy of the current one
+ mx %00
+ lda rDX
+ asl
+ asl
+ asl
+ asl
+ sta pGST
+ lda rDX
+ xba
+ lsr
+ lsr
+ lsr
+ lsr
+ and #$000F
+ ora #GUEST_BANK
+ sta pGST+2
+ lda cur_psp               ; source: the current PSP
+ asl
+ asl
+ asl
+ asl
+ sta pARG
+ lda cur_psp
+ xba
+ lsr
+ lsr
+ lsr
+ lsr
+ and #$000F
+ ora #GUEST_BANK
+ sta pARG+2
+ ldy #0
+:c
+ lda [pARG],y
+ sta [pGST],y
+ iny
+ iny
+ cpy #256
+ bcc :c
+ lda cur_psp               ; parent
+ ldy #$16
+ sta [pGST],y
+ ldy #$0A                  ; the vectors 22h 23h 24h as they are now
+ ldx #$22*4
+:v
+ lda >H_IVT,x
+ sta [pGST],y
+ iny
+ iny
+ inx
+ inx
+ cpx #$25*4
+ bcc :v
+ rts
+dos_37                     ; switch character: AL=0 get -> DL='/'
+ mx %00
+ lda rAX
+ and #$00FF
+ bne :set
+ lda rDX
+ and #$FF00
+ ora #'/'
+ sta rDX
+:set
+ lda #0
+ jmp set_al
+dos_1F                     ; default drive parameter block -> DS:BX (a fixed, plausible one)
+ mx %00
+ lda #DOSDATA_SEG
+ sta rDS
+ jsr svc_set_ds
+ lda #DPB_OFF
+ sta rBX
+ lda #0
+ jmp set_al
+dos_52                     ; list of lists -> ES:BX (undocumented; a stub block)
+ mx %00
+ lda #DOSDATA_SEG
+ sta rES
+ jsr svc_set_es
+ lda #LOL_OFF
+ sta rBX
+ rts
+dos_29                     ; parse filename DS:SI -> FCB at ES:DI; AL flags
+ mx %00
+ ldx #bDS
+ lda rSI
+ jsr gptr                  ; pGST = source
+ lda pGST
+ sta pARG
+ lda pGST+2
+ sta pARG+2
+ ldx #bES
+ lda rDI
+ jsr gptr                  ; pGST = the FCB
+ lda rAX
+ and #$00FF
+ sta sv4                   ; flags
+ jsr parse_fcb             ; from [pARG] into [pGST]; sv5 = chars consumed, A = result
+ pha
+ lda rSI
+ clc
+ adc sv5
+ sta rSI
+ pla
+ jmp set_al
+
+* parse_fcb - the filename at [pARG] (ASCIIZ-ish) into the FCB at [pGST]:
+* drive, 8 name, 3 ext ('*' fills '?'); sv4 = AL flags (bit 0 skip leading
+* separators, bit 1 keep the drive when none given, bits 2/3 keep name/ext
+* when none given). sv5 = bytes consumed. A = 0 no wildcards, 1 wildcards,
+* $FF invalid drive.
+parse_fcb
+ mx %00
+ stz sv5
+ stz sv6                   ; wildcard seen
+ ldy #0
+ lda sv4
+ and #1
+ beq :nosep
+:sep
+ lda [pARG],y
+ and #$00FF
+ jsr is_sep
+ bcc :nosep
+ iny
+ bra :sep
+:nosep
+:sp
+ lda [pARG],y
+ and #$00FF
+ cmp #' '
+ beq :spc
+ cmp #9
+ bne :drive
+:spc
+ iny
+ bra :sp
+:drive
+ lda [pARG],y
+ and #$00FF
+ beq :nodrive
+ pha
+ iny
+ lda [pARG],y
+ and #$00FF
+ cmp #':'
+ bne :notdrive
+ pla
+ and #$5F
+ sec
+ sbc #'A'-1
+ sta sv7
+ iny
+ sep #$20
+ mx %10
+ lda sv7
+ sta [pGST]
+ rep #$20
+ mx %00
+ bra :name
+:notdrive
+ pla
+ dey
+:nodrive
+ lda sv4
+ and #2
+ bne :name
+ sep #$20
+ mx %10
+ lda #0
+ sta [pGST]
+ rep #$20
+ mx %00
+:name
+ ldx #1
+ lda [pARG],y
+ and #$00FF
+ jsr is_term
+ bcc :lj2
+ jmp :nameblank
+:lj2
+:nl
+ lda [pARG],y
+ and #$00FF
+ cmp #'.'
+ bne :lj3
+ jmp :dot
+:lj3
+ jsr is_term
+ bcs :namepad
+ cmp #'*'
+ beq :nstar
+ cmp #'a'
+ bcc :nup
+ cmp #'z'+1
+ bcs :nup
+ and #$5F
+:nup
+ cmp #'?'
+ bne :nq
+ inc sv6
+:nq
+ cpx #9
+ bcs :nskip
+ jsr fcb_putc
+:nskip
+ iny
+ bra :nl
+:nstar
+ inc sv6
+ iny
+:nfill
+ cpx #9
+ bcs :nl2
+ lda #'?'
+ jsr fcb_putc
+ bra :nfill
+:nl2
+ lda [pARG],y              ; skip the rest of the name part
+ and #$00FF
+ cmp #'.'
+ beq :dot
+ jsr is_term
+ bcs :namepad
+ iny
+ bra :nl2
+:namepad
+ cpx #9
+ bcc :lj4
+ jmp :ext0
+:lj4
+ lda #' '
+ jsr fcb_putc
+ bra :namepad
+:nameblank                 ; no name: blanks unless bit 2 says keep
+ lda sv4
+ and #4
+ beq :lj5
+ jmp :ext0
+:lj5
+ bra :namepad
+:dot
+ iny
+ jsr pad_name
+ ldx #9
+:el
+ lda [pARG],y
+ and #$00FF
+ jsr is_term
+ bcs :extpad
+ cmp #'*'
+ beq :estar
+ cmp #'a'
+ bcc :eup
+ cmp #'z'+1
+ bcs :eup
+ and #$5F
+:eup
+ cmp #'?'
+ bne :eq
+ inc sv6
+:eq
+ cpx #12
+ bcs :eskip
+ jsr fcb_putc
+:eskip
+ iny
+ bra :el
+:estar
+ inc sv6
+ iny
+:efill
+ cpx #12
+ bcs :el2
+ lda #'?'
+ jsr fcb_putc
+ bra :efill
+:el2
+ lda [pARG],y
+ and #$00FF
+ jsr is_term
+ bcs :extpad
+ iny
+ bra :el2
+:extpad
+ cpx #12
+ bcs :done
+ lda #' '
+ jsr fcb_putc
+ bra :extpad
+:ext0                      ; no extension given
+ lda sv4
+ and #8
+ bne :done
+ ldx #9
+ bra :extpad
+:done
+ sty sv5
+ lda sv6
+ beq :nowild
+ lda #1
+ rts
+:nowild
+ lda #0
+ rts
+pad_name                   ; blanks to the end of the name field (X -> 9)
+ mx %00
+ cpx #9
+ bcs :d
+ lda #' '
+ jsr fcb_putc
+ bra pad_name
+:d
+ rts
+fcb_putc                   ; A (low) -> [pGST],x (X = field offset 1-11), X++
+ mx %00
+ sta sv9
+ phy
+ txy
+ sep #$20
+ mx %10
+ lda sv9
+ sta [pGST],y
+ rep #$20
+ mx %00
+ ply
+ inx
+ rts
+is_sep                     ; A = char: C set if a DOS filename separator  : ; , = + and white space
+ mx %00
+ cmp #':'
+ beq :y
+ cmp #$3B                  ; ';'
+ beq :y
+ cmp #$2C                  ; ','
+ beq :y
+ cmp #'='
+ beq :y
+ cmp #'+'
+ beq :y
+ cmp #' '
+ beq :y
+ cmp #9
+ beq :y
+ clc
+ rts
+:y
+ sec
+ rts
+is_term                    ; A = char: C set if it ends a filename (NUL CR separators / \ [ ] | < > ")
+ mx %00
+ beq :y
+ cmp #$0D
+ beq :y
+ cmp #'/'
+ beq :y
+ cmp #$5C                  ; backslash
+ beq :y
+ cmp #'['
+ beq :y
+ cmp #']'
+ beq :y
+ cmp #'|'
+ beq :y
+ cmp #'<'
+ beq :y
+ cmp #'>'
+ beq :y
+ cmp #$22
+ beq :y
+ jmp is_sep
+:y
+ sec
  rts
 dos_54                     ; verify flag: off
  mx %00

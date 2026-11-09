@@ -140,6 +140,8 @@ ea_seg_b
  and #$000F
  ora #GUEST_BANK
  sta pEA+2
+ cmp #^H_TXT
+ beq vid_mark
  rts
 
 * Word operands: an offset of $FFFF wraps within the
@@ -170,6 +172,37 @@ ea_seg_w
  and #$000F
  ora #GUEST_BANK
  sta pEA+2
+ cmp #^H_TXT
+ beq vid_mark
+ rts
+* vid_mark - the operand is in the text buffer's bank: note its
+* 256-byte page for the next screen flush (a read marks too; harmless).
+vid_mark
+ mx %00
+ lda vPCMODE               ; only in PC mode: the vector harness uses bank $05
+ bne :go
+ rts
+:go
+ lda pEA
+ bra vid_mark_a
+vid_mark_dst
+ mx %00
+ lda vPCMODE
+ bne :go2
+ rts
+:go2
+ lda pDST
+vid_mark_a
+ mx %00
+ and #$0F00
+ xba
+ tax
+ sep #$20
+ mx %10
+ lda #1
+ sta >VID_DIRTY,x
+ rep #$20
+ mx %00
  rts
 ea_split
  mx %00

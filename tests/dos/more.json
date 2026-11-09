@@ -1,0 +1,15 @@
+{
+ "bin": "third_party/msdos2/MORE.COM",
+ "name": "MORE.COM",
+ "args": "< HELLO.TXT",
+ "files": [
+  "hello.txt"
+ ],
+ "stdout_contains": [
+  "first line",
+  "third line, with a longer tail of text"
+ ],
+ "show_output": true,
+ "no_unhandled": false,
+ "exit": 0
+}

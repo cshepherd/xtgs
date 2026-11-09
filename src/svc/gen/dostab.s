@@ -36,17 +36,17 @@ int_tab
  da int_default,int_default,int_default,int_default,int_default,int_default,int_default,int_default
 dos_tab
  da dos_00,dos_01,dos_02,dos_unknown,dos_unknown,dos_unknown,dos_06,dos_07
- da dos_08,dos_09,dos_0A,dos_0B,dos_0C,dos_0D,dos_0E,dos_unknown
- da dos_unknown,dos_unknown,dos_unknown,dos_unknown,dos_unknown,dos_unknown,dos_unknown,dos_unknown
- da dos_unknown,dos_19,dos_1A,dos_unknown,dos_unknown,dos_unknown,dos_unknown,dos_unknown
- da dos_unknown,dos_unknown,dos_unknown,dos_unknown,dos_unknown,dos_25,dos_unknown,dos_unknown
- da dos_unknown,dos_unknown,dos_2A,dos_unknown,dos_2C,dos_unknown,dos_unknown,dos_2F
- da dos_30,dos_unknown,dos_unknown,dos_33,dos_unknown,dos_35,dos_36,dos_unknown
- da dos_unknown,dos_unknown,dos_unknown,dos_unknown,dos_3C,dos_3D,dos_3E,dos_3F
- da dos_40,dos_41,dos_42,dos_43,dos_44,dos_unknown,dos_unknown,dos_47
- da dos_48,dos_49,dos_4A,dos_4B,dos_4C,dos_4D,dos_unknown,dos_unknown
- da dos_unknown,dos_51,dos_unknown,dos_unknown,dos_54,dos_unknown,dos_56,dos_unknown
- da dos_unknown,dos_unknown,dos_unknown,dos_unknown,dos_unknown,dos_unknown,dos_unknown,dos_unknown
+ da dos_08,dos_09,dos_0A,dos_0B,dos_0C,dos_0D,dos_0E,dos_0F
+ da dos_10,dos_unknown,dos_unknown,dos_13,dos_14,dos_15,dos_16,dos_17
+ da dos_unknown,dos_19,dos_1A,dos_unknown,dos_unknown,dos_unknown,dos_unknown,dos_1F
+ da dos_unknown,dos_21,dos_22,dos_unknown,dos_unknown,dos_25,dos_26,dos_27
+ da dos_28,dos_29,dos_2A,dos_unknown,dos_2C,dos_unknown,dos_unknown,dos_2F
+ da dos_30,dos_unknown,dos_unknown,dos_33,dos_unknown,dos_35,dos_36,dos_37
+ da dos_unknown,dos_39,dos_3A,dos_3B,dos_3C,dos_3D,dos_3E,dos_3F
+ da dos_40,dos_41,dos_42,dos_43,dos_44,dos_45,dos_46,dos_47
+ da dos_48,dos_49,dos_4A,dos_4B,dos_4C,dos_4D,dos_4E,dos_4F
+ da dos_50,dos_51,dos_52,dos_unknown,dos_54,dos_unknown,dos_56,dos_57
+ da dos_unknown,dos_unknown,dos_unknown,dos_5B,dos_unknown,dos_unknown,dos_unknown,dos_unknown
  da dos_unknown,dos_unknown,dos_62,dos_unknown,dos_unknown,dos_unknown,dos_unknown,dos_unknown
  da dos_unknown,dos_unknown,dos_unknown,dos_unknown,dos_unknown,dos_unknown,dos_unknown,dos_unknown
  da dos_unknown,dos_unknown,dos_unknown,dos_unknown,dos_unknown,dos_unknown,dos_unknown,dos_unknown

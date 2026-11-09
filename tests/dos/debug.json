@@ -1,0 +1,32 @@
+{
+ "bin": "third_party/msdos2/DEBUG.COM",
+ "name": "DEBUG.COM",
+ "args": "",
+ "keys": [
+  {
+   "at": 60,
+   "key": "r"
+  },
+  {
+   "at": 90,
+   "coded": "{ENTER}"
+  },
+  {
+   "at": 180,
+   "key": "q"
+  },
+  {
+   "at": 210,
+   "coded": "{ENTER}"
+  }
+ ],
+ "stdout_contains": [
+  "AX=0000  BX=0000  CX=0000  DX=0000  SP=D5FE",
+  "DS=12F0  ES=12F0  SS=12F0  CS=12F0  IP=0100",
+  "NV UP DI PL NZ NA PO NC",
+  "12F0:0100 0000          ADD\t[BX+SI],AL"
+ ],
+ "show_output": true,
+ "no_unhandled": false,
+ "exit": 0
+}

@@ -52,11 +52,46 @@ note_unhandled             ; A = vector; AH goes in the high byte
  sta >DIAG_UNHN
  lda >DIAG_UNH
  cmp #$FFFF
- bne :done
+ bne :maps
  lda sv8
  sta >DIAG_UNH
-:done
+:maps
+ lda sv8                   ; INT 21h: bit AH in the function map;
+ and #$00FF                ; else bit n in the vector map
+ cmp #$21
+ bne :vec
+ lda sv8
+ xba
+ and #$007F
+ ldx #DIAG_FNMAP
+ bra :setbit
+:vec
+ ldx #DIAG_INTMAP
+:setbit                    ; A = bit number, X = map base (low 16 of a bank-5 address)
+ stx sv9
+ pha
+ lsr
+ lsr
+ lsr
+ clc
+ adc sv9
+ tax
+ pla
+ and #$0007
+ tay
+ lda diag_bits,y
+ and #$00FF
+ sta sv9
+ lda >RES_BASE,x
+ and #$00FF
+ ora sv9
+ sep #$20
+ mx %10
+ sta >RES_BASE,x
+ rep #$20
+ mx %00
  rts
+diag_bits hex 0102040810204080
 
 *--- stacked FLAGS (SS:SP+4 inside an INT stub)
 stk_flags                  ; pGST -> the pushed FLAGS word
@@ -133,6 +168,25 @@ svc_set_es
  and #$000F
  ora #GUEST_BANK
  sta bES+2
+ rts
+
+svc_set_ds
+ mx %00
+ lda rDS
+ asl
+ asl
+ asl
+ asl
+ sta bDS
+ lda rDS
+ xba
+ lsr
+ lsr
+ lsr
+ lsr
+ and #$000F
+ ora #GUEST_BANK
+ sta bDS+2
  rts
 
 *--- register halves

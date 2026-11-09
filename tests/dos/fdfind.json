@@ -1,0 +1,15 @@
+{
+ "bin": "third_party/freedos/bin/FIND.COM",
+ "name": "FIND.COM",
+ "args": "\"line\" HELLO.TXT",
+ "files": [
+  "hello.txt"
+ ],
+ "stdout_contains": [
+  "first line",
+  "third line"
+ ],
+ "show_output": true,
+ "no_unhandled": false,
+ "exit": 0
+}

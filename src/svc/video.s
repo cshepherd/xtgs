@@ -501,6 +501,7 @@ svc_flush
  rtl
 flush
  mx %00
+ jsr pages_to_rows
  lda dirty_any
  beq :cursor
  stz dirty_any
@@ -555,6 +556,51 @@ flush
  sta cur_on
 :done
  rts
+* pages_to_rows - the core's 256-byte page marks (direct B800 writes)
+* become dirty rows: page p covers rows p*256/160 .. (p*256+255)/160.
+pages_to_rows
+ mx %00
+ ldx #0
+:p
+ lda >VID_DIRTY,x
+ and #$00FF
+ beq :next
+ lda #0
+ sep #$20
+ mx %10
+ sta >VID_DIRTY,x
+ rep #$20
+ mx %00
+ lda page_row0,x
+ and #$00FF
+ pha
+ lda page_row1,x
+ and #$00FF
+ sta sv9
+ pla
+:r
+ cmp sv9
+ beq :last
+ bcs :next
+:last
+ pha
+ jsr mark_row
+ pla
+ inc
+ cmp sv9
+ bcc :r
+ beq :r
+:next
+ inx
+ cpx #16
+ bcc :p
+ rts
+page_row0 hex 00010304060809
+ hex 0B0C0E0F11121416
+ hex 1718
+page_row1 hex 01030406080A0B
+ hex 0D0E101113141617
+ hex 1818
 cursor_draw                ; underline (pixel rows 6-7) at cur_at
  mx %00
  lda cur_at
@@ -610,13 +656,19 @@ vid_tty
  sta sv2                   ; row
  lda sv0
  cmp #$0D
- beq :cr
+ bne :lj1
+ jmp :cr
+:lj1
  cmp #$0A
  beq :lf
  cmp #$08
- beq :bs
+ bne :lj2
+ jmp :bs
+:lj2
  cmp #$07
- beq :done
+ bne :lj3
+ jmp :done
+:lj3
  lda sv2
  jsr row_off
  clc
@@ -717,9 +769,13 @@ vid_scroll_win
  inc
  sta sv7                   ; height
  lda sv0
- beq :clear
+ bne :lj4
+ jmp :clear
+:lj4
  cmp sv7
- bcs :clear
+ bcc :lj5
+ jmp :clear
+:lj5
  lda sv6
  bne :down
  lda sv2
@@ -740,7 +796,9 @@ vid_scroll_win
  lda sv8
  cmp sv4
  beq :ub
- bcs :marks
+ bcc :lj6
+ jmp :marks
+:lj6
 :ub
  jsr blank_row
  inc sv8

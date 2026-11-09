@@ -1,0 +1,14 @@
+{
+ "bin": "third_party/freedos/bin/TREE.COM",
+ "name": "TREE.COM",
+ "args": "",
+ "files": [
+  "hello.txt"
+ ],
+ "stdout_contains": [
+  "Directory PATH listing"
+ ],
+ "show_output": true,
+ "no_unhandled": false,
+ "exit": 0
+}

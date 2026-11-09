@@ -45,17 +45,8 @@ bench_run
 * it until a terminate hypercall (or HLT: exit code $FFFF).
 com_run
  mx %00
- jsl SVC_BASE+21           ; pcinit; A = PSP_SEG
- sta rCS
- sta rDS
- sta rES
- sta rSS
+ jsl SVC_BASE+21           ; pcinit sets CS:IP SS:SP DS ES for a .COM or .EXE
  jsr set_all_bases
- lda #$100
- sta rIP
- stz rSP                   ; push16 makes it $FFFE with a zero word
- lda #0
- jsr push16
  lda #F_FIXED+F_IF
  jsr flags_set
  stz vEXIT

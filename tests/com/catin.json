@@ -1,0 +1,2 @@
+{"com": "catin.asm", "name": "CATIN.COM", "args": "< WORDS.TXT", "files": ["words.txt"],
+ "stdout_contains": ["pear\r\napple\r\nmango"], "show_output": true, "no_unhandled": false, "exit": 0}
