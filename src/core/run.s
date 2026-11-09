@@ -5,6 +5,8 @@
 *----------------------------------------------------------
 run_guest                  ; until HLT; rIP = IP after it
  mx %00
+ lda #0
+ sta >CGA_MODECHG          ; no CGA mode-control (0x3D8) write pending yet
  lda #run_done
  sta vHALTVEC
  lda #next

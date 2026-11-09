@@ -127,10 +127,18 @@ Shift/Ctrl make/break for shifted characters.
 
 **Lotus 1-2-3 1A, as it happens, reads the keyboard through INT 16h** (its
 `KB.DRV` calls INT 16h, not port 0x60), and our INT 16h is byte-exact (Enter
-returns AX=1C0D as on a real PC). Its Access System menu **navigates** under
-XT/GS (the arrow keys move the highlight), but selecting 1-2-3 with Enter does
-not yet launch the worksheet even though the identical key reaches the guest —
-an open issue in the LTSLOAD menu's select path still under investigation.
+returns AX=1C0D as on a real PC). The Access System menu is **fully driven**
+under XT/GS: the arrow keys move the highlight and Enter selects (verified by
+reaching the Disk-Manager submenu, and confirmed by logging that the menu reads
+the keys 4D00 4D00 1C0D). Selecting **1-2-3** launches `123.EXE`, which then
+**self-terminates on its copy protection**: 123.EXE's entry does a single raw
+`INT 13h` read of the original System disk's physically-formatted fingerprint
+track (it is the only `INT 13h` in the 90 KB binary, and the program has no
+standard `AH=4C`/`INT 20h` exit). A `.img` file stores only normal sector data
+and cannot reproduce that non-standard formatting, so the check fails and
+1-2-3 exits silently back to the menu. This is inherent to the protected 1A
+binary on a sector image, not an XT/GS limitation — an unprotected/cracked 1A
+(or a later unprotected DOS release) would run to the worksheet.
 
 ## Not yet implemented (needed for a full boot)
 

@@ -21,6 +21,12 @@ svc_vbl
  phb
  phk
  plb
+ lda >CGA_MODECHG          ; a CGA mode-control (0x3D8) write is pending?
+ beq :nomc
+ lda #0
+ sta >CGA_MODECHG
+ jsr apply_cgamode
+:nomc
  jsr kb_poll
  jsr vbl_work
  plb

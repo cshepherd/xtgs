@@ -76,5 +76,7 @@ KBD_QHEAD  = RES_BASE+$844   ; u16 read index (0..31)
 KBD_QTAIL  = RES_BASE+$846   ; u16 write index (0..31)
 KBD_QBUF   = RES_BASE+$850   ; 32 scancode bytes
 KBD_QMASK  = $001F
+CGA_MODEREQ = RES_BASE+$870  ; last value written to CGA mode-control port 0x3D8
+CGA_MODECHG = RES_BASE+$872  ; nonzero: that write is pending (svc_vbl applies it)
 CAP_BUF    = RES_BASE+$1000
 CAP_MAX    = $7000

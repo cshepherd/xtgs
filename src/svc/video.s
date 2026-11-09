@@ -1021,6 +1021,68 @@ CGA_ODD    = $2BA000          ; B800:2000, the odd field
 
 * vid_setmode - A = BIOS video mode (low 7 bits). Modes 4 and
 * 5 select CGA 320 graphics; everything else is text. DBR=$04.
+* apply_cgamode - a CGA mode-control port (0x3D8) write is pending
+* (raw value in CGA_MODEREQ). Lotus 1-2-3's graphics driver sets its
+* mode this way, not through INT 10h. If it selects a graphics mode,
+* switch to it WITHOUT clearing B800 (the guest may have already drawn
+* there, and the text flush already consumed its dirty marks): set
+* gfx_mode, the SCBs and palette, and mark every dirty-page bit so the
+* next flush re-blits the whole screen from B800 over the stale text.
+* Text/blank writes are left to the INT 10h path. svc_vbl calls this
+* with DBR=$04 before the flush. Clobbers A/X.
+apply_cgamode
+ mx %00
+ lda >CGA_MODEREQ
+ and #$0002                ; bit 1 = graphics mode select
+ beq :done
+ lda >CGA_MODEREQ
+ and #$0010                ; bit 4 = 640x200 hi-res
+ beq :m4
+ lda #6
+ bra :chk
+:m4
+ lda #4
+:chk
+ cmp gfx_mode
+ beq :done                 ; already in this graphics mode
+ sta gfx_mode
+ cmp #6
+ beq :scb6
+ ldx #0                    ; mode 4: SCB $00 (320) + CGA colour palette
+ lda #$0000
+:s4
+ sta >SHR_SCB,x
+ inx
+ inx
+ cpx #200
+ bcc :s4
+ jsr cga_setpal
+ bra :dirty
+:scb6
+ ldx #0                    ; mode 6: SCB $80 (640) + mono palette
+ lda #$8080
+:s6
+ sta >SHR_SCB,x
+ inx
+ inx
+ cpx #200
+ bcc :s6
+ jsr cga_setpal6
+:dirty
+ ldx #0                    ; force a full re-blit from B800 at the next flush
+ sep #$20
+ mx %10
+ lda #1
+:md
+ sta >VID_DIRTY,x
+ inx
+ cpx #64
+ bcc :md
+ rep #$20
+ mx %00
+:done
+ rts
+
 vid_setmode
  mx %00
  and #$00FF

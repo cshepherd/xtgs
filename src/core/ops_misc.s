@@ -130,8 +130,16 @@ port_in16
  rts
 port_out                   ; A = port, tmp0 = value
  mx %00
+ cmp #$03D8                ; CGA mode-control register (Lotus sets the mode here)
+ beq :mctl
  cmp #$03D9                ; CGA colour-select register
  beq :csel
+ rts
+:mctl
+ lda tmp0
+ sta >CGA_MODEREQ
+ lda #1
+ sta >CGA_MODECHG          ; svc_vbl applies it (switch gfx_mode, keep B800)
  rts
 :csel
  lda tmp0                  ; bits 0-3 background/border
