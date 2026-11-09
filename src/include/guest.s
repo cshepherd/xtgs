@@ -100,9 +100,13 @@ jPrevFlag  DS 2              ; $DA  JIT: DP offset the last emitted flag-op wrot
 pENTER     DS 4              ; $DC  JIT: pointer used by jml [] to enter a block
 gSRC       DS 4              ; $E0  CGA blit: source pointer (B800 field)
 gDST       DS 4              ; $E4  CGA blit: dest pointer (SHR line)
-gE         DS 2              ; $E8  CGA blit: even-field running B800 offset
-gO         DS 2              ; $EA  CGA blit: odd-field running B800 offset
-gL         DS 2              ; $EC  CGA blit: line counter 0..199
+gE         DS 2              ; $E8  CGA blit: fieldbase / scratch
+gO         DS 2              ; $EA  CGA blit: scratch
+gL         DS 2              ; $EC  CGA blit: scratch
+gPG        DS 2              ; $EE  CGA flush: dirty page index 0..63
+gPAR       DS 2              ; $F0  CGA flush: field parity 0/1
+gROW       DS 2              ; $F2  CGA flush: current row-in-field
+gR1        DS 2              ; $F4  CGA flush: last row-in-field for this page
            DEND
 
 * JMP (abs) takes a bank-$00 address: the retire vector's.

@@ -231,8 +231,8 @@ vid_mark_dst
  lda pDST
 vid_mark_a
  mx %00
- and #$0F00
- xba
+ and #$3F00                ; 64 pages: the full 16 KB B800 bank (CGA graphics).
+ xba                       ; text writes fall in pages 0-15 as before.
  tax
  sep #$20
  mx %10

@@ -19,25 +19,44 @@ not scaling it.
   (host `$2B:8000`) - the same 16 KB aperture as text, but as a bitmap: 2 bits
   a pixel, 4 pixels a byte, 80 bytes a scanline, with the **CGA interleave**
   (even scanlines at B800:0000, odd at B800:2000).
-- **Repack.** `gfx_blit` de-interleaves the two fields and expands each CGA
-  byte into two SHR bytes through `cga320_tab` (a 256-entry 2bpp->4bpp table;
-  CGA pixel value n maps to SHR palette index n). `shr.py` already understands
-  320 mode, so the headless screenshot renders correctly.
+- **Repack.** Each frame `gfx_flush` repacks only the scanlines that changed
+  (see below); `gfx_blit_line` de-interleaves one screen line and expands each
+  CGA byte into two SHR bytes through `cga320_tab` (a 256-entry 2bpp->4bpp
+  table; CGA pixel value n maps to SHR palette index n). `shr.py` already
+  understands 320 mode, so the headless screenshot renders correctly.
 - **`3DAh` status register** (`port_in8`): returns a free-running value so the
   guest's retrace/display-enable poll loops terminate instead of spinning on a
   constant open-bus read.
 
-## Throttling (important)
+## Dirty-region blitting
 
-A full-screen repack is ~880 K 65816 cycles. Run every VBL it would saturate
-the IIGS CPU and starve the 8086 interpreter (measured: the guest crawled at
-~1 pixel/second). `gfx_blit` is therefore **throttled to ~1 Hz**
-(`GFX_THROTTLE` in `video.s`), which keeps the interpreter near full speed for
-a static graphics screen. This is the spike's deliberate shortcut: smooth
-animation at full guest speed needs **dirty-region (per-scanline) blitting**
-instead - extend the core's `VID_DIRTY` page marks (today 16 pages over the
-4 KB text aperture, `cpu.s` `vid_mark`) to the 16 KB graphics aperture and
-repack only changed scanlines.
+A full-screen repack is ~880 K 65816 cycles. Run every VBL it saturated the
+IIGS CPU and starved the 8086 interpreter - measured: the guest crawled at
+~1 pixel/second, drawing only ~230 framebuffer bytes before the frame was
+captured. So the blit is **per-scanline dirty**: only the lines the guest
+actually changed are repacked each frame.
+
+- The core already notes guest writes to the B800 bank. `vid_mark` (`cpu.s`)
+  sets a bit in `VID_DIRTY` (in the RES bank) per 256-byte page written. That
+  mask was widened from the 16 pages of the 4 KB text aperture to the **64
+  pages** of the 16 KB graphics aperture (`and #$3F00`); text still falls in
+  pages 0-15, so it is unaffected.
+- Each frame `gfx_flush` walks the 64 page bits. A dirty page maps to a short
+  run of rows in its field via the precomputed `gpg_r0`/`gpg_r1` tables (page
+  p<32 is the even field, p>=32 the odd; screen line = row*2 + parity), and
+  each such scanline is repacked by `gfx_blit_line` and the bit cleared. A line
+  that straddles two pages is fully re-blitted when either page is dirty, so
+  nothing is missed.
+- Cost is now O(changed scanlines), not O(screen): a small moving sprite
+  dirties a handful of lines a frame and the interpreter keeps running, with no
+  update lag. The old full-screen cost only recurs when the guest actually
+  rewrites the whole screen in one frame (e.g. a `CLS`), which is one frame's
+  work. **Measured** (stock clock, GW-BASIC running a continuous localized
+  animation, `vICOUNT` deltas over a 100 s window): **~8,800 guest IPS with
+  dirty-region vs ~330 IPS blitting the whole screen every frame - a ~26x
+  speedup** on the identical workload. The full-screen version barely advances
+  the guest at all; that is why the first spike needed the ~1 Hz throttle, now
+  removed.
 
 ## Status and limitations
 

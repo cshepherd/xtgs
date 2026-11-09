@@ -381,8 +381,6 @@ cur_at     dw 0              ; where: col | row<<8
 blink      dw 0              ; frame counter; bit 5 = cursor visible
 tty_attr   dw $FFFF          ; $FFFF: teletype keeps the cell's attribute
 gfx_mode   dw 0              ; 0 = text; 4/5 = CGA 320x200x4 graphics (SCREEN 1)
-gfx_ctr    dw 0              ; frames until the next full CGA blit (throttle)
-GFX_THROTTLE = 59            ; blit the full screen every 60th frame (~1 Hz)
 
 mark_row                   ; A = row
  mx %00
@@ -506,13 +504,7 @@ flush
  mx %00
  lda gfx_mode
  beq :txt
- dec gfx_ctr              ; CGA graphics: throttle the full-screen repack
- bmi :doblit
- rts
-:doblit
- lda #GFX_THROTTLE
- sta gfx_ctr
- jmp gfx_blit             ; repack, skip text flush/cursor (rts)
+ jmp gfx_flush            ; CGA graphics: repack only dirty scanlines (rts)
 :txt
  jsr pages_to_rows
  lda dirty_any
@@ -957,7 +949,17 @@ vid_setmode
 * framebuffer cleared. DBR=$04.
 gfx_setup
  mx %00
- stz gfx_ctr               ; blit on the first graphics frame
+ ldx #0                    ; clear the 64 dirty-page marks
+ sep #$20
+ mx %10
+ lda #0
+:cd
+ sta >VID_DIRTY,x
+ inx
+ cpx #64
+ bcc :cd
+ rep #$20
+ mx %00
  ldx #0                    ; 200 SCBs = $00 (320 mode, palette 0)
  lda #$0000
 :scb
@@ -996,31 +998,119 @@ gfx_setup
  bcc :cfb
  rts
 
-* gfx_blit - repack the whole CGA 320 framebuffer into SHR 320.
-* Runs once a frame while gfx_mode is set. DBR=$04.
-gfx_blit
+* gfx_flush - repack only the scanlines the guest changed since the
+* last frame. The core sets 64 dirty-page bits in VID_DIRTY (cpu.s
+* vid_mark, one per 256 bytes of the B800 bank). Each page maps to a
+* short run of rows in its field (gpg_r0/gpg_r1); pages 0-31 are the
+* even field, 32-63 the odd, and screen line = row*2 + parity. A
+* scanline that straddles two pages is fully re-blitted whenever
+* either page is dirty, so nothing is missed. DBR=$04.
+gfx_flush
  mx %00
- lda #<SHR_PIX
+ stz gPG
+:pg
+ ldx gPG
+ lda >VID_DIRTY,x
+ and #$00FF
+ beq :next
+ lda #0                    ; consume the dirty mark
+ sep #$20
+ mx %10
+ sta >VID_DIRTY,x
+ rep #$20
+ mx %00
+ lda gPG                   ; parity + position within the field
+ cmp #32
+ bcc :even
+ sec
+ sbc #32
+ ldy #1
+ bra :pos
+:even
+ ldy #0
+:pos
+ sty gPAR
+ tax                       ; X = page position 0-31
+ lda gpg_r0,x
+ and #$00FF
+ sta gROW
+ lda gpg_r1,x
+ and #$00FF
+ sta gR1
+:rows
+ lda gROW
+ cmp #100
+ bcs :next                 ; past the last real row
+ asl                       ; row*2
+ ora gPAR                  ; + parity = screen line
+ jsr gfx_blit_line
+ lda gROW
+ inc
+ sta gROW
+ cmp gR1
+ bcc :rows
+ beq :rows
+:next
+ lda gPG
+ inc
+ sta gPG
+ cmp #64
+ bcc :pg
+ rts
+
+* gfx_blit_line - repack one scanline (A = screen line 0-199) from
+* the CGA framebuffer into SHR 320. DBR=$04. Clobbers A/X/Y and
+* gL/gO/gE/gSRC/gDST.
+gfx_blit_line
+ mx %00
+ pha                       ; keep the line on the stack
+ lda 1,s                   ; dst = $E1:2000 + line*160
+ asl
+ asl
+ asl
+ asl
+ asl                       ; line*32
+ sta gL
+ asl
+ asl                       ; line*128
+ clc
+ adc gL                    ; line*160
+ clc
+ adc #<SHR_PIX
  sta gDST
  lda #^SHR_PIX
- sta gDST+2                ; gDST = $E1:2000 (SHR line 0)
- lda #$8000
- sta gE                    ; even-field B800 offset
+ sta gDST+2
+ lda 1,s                   ; fieldbase from parity
+ and #$0001
+ beq :even
  lda #$A000
- sta gO                    ; odd-field B800 offset
- stz gL
-:line
- lda gL
- lsr
- bcc :even                 ; L even -> even field
- lda gO
- bra :setsrc
+ bra :row
 :even
- lda gE
-:setsrc
+ lda #$8000
+:row
+ sta gE
+ lda 1,s                   ; src = fieldbase + (line>>1)*80
+ lsr
+ sta gL                    ; row = line>>1
+ asl
+ asl
+ asl
+ asl                       ; row*16
+ sta gO
+ lda gL
+ asl
+ asl
+ asl
+ asl
+ asl
+ asl                       ; row*64
+ clc
+ adc gO                    ; row*80
+ clc
+ adc gE                    ; + fieldbase
  sta gSRC
  lda #^CGA_SRC
- sta gSRC+2                ; bank $2B
+ sta gSRC+2
  ldy #80                   ; 80 CGA bytes -> 160 SHR bytes
 :px
  lda [gSRC]
@@ -1034,25 +1124,18 @@ gfx_blit
  inc gDST
  dey
  bne :px
- lda gL                    ; advance the field offset just used
- lsr
- bcc :bumpe
- lda gO
- clc
- adc #80
- sta gO
- bra :nextline
-:bumpe
- lda gE
- clc
- adc #80
- sta gE
-:nextline
- inc gL
- lda gL
- cmp #200
- bcc :line
+ pla                       ; drop the saved line
  rts
+
+* gpg_r0/gpg_r1 - for page position p (0-31) within a field, the
+* first and last row-in-field its 256 bytes touch (row = offset/80,
+* clamped to 99). Built by tools; see docs/cga.md.
+gpg_r0
+ hex 000306090C101316191C202326292C30
+ hex 3336393C404346494C505356595C6063
+gpg_r1
+ hex 0306090C0F1316191C1F2326292C2F33
+ hex 36393C3F4346494C4F5356595C5F6363
 
 * cga320_tab - one CGA byte (4 pixels x 2 bits) -> a word = two
 * SHR 320 bytes (4 pixels x 4 bits). CGA pixel value n maps to

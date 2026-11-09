@@ -24,7 +24,9 @@ H_DOSDATA  = GUEST_BASE+$F8000
 DPB_OFF    = $0040               ; DPB at F800:0040
 LOL_OFF    = $0082               ; list of lists at F800:0082 (first MCB word at -2)
 MCB_FIRST  = $0FFF               ; our one MCB, just below the PSP
-VID_DIRTY  = RES_BASE+$900       ; 16 bytes: a 256-byte page of B800 was written (core hook)
+VID_DIRTY  = RES_BASE+$900       ; 64 bytes: a 256-byte page of the B800 bank was
+                                 ; written (core hook). Text uses pages 0-15 (4 KB);
+                                 ; CGA graphics use 0-63 (the 16 KB framebuffer).
 
 * Mode B (disk boot): the disk image is loaded into host banks from
 * DISK_BASE; INT 13h serves sectors from there. A 1.44 MB floppy is 23
