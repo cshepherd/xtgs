@@ -21,12 +21,14 @@ headless MAME runs and doubled in height (the SHR screen is 640x200 or
 
 ## Status
 
-Everything here has been run in MAME's `apple2gs` driver (ROM 03, 8 MB) only.
-It has **never been tried on a real IIGS**. It is also slow: a stock 2.8 MHz
-IIGS runs the guest at about 15,600 instructions a second, roughly 1/19 of a
-4.77 MHz XT, and a 16 MHz ZipGS at about 87,000 (1/3 of an XT). FreeDOS takes
-about four emulated minutes to reach its prompt on a stock machine. Disk
-writes stay in memory and are lost at power-off. See [Known limits](#known-limits).
+XT/GS is developed and tested in MAME's `apple2gs` driver (ROM 03, 8 MB), and
+it has been **verified to run properly on a real IIGS accelerated to 8 MHz**.
+The screenshots, test results and speed figures in this file are from MAME.
+It is slow: a stock 2.8 MHz IIGS runs the guest at about 15,600 instructions
+a second, roughly 1/19 of a 4.77 MHz XT, and a 16 MHz ZipGS at about 87,000
+(1/3 of an XT). FreeDOS takes about four emulated minutes to reach its prompt
+on a stock machine. Disk writes stay in memory and are lost at power-off. See
+[Known limits](#known-limits).
 
 ## What it does
 
@@ -67,9 +69,9 @@ make run-dos      # boot that in Ample's MAME
 `make dos-image` downloads the FreeDOS kernel and FreeCOM into `third_party/`
 and builds the floppy. GW-BASIC is not downloaded: put a `GWBASIC.EXE` (the
 rebuild from gitlab.com/tkchia/GW-BASIC is the one that works) at
-`third_party/gwbasic/GWBASIC.EXE` and it goes on the floppy too, with `HELLO.BAS` and `CGADEMO.BAS`. The `.po` is an ordinary
-4 MB ProDOS volume that boots to XT/GS, so it should also serve a real IIGS
-from a hard-disk-class device.
+`third_party/gwbasic/GWBASIC.EXE` and it goes on the floppy too, with
+`HELLO.BAS` and `CGADEMO.BAS`. The `.po` is an ordinary 4 MB ProDOS volume that
+boots to XT/GS, so it also serves a real IIGS from a hard-disk-class device.
 
 Booting FreeDOS takes a few minutes of emulated time (MAME's throttle can be
 turned off to shorten the wait). The floppy has no `AUTOEXEC.BAT`, so FreeCOM
@@ -248,7 +250,6 @@ suite: all 324 opcode files, 2,883,807 vectors after the exclusions listed in
 
 ## Known limits
 
-- Never run on real hardware; MAME only.
 - Speed, as above. Eager flag computation is the largest remaining cost.
 - Disk writes are kept in RAM and never written back to the ProDOS volume.
 - Text is monochrome (four greys). There is no MDA, Hercules, EGA or VGA.
