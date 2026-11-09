@@ -55,7 +55,86 @@ str_run
  jmp (NEXTVEC)
 :rep
  lda rCX
- beq :done
+ bne :lj1
+ jmp :done
+:lj1
+* --- MVN fast path: REP MOVSB/MOVSW forward, whole copy inside one source
+* bank and one dest bank. MOVS sets no flags, so only SI/DI/CX change.
+ lda tmp7
+ beq :mvn_try              ; movsb
+ cmp #2
+ beq :mvn_try              ; movsw
+ jmp :loop ; other string ops: generic
+:mvn_try
+ lda rFL
+ and #F_DF
+ beq :lj2
+ jmp :loop ; backward: generic
+:lj2
+ lda rCX                   ; byte count = CX (movsb) or CX*2 (movsw)
+ ldx tmp7
+ beq :mvn_bytes
+ asl
+ bcc :lj3
+ jmp :loop ; CX*2 > 64 KB
+:lj3
+:mvn_bytes
+ sta vBOUNCE               ; the byte count (vBOUNCE is free during MOVS)
+ bne :lj4
+ jmp :loop
+:lj4
+ lda rSI                   ; SI + bytes must not wrap the 16-bit offset
+ clc
+ adc vBOUNCE
+ bcc :lj5
+ jmp :loop
+:lj5
+ lda rDI
+ clc
+ adc vBOUNCE
+ bcc :lj6
+ jmp :loop
+:lj6
+ jsr str_src               ; pSRC = (override|DS):SI
+ jsr str_dst               ; pDST = ES:DI
+ lda pSRC                  ; host offsets + bytes must stay inside the bank
+ clc
+ adc vBOUNCE
+ bcs :loop
+ lda pDST
+ clc
+ adc vBOUNCE
+ bcs :loop
+ sty rIP                   ; MVN clobbers Y, which holds the guest IP
+ lda vBOUNCE               ; count-1, kept on the stack across the 8-bit patch
+ dec
+ pha
+ sep #$20
+ mx %10
+ lda pDST+2
+ sta :mvn+1                ; dst bank
+ lda pSRC+2
+ sta :mvn+2                ; src bank
+ rep #$20
+ mx %00
+ pla                       ; count-1 back in a 16-bit accumulator
+ phb
+ ldx pSRC
+ ldy pDST
+:mvn
+ dfb $54,$00,$00           ; MVN srcbank -> dstbank (banks patched above)
+ plb
+ lda rSI
+ clc
+ adc vBOUNCE
+ sta rSI
+ lda rDI
+ clc
+ adc vBOUNCE
+ sta rDI
+ stz rCX
+ ldy rIP
+ jmp (NEXTVEC)
 :loop
  jsr str_call
  dec rCX

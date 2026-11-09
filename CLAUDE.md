@@ -18,6 +18,8 @@ make test-cpu OP="00 01" [COUNT=300]
 python3 -I tools/sweep_cpu.py --ops 00-3F --tag A
                   every file in a range, four a boot; build/vec/sweep_A.json
 make bench        guest instructions/second, stock and 16 MHz Zip (tools/bench.py)
+python3 -I tools/profile.py reg|mem|jmp|str
+                  attribute MAME PC samples to core routines (tools/profile.py)
 make lint         assemble every bank and run tools/check_mx.py on the listings
 make run          Ample's MAME with the claudebridge Lua bridge
 ```
