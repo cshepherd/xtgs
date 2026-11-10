@@ -11,19 +11,42 @@ src/core/gen/:
              field's DP offset (byte or word register file), and for
              mod=3 point pEA at the register itself in the direct page
              so every handler reads its r/m operand through [pEA]
+             and the fast set for the handlers that decode ModR/M
+             themselves: emb_tab / emw_tab (256 words each, indexed by
+             ModR/M * 2) and the 48 routines emb_MR / emw_MR, which
+             leave pEA and keep X, with the tail inline and the
+             default segment's base a direct operand (the rare ways
+             out, an override among them, are efb_ovr ... ef_vid in
+             cpu.s); regb_tab / regw_tab (ModR/M * 2 -> the reg
+             field's DP offset) and rm8_tab (the same for a byte r/m)
   alu.s      the 48 regular ALU opcodes (ADD OR ADC SBB AND SUB XOR CMP
-             in r/m,reg; reg,r/m; AL,imm8; AX,imm16 forms), the 80-83
-             immediate groups, INC/DEC r16, PUSH/POP r16, MOV r,imm,
-             XCHG AX,r16, Jcc
-  flagtab.s  parity (PF by result low byte) and the P-to-FLAGS tables
-             p2f_add, p2f_sub (CF = NOT C), p2f_log (no CF), p2f_of
+             in r/m,reg; reg,r/m; AL,imm8; AX,imm16 forms), TEST and
+             MOV r/m,reg / reg,r/m, the 80-83 immediate groups, INC/DEC
+             r16, PUSH/POP r16 (inline; the word split across the
+             segment's end through push16/pop16), MOV r,imm, XCHG
+             AX,r16, Jcc
+
+The ModR/M opcodes of alu.s do not call modrm_b/modrm_w. Each fetches
+the ModR/M byte itself and, for mod=3, jumps through its own 64-entry
+table fNN_r to a routine with the reg operand a direct-page address
+(fNN_rR), or with both operands so for the pairs in SPEC (xNN_ds, one
+routine for an opcode and its reg,r/m twin); a memory form calls
+(em?_tab,x) and reads the reg field's offset from reg?_tab. The
+immediate groups go through one 256-entry table each (gNN_t) to a
+routine an operation and kind of operand (gNN_mK, gNN_rK).
+  flagtab.s  parity (PF by result low byte) and the two tables between
+             the lazy flags and a FLAGS word, lp2f and f2lp
 
 Conventions (BOOTSTRAP.md section 5, src/include/guest.s): native
 mode, M=0 X=0 at entry and at retire, D = GUEST_DP, Y = IP, handlers
 retire with JMP (NEXTVEC). The hand-written side (src/core/cpu.s,
 flags.s) supplies modrm_b/modrm_w, the tails ea_ds_b/ea_ss_b/
-ea_ds_w/ea_ss_w, flg_add8/16 flg_sub8/16 flg_log8/16 flg_inc8/16
-flg_dec8/16, push16/pop16, jcc_taken/jcc_not.
+ea_ds_w/ea_ss_w and push16/pop16.
+
+Flags are lazy (src/core/flags.s): an ALU handler leaves its operands in
+vFS and vFD, its result in vLRES and the 65816's P in vLP, with a tail
+that is inline here (tail()); a logic operation, whose CF OF AF are
+clear, needs only the result. Jcc reads vLP.
 """
 import os
 
@@ -75,8 +98,10 @@ def ea_routine(m, width):
     desc = f"[{RM_NAME[rm]}{'+disp8' if mod == 1 else '+disp16' if mod == 2 else ''}]"
     out[0] = f"{label:12s}; reg={regname} {desc}"
     if mod == 1:
-        out += [" lda [bCS],y", " iny", " and #$00FF", " eor #$80", " sec", " sbc #$80"]
-        for r in regs:
+        # the sign extension folded into the add: C is clear either way
+        out += [" lda [bCS],y", " iny", " and #$00FF", " cmp #$0080", " bcc :p", " adc #$FEFF", ":p",
+                f" adc {regs[0]}"]
+        for r in regs[1:]:
             out += [" clc", f" adc {r}"]
     elif mod == 2:
         out += [" lda [bCS],y", " iny", " iny"]
@@ -88,6 +113,45 @@ def ea_routine(m, width):
             out += [" clc", f" adc {r}"]
     out += [" sta vEA", f" jmp ea_{tail}_{'w' if w else 'b'}"]
     return out
+
+
+STEP4 = True
+
+
+def ea_fast(mod, rm, w):
+    """A fast EA routine: the offset in A, then the tail."""
+    c = "w" if w else "b"
+    direct = mod == 0 and rm == 6
+    seg = "ss" if rm in (2, 3, 6) and not direct else "ds"
+    out = [f"em{c}_{mod}{rm}", " mx %00"]
+    if direct:
+        out += [" lda [bCS],y", " iny", " iny"]
+    else:
+        regs = RM_BASE[rm]
+        if mod == 0:
+            out.append(f" lda {regs[0]}")
+        elif mod == 1 and STEP4:
+            # the sign extension folded into the add: C is clear either way
+            out += [" lda [bCS],y", " iny", " and #$00FF", " cmp #$0080", " bcc :p", " adc #$FEFF", ":p",
+                    f" adc {regs[0]}"]
+        elif mod == 1:
+            out += [" lda [bCS],y", " iny", " and #$00FF", " eor #$80", " sec", " sbc #$80", " clc",
+                    f" adc {regs[0]}"]
+        else:
+            out += [" lda [bCS],y", " iny", " iny", " clc", f" adc {regs[0]}"]
+        for r in regs[1:]:
+            out += [" clc", f" adc {r}"]
+    if not STEP4:
+        return out + [" sta vEA", " phx", f" jsr ea_{seg}_{c}", " plx", " rts"]
+    b = "b" + seg.upper()
+    out += [" bit vOVR", " bmi :ovr"]
+    if w:
+        out += [" cmp #$FFFF", " beq :split"]
+    out += [" clc", f" adc {b}", " sta pEA", f" lda {b}+2", " bcs :carry", " sta pEA+2", " cmp #^H_TXT",
+            " beq :vid", " rts", ":ovr", f" jmp ef{c}_ovr"]
+    if w:
+        out += [":split", f" jmp efw_split_{seg}"]
+    return out + [":carry", " jmp ef_carry", ":vid", " jmp ef_vid"]
 
 
 def gen_eatab():
@@ -103,107 +167,270 @@ def gen_eatab():
     for width in (8, 16):
         for m in range(256):
             lines += ea_routine(m, width)
+    lines += ["", "* The fast set (em?_tab): for the handlers that dispatch on the ModR/M",
+              "* byte themselves. X = modrm*2 on entry and on return; pEA is all a",
+              "* routine sets. regw_tab / regb_tab: the reg field's DP offset by",
+              "* modrm*2 (mod < 3); rm8_tab: the rm field's as a byte register, by",
+              "* modrm*2 - $180 (mod = 3).", ""]
+    for w in (False, True):
+        c = "w" if w else "b"
+        lines.append(f"em{c}_tab")
+        for i in range(0, 256, 8):
+            lines.append(" da " + ",".join(f"em{c}_{j >> 6}{j & 7}" if j < 0xC0 else "em_none"
+                                           for j in range(i, i + 8)))
+        lines.append(f"reg{c}_tab")
+        for i in range(0, 192, 8):
+            lines.append(" dw " + ",".join(str((OFF16 if w else OFF8)[(j >> 3) & 7]) for j in range(i, i + 8)))
+    lines.append("rm8_tab")
+    for i in range(0xC0, 256, 8):
+        lines.append(" dw " + ",".join(str(OFF8[j & 7]) for j in range(i, i + 8)))
+    lines += ["em_none", " mx %00", " rts"]
+    for w in (False, True):
+        for mod in range(3):
+            for rm in range(8):
+                lines += ea_fast(mod, rm, w)
     return "\n".join(lines) + "\n"
 
 
 # ------------------------------------------------------------------- ALU
 
-# name, operation on A (dst) with tmp0 (src), flag class, stores result
+# name, the operation on A (the destination) with an operand, flag class,
+# whether the result is stored, whether it takes CF in
 OPS = [
-    ("add", [" clc", " adc tmp0"], "add", True),
-    ("or", [" ora tmp0"], "log", True),
-    ("adc", [" lda rFL", " lsr", " lda tmp1", " adc tmp0"], "add", True),
-    ("sbb", [" lda rFL", " eor #1", " lsr", " lda tmp1", " sbc tmp0"], "sub", True),
-    ("and", [" and tmp0"], "log", True),
-    ("sub", [" sec", " sbc tmp0"], "sub", True),
-    ("xor", [" eor tmp0"], "log", True),
-    ("cmp", [" sec", " sbc tmp0"], "sub", False),
+    ("add", "adc", "add", True, False),
+    ("or", "ora", "log", True, False),
+    ("adc", "adc", "add", True, True),
+    ("sbb", "sbc", "sub", True, True),
+    ("and", "and", "log", True, False),
+    ("sub", "sbc", "sub", True, False),
+    ("xor", "eor", "log", True, False),
+    ("cmp", "sbc", "sub", False, False),
 ]
 
 
-def alu_rm_reg(op, k, w):
-    name, body, cls, store = OPS[k]
-    out = [f"op_{hx(op)}       ; {name} r/m{16 if w else 8}, r{16 if w else 8}", " mx %00",
-           f" jsr modrm_{'w' if w else 'b'}"]
+def carry_in(o):
+    """C for the operation: the guest's CF (inverted for a borrow), or the
+    constant an ADD or SUB wants. A is used when CF is read."""
+    name, ins, cls, store, cin = o
+    if cin:
+        return [" lda vLP"] + ([" eor #1"] if cls == "sub" else []) + [" lsr"]
+    return [" sec"] if cls == "sub" else [" clc"]
+
+
+def tail(cls, w):
+    """The lazy-flags tail (src/core/flags.s), inline: A = the result, the
+    65816's N V Z C the operation's; M as the operation left it."""
+    if cls == "log":
+        if w:
+            return [" sta vLRES", " beq :z", " bmi :n", " lda #LP_AFD", " sta vLP", " jmp (NEXTVEC)",
+                    ":n", " lda #LP_AFD+LP_SF", " sta vLP", " jmp (NEXTVEC)",
+                    ":z", " lda #LP_AFD+LP_ZF", " sta vLP", " jmp (NEXTVEC)"]
+        end = [" sta vLP", " rep #$20", " mx %00", " jmp (NEXTVEC)"]
+        return ([" sta vLRES", " beq :z", " bmi :n", " lda #LP_AFD"] + end +
+                [":n", " mx %10", " lda #LP_AFD+LP_SF"] + end +
+                [":z", " mx %10", " lda #LP_AFD+LP_ZF"] + end)
+    out = [" sta vLRES", " php"] + ([" php"] if w else []) + [" pla"]
+    if cls == "sub":
+        out.append(" eor #LP_CF")
+    if cls == "incdec":
+        out += [" eor vLP", " and #$00FE" if w else " and #$FE", " eor vLP"]
+    out.append(" sta vLP")
     if not w:
-        out += [" sep #$20", " mx %10"]
-    out += [" ldx vREGOFF", " lda 0,x", " sta tmp0", " lda [pEA]", " sta tmp1"] + body
-    if store:
-        out.append(" sta [pEA]")
-    out.append(f" jmp flg_{cls}{16 if w else 8}")
+        out += [" rep #$20", " mx %00"]
+    out.append(" jmp (NEXTVEC)")
     return out
 
 
-def alu_reg_rm(op, k, w):
-    name, body, cls, store = OPS[k]
-    out = [f"op_{hx(op)}       ; {name} r{16 if w else 8}, r/m{16 if w else 8}", " mx %00",
-           f" jsr modrm_{'w' if w else 'b'}"]
+# The opcodes with a ModR/M byte that are worth it dispatch on that byte
+# themselves: the register forms (mod = 3) through the opcode's own table
+# of 64, to a routine a reg (the other operand through X), or for the
+# opcodes in SPEC to one a pair of registers; a memory form through the
+# fast EA routines (em?_tab, gen_eatab), which keep X, and the reg operand
+# from reg?_tab. Nothing here sets vMODRM, vREGOFF, vEA or vEASEG.
+TEST = ("test", "and", "log", False, False)
+MOV = ("mov", None, "mov", True, False)
+
+# the first opcode of each pair (r/m,reg; reg,r/m is 2 on) whose register
+# forms have a routine a pair of registers
+SPEC = {0x88, 0x89}
+
+
+def retire(w):
+    return ([] if w else [" rep #$20", " mx %00"]) + [" jmp (NEXTVEC)"]
+
+
+def alu_body(o, dst, src):
+    """dst = dst op src, up to the flags tail."""
+    name, ins, cls, store, cin = o
+    if cls == "mov":
+        return [f" lda {src}", f" sta {dst}"]
+    if cls == "log":
+        out = [f" lda {dst}", f" {ins} {src}"]
+    else:
+        out = [f" lda {src}", " sta vFS"] + carry_in(o) + [f" lda {dst}", " sta vFD", f" {ins} vFS"]
+    return out + ([f" sta {dst}"] if store else [])
+
+
+def alu_tail(o, w):
+    return retire(w) if o[2] == "mov" else tail(o[2], w)
+
+
+def rm_in_x(w):
+    """X = the DP offset of the rm register, from X = ModR/M * 2 (mod = 3)."""
+    if w:
+        return [" txa", " and #$000E", " tax"]
+    return [" lda rm8_tab-$180,x", " tax", " sep #$20", " mx %10"]
+
+
+def spec_label(o, pair, w, dst, src):
+    if o is TEST and dst > src:
+        dst, src = src, dst
+    if o is MOV and dst == src:
+        return f"x{hx(pair)}_nop"
+    return f"x{hx(pair)}_{dst}{src}"
+
+
+def spec_routines(o, pair, w):
+    """The 64 register-pair routines of a pair of opcodes."""
+    name, ins, cls, store, cin = o
+    R = R16 if w else R8
+    N = N16 if w else N8
+    out = []
+    if o is MOV:
+        out += [f"x{hx(pair)}_nop", " mx %00", " jmp (NEXTVEC)"]
+    for dst in range(8):
+        for src in range(8):
+            label = spec_label(o, pair, w, dst, src)
+            if label != f"x{hx(pair)}_{dst}{src}":
+                continue
+            out += [f"{label}       ; {name} {N[dst]}, {N[src]}", " mx %00"]
+            if cls == "log" and dst == src and name == "xor":
+                out += [" stz vLRES"]
+                out += [f" stz {R[dst]}"] if w else [" sep #$20", " mx %10", f" stz {R[dst]}", " rep #$20", " mx %00"]
+                out += [" lda #LP_AFD+LP_ZF", " sta vLP", " jmp (NEXTVEC)"]
+                continue
+            if not w:
+                out += [" sep #$20", " mx %10"]
+            if cls == "log" and dst == src:
+                out += [f" lda {R[dst]}"] + tail(cls, w)
+            elif cls == "log":
+                out += alu_body(o, R[dst], R[src]) + [" jmp flg_log16" if w else " jmp flg_log8"]
+            else:
+                out += alu_body(o, R[dst], R[src]) + alu_tail(o, w)
+    return out
+
+
+def fast_rm(op, o, w, d, pair):
+    """An opcode with r/m and reg operands: d = 0 r/m is the destination,
+    1 reg is. pair: the opcode whose register-pair routines it uses, or None."""
+    name, ins, cls, store, cin = o
+    c = "w" if w else "b"
+    R = R16 if w else R8
+    N = N16 if w else N8
+    bits = 16 if w else 8
+    out = [f"op_{hx(op)}       ; {name} " + (f"r{bits}, r/m{bits}" if d else f"r/m{bits}, r{bits}"), " mx %00",
+           " lda [bCS],y", " iny", " and #$00FF", " asl", " tax", " cmp #$0180", " bcc :mem",
+           f" jmp (f{hx(op)}_r-$180,x)", ":mem", f" jsr (em{c}_tab,x)", f" lda reg{c}_tab,x", " tax"]
     if not w:
         out += [" sep #$20", " mx %10"]
-    out += [" lda [pEA]", " sta tmp0", " ldx vREGOFF", " lda 0,x", " sta tmp1"] + body
-    if store:
-        out.append(" sta 0,x")
-    out.append(f" jmp flg_{cls}{16 if w else 8}")
+    out += (alu_body(o, "0,x", "[pEA]") if d else alu_body(o, "[pEA]", "0,x")) + alu_tail(o, w)
+    out.append(f"f{hx(op)}_r")
+    for reg in range(8):
+        if pair is None:
+            out.append(" da " + ",".join([f"f{hx(op)}_r{reg}"] * 8))
+        else:
+            out.append(" da " + ",".join(spec_label(o, pair, w, reg, rm) if d else spec_label(o, pair, w, rm, reg)
+                                         for rm in range(8)))
+    if pair is None:
+        for reg in range(8):
+            out += [f"f{hx(op)}_r{reg}       ; {name} " + (f"{N[reg]}, r" if d else f"r, {N[reg]}"), " mx %00"] + rm_in_x(w)
+            out += (alu_body(o, R[reg], "0,x") if d else alu_body(o, "0,x", R[reg])) + alu_tail(o, w)
+    elif pair == op:
+        out += spec_routines(o, pair, w)
     return out
 
 
 def alu_acc_imm(op, k, w):
-    name, body, cls, store = OPS[k]
+    name, ins, cls, store, cin = o = OPS[k]
     out = [f"op_{hx(op)}       ; {name} {'AX, imm16' if w else 'AL, imm8'}", " mx %00",
            " lda [bCS],y", " iny"]
     if w:
         out.append(" iny")
     else:
         out += [" sep #$20", " mx %10"]
-    out += [" sta tmp0", " lda rAX", " sta tmp1"] + body
+    if cls == "log":
+        out.append(f" {ins} rAX")
+    else:
+        out += [" sta vFS"] + carry_in(o) + [" lda rAX", " sta vFD", f" {ins} vFS"]
     if store:
         out.append(" sta rAX")
-    out.append(f" jmp flg_{cls}{16 if w else 8}")
-    return out
+    return out + tail(cls, w)
 
 
 def alu_group(op):
-    """80: r/m8,imm8  81: r/m16,imm16  83: r/m16,imm8 sign-extended."""
+    """80: r/m8,imm8  81: r/m16,imm16  83: r/m16,imm8 sign-extended. One
+    table of 256: the operation and whether r/m is a register."""
     w = op != 0x80
+    c = "w" if w else "b"
     out = [f"op_{hx(op)}       ; group 1 r/m{16 if w else 8}, imm", " mx %00",
-           f" jsr modrm_{'w' if w else 'b'}", " lda vMODRM", " and #$0038", " lsr", " lsr", " tax",
-           f" jmp (g{hx(op)}_tab,x)", f"g{hx(op)}_tab"]
-    out.append(" da " + ",".join(f"g{hx(op)}_{k}" for k in range(8)))
-    for k in range(8):
-        name, body, cls, store = OPS[k]
-        out += [f"g{hx(op)}_{k}       ; {name}", " mx %00", " lda [bCS],y", " iny"]
-        if op == 0x81:
-            out.append(" iny")
-        elif op == 0x83:
-            out += [" and #$00FF", " eor #$80", " sec", " sbc #$80"]
-        if not w:
-            out += [" sep #$20", " mx %10"]
-        out += [" sta tmp0", " lda [pEA]", " sta tmp1"] + body
-        if store:
-            out.append(" sta [pEA]")
-        out.append(f" jmp flg_{cls}{16 if w else 8}")
+           " lda [bCS],y", " iny", " and #$00FF", " asl", " tax", f" jmp (g{hx(op)}_t,x)", f"g{hx(op)}_t"]
+    for m in range(0, 256, 8):
+        out.append(" da " + ",".join([f"g{hx(op)}_{'r' if m >= 0xC0 else 'm'}{(m >> 3) & 7}"] * 8))
+    for form in "mr":
+        dst = "[pEA]" if form == "m" else "0,x"
+        for k in range(8):
+            name, ins, cls, store, cin = o = OPS[k]
+            out += [f"g{hx(op)}_{form}{k}       ; {name}", " mx %00"]
+            if form == "m":
+                out.append(f" jsr (em{c}_tab,x)")
+            elif w:
+                out += [" txa", " and #$000E", " tax"]
+            else:
+                out += [" lda rm8_tab-$180,x", " tax"]
+            out += [" lda [bCS],y", " iny"]
+            if op == 0x81:
+                out.append(" iny")
+            elif op == 0x83:
+                out += [" and #$00FF", " cmp #$0080", " bcc :p", " ora #$FF00", ":p"]
+            if not w:
+                out += [" sep #$20", " mx %10"]
+            if cls == "log":
+                out.append(f" {ins} {dst}")
+            else:
+                out += [" sta vFS"] + carry_in(o) + [f" lda {dst}", " sta vFD", f" {ins} vFS"]
+            if store:
+                out.append(f" sta {dst}")
+            out += tail(cls, w)
     return out
 
 
+NOT_TAKEN = [" iny", " jmp (NEXTVEC)"]
+
+
+def jcc(test, taken_if_set):
+    return test + [" bne jcc_taken" if taken_if_set else " beq jcc_taken"] + NOT_TAKEN
+
+
+# SF != OF: OF moved up beside SF
+LESS = [" lda vLP", " asl", " eor vLP", " and #LP_SF"]
+PAR = [" lda vLRES", " and #$00FF", " tax", " lda parity,x", " and #F_PF"]
 JCC = [
-    ("jo", [" lda vOF", " bne jcc_taken", " bra jcc_not"]),
-    ("jno", [" lda vOF", " beq jcc_taken", " bra jcc_not"]),
-    ("jb", [" lda rFL", " and #F_CF", " bne jcc_taken", " bra jcc_not"]),
-    ("jae", [" lda rFL", " and #F_CF", " beq jcc_taken", " bra jcc_not"]),
-    ("je", [" lda rFL", " and #F_ZF", " bne jcc_taken", " bra jcc_not"]),
-    ("jne", [" lda rFL", " and #F_ZF", " beq jcc_taken", " bra jcc_not"]),
-    ("jbe", [" lda rFL", " and #F_CF+F_ZF", " bne jcc_taken", " bra jcc_not"]),
-    ("ja", [" lda rFL", " and #F_CF+F_ZF", " beq jcc_taken", " bra jcc_not"]),
-    ("js", [" lda rFL", " and #F_SF", " bne jcc_taken", " bra jcc_not"]),
-    ("jns", [" lda rFL", " and #F_SF", " beq jcc_taken", " bra jcc_not"]),
-    ("jp", [" lda rFL", " and #F_PF", " bne jcc_taken", " bra jcc_not"]),
-    ("jnp", [" lda rFL", " and #F_PF", " beq jcc_taken", " bra jcc_not"]),
-    ("jl", [" lda rFL", " eor vOF", " and #$0080", " bne jcc_taken", " bra jcc_not"]),
-    ("jge", [" lda rFL", " eor vOF", " and #$0080", " beq jcc_taken", " bra jcc_not"]),
-    ("jle", [" lda rFL", " eor vOF", " and #$0080", " bne jcc_taken",
-             " lda rFL", " and #F_ZF", " bne jcc_taken", " bra jcc_not"]),
-    ("jg", [" lda rFL", " eor vOF", " and #$0080", " bne jcc_not",
-            " lda rFL", " and #F_ZF", " bne jcc_not", " bra jcc_taken"]),
+    ("jo", jcc([" lda vLP", " and #LP_OF"], True)),
+    ("jno", jcc([" lda vLP", " and #LP_OF"], False)),
+    ("jb", jcc([" lda vLP", " and #LP_CF"], True)),
+    ("jae", jcc([" lda vLP", " and #LP_CF"], False)),
+    ("je", jcc([" lda vLP", " and #LP_ZF"], True)),
+    ("jne", jcc([" lda vLP", " and #LP_ZF"], False)),
+    ("jbe", jcc([" lda vLP", " and #LP_CF+LP_ZF"], True)),
+    ("ja", jcc([" lda vLP", " and #LP_CF+LP_ZF"], False)),
+    ("js", jcc([" lda vLP", " and #LP_SF"], True)),
+    ("jns", jcc([" lda vLP", " and #LP_SF"], False)),
+    ("jp", jcc(PAR, True)),
+    ("jnp", jcc(PAR, False)),
+    ("jl", jcc(LESS, True)),
+    ("jge", jcc(LESS, False)),
+    ("jle", LESS + [" bne jcc_taken", " lda vLP", " and #LP_ZF", " bne jcc_taken"] + NOT_TAKEN),
+    ("jg", LESS + [" bne :not", " lda vLP", " and #LP_ZF", " beq jcc_taken", ":not"] + NOT_TAKEN),
 ]
 
 
@@ -211,26 +438,39 @@ def gen_alu():
     lines = [HEADER.format(name="alu.s"), ""]
     for k in range(8):
         base = k * 8
-        lines += alu_rm_reg(base, k, False) + alu_rm_reg(base + 1, k, True)
-        lines += alu_reg_rm(base + 2, k, False) + alu_reg_rm(base + 3, k, True)
+        for w in (False, True):
+            pair = base + w if base + w in SPEC else None
+            lines += fast_rm(base + w, OPS[k], w, 0, pair) + fast_rm(base + 2 + w, OPS[k], w, 1, pair)
         lines += alu_acc_imm(base + 4, k, False) + alu_acc_imm(base + 5, k, True)
     for op in (0x80, 0x81, 0x83):
         lines += alu_group(op)
+    for w in (False, True):
+        lines += fast_rm(0x84 + w, TEST, w, 0, 0x84 + w if 0x84 + w in SPEC else None)
+        lines += fast_rm(0x88 + w, MOV, w, 0, 0x88 + w) + fast_rm(0x8A + w, MOV, w, 1, 0x88 + w)
     for r in range(8):
-        lines += [f"op_{hx(0x40 + r)}       ; inc {N16[r]}", " mx %00", f" lda {R16[r]}", " sta tmp1",
-                  " inc", f" sta {R16[r]}", " jmp flg_inc16"]
-        lines += [f"op_{hx(0x48 + r)}       ; dec {N16[r]}", " mx %00", f" lda {R16[r]}", " sta tmp1",
-                  " dec", f" sta {R16[r]}", " jmp flg_dec16"]
+        # as an add or subtract of 1, for V; CF is kept (flags.s, flg_incdec16)
+        lines += [f"op_{hx(0x40 + r)}       ; inc {N16[r]}", " mx %00", f" lda {R16[r]}", " sta vFD",
+                  " clc", " adc #1", f" sta {R16[r]}", " stz vFS"] + tail("incdec", True)
+        lines += [f"op_{hx(0x48 + r)}       ; dec {N16[r]}", " mx %00", f" lda {R16[r]}", " sta vFD",
+                  " sec", " sbc #1", f" sta {R16[r]}", " stz vFS"] + tail("incdec", True)
     for r in range(8):
         if r == 4:
             # PUSH SP pushes the decremented SP on an 8086.
             lines += ["op_54       ; push sp (the new value)", " mx %00", " lda rSP", " dec", " dec",
                       " jsr push16", " jmp (NEXTVEC)"]
         else:
-            lines += [f"op_{hx(0x50 + r)}       ; push {N16[r]}", " mx %00", f" lda {R16[r]}",
-                      " jsr push16", " jmp (NEXTVEC)"]
-        lines += [f"op_{hx(0x58 + r)}       ; pop {N16[r]}", " mx %00", " jsr pop16",
-                  f" sta {R16[r]}", " jmp (NEXTVEC)"]
+            # push16 inline; SP = 1 (the word split across the segment's end) through push16
+            lines += [f"op_{hx(0x50 + r)}       ; push {N16[r]}", " mx %00", " lda rSP", " dec", " dec",
+                      " cmp #$FFFF", " beq :split", " sta rSP", " clc", " adc bSS", " sta pSTK", " lda bSS+2",
+                      " bcs :carry", ":bank", " sta pSTK+2", f" lda {R16[r]}", " sta [pSTK]", " jmp (NEXTVEC)",
+                      ":carry", " jsr stk_carry", " bra :bank",
+                      ":split", f" lda {R16[r]}", " jsr push16", " jmp (NEXTVEC)"]
+        # pop16 inline; SP = $FFFF through pop16
+        lines += [f"op_{hx(0x58 + r)}       ; pop {N16[r]}", " mx %00", " lda rSP", " cmp #$FFFF", " beq :split",
+                  " tax", " inx", " inx", " stx rSP", " clc", " adc bSS", " sta pSTK", " lda bSS+2",
+                  " bcs :carry", ":bank", " sta pSTK+2", " lda [pSTK]", f" sta {R16[r]}", " jmp (NEXTVEC)",
+                  ":carry", " jsr stk_carry", " bra :bank",
+                  ":split", " jsr pop16", f" sta {R16[r]}", " jmp (NEXTVEC)"]
     for r in range(8):
         lines += [f"op_{hx(0xB0 + r)}       ; mov {N8[r]}, imm8", " mx %00", " lda [bCS],y", " iny",
                   " sep #$20", " mx %10", f" sta {R8[r]}", " rep #$20", " mx %00", " jmp (NEXTVEC)"]
@@ -239,13 +479,13 @@ def gen_alu():
     for r in range(1, 8):
         lines += [f"op_{hx(0x90 + r)}       ; xchg AX, {N16[r]}", " mx %00", " lda rAX",
                   f" ldx {R16[r]}", " stx rAX", f" sta {R16[r]}", " jmp (NEXTVEC)"]
-    # The shared tails sit in the middle of the block so every Jcc's
-    # short branch reaches them.
-    tails = ["jcc_taken                  ; IP += sign-extended rel8", " mx %00", " lda [bCS],y", " iny",
-             " and #$00FF", " eor #$80", " sec", " sbc #$80", " sta tmp0", " tya", " clc", " adc tmp0",
-             " tay", " jmp (NEXTVEC)", "jcc_not", " mx %00", " iny", " jmp (NEXTVEC)"]
+    # The taken tail sits inside the block so every Jcc's short branch
+    # reaches it. IP + 1 + rel8 as (rel8 ^ $80) + IP - $7F.
+    tails = ["jcc_taken                  ; IP += sign-extended rel8", " mx %00", " lda [bCS],y",
+             " and #$00FF", " eor #$0080", " sty tmp0", " clc", " adc tmp0", " sec", " sbc #$007F",
+             " tay", " jmp (NEXTVEC)"]
     for cc, (name, body) in enumerate(JCC):
-        if cc == 8:
+        if cc == 10:
             lines += tails
         lines += [f"op_{hx(0x70 + cc)}       ; {name} rel8", " mx %00"] + body
     return "\n".join(lines) + "\n"
@@ -267,31 +507,41 @@ def gen_optab():
 
 
 def gen_flagtab():
-    def table(name, f, comment):
+    def table(name, f, comment, word=False):
         out = [f"* {comment}", name]
         for i in range(0, 256, 16):
-            out.append(" hex " + "".join(f"{f(v):02X}" for v in range(i, i + 16)))
+            if word:
+                out.append(" hex " + "".join(f"{f(v) & 255:02X}{f(v) >> 8:02X}" for v in range(i, i + 16)))
+            else:
+                out.append(" hex " + "".join(f"{f(v):02X}" for v in range(i, i + 16)))
         return out
 
-    def p2f(P, cf):
-        v = 0x02
-        if P & 0x80:
-            v |= 0x80
-        if P & 0x02:
-            v |= 0x40
-        if cf is True and P & 1:
-            v |= 1
-        if cf is False and not P & 1:
-            v |= 1
+    # vLP's bits (src/include/guest.s) and FLAGS'
+    LP_CF, LP_ZF, LP_AFD, LP_AF, LP_OF, LP_SF = 0x01, 0x02, 0x08, 0x10, 0x40, 0x80
+    CF, AF, ZF, SF, OF, FIXED = 0x0001, 0x0010, 0x0040, 0x0080, 0x0800, 0xF002
+
+    def lp2f(lp):
+        v = FIXED
+        for a, b in ((LP_CF, CF), (LP_ZF, ZF), (LP_SF, SF), (LP_OF, OF)):
+            if lp & a:
+                v |= b
+        if lp & LP_AFD and lp & LP_AF:
+            v |= AF
+        return v
+
+    def f2lp(fl):
+        v = LP_AFD
+        for a, b in ((LP_CF, CF), (LP_ZF, ZF), (LP_SF, SF), (LP_AF, AF)):
+            if fl & b:
+                v |= a
         return v
 
     lines = [HEADER.format(name="flagtab.s"), ""]
     lines += table("parity", lambda v: 4 if bin(v).count("1") % 2 == 0 else 0,
                    "parity: PF ($04) when the byte has even parity")
-    lines += table("p2f_add", lambda P: p2f(P, True), "p2f_add: 65816 P -> SF ZF CF (CF = C), bit 1 set")
-    lines += table("p2f_sub", lambda P: p2f(P, False), "p2f_sub: 65816 P -> SF ZF CF (CF = NOT C), bit 1 set")
-    lines += table("p2f_log", lambda P: p2f(P, None), "p2f_log: 65816 P -> SF ZF, CF clear, bit 1 set")
-    lines += table("p2f_of", lambda P: 0x80 if P & 0x40 else 0, "p2f_of: 65816 P -> $80 when V (the OF representation)")
+    lines += table("lp2f", lp2f, "lp2f: vLP's low byte (times 2) -> FLAGS' SF ZF CF OF, AF when LP_AFD, "
+                   "and the fixed bits", word=True)
+    lines += table("f2lp", f2lp, "f2lp: FLAGS' low byte -> vLP's SF ZF CF, AF as LP_AFD and LP_AF")
     return "\n".join(lines) + "\n"
 
 

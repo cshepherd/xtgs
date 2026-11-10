@@ -81,7 +81,7 @@ GS/OS application, and `make boot-shared` boots it headless.
   reads the whole disk image into memory first, and the 23 banks (1.44 MB)
   that image occupies are not claimed: XT/GS then needs the PC's sixteen
   banks and three of its own. In MAME at stock speed, from ProDOS 8,
-  FreeCOM's date prompt is up 113 seconds after XT/GS starts, against 170
+  FreeCOM's date prompt is up 90 seconds after XT/GS starts, against 138
   from the floppy image with the same files.
 - The PC has no disk drives. `INT 13h` reports none, the equipment word has
   no floppy, and FreeDOS's `A:` and `B:` answer "drive not ready" (`DIR A:`

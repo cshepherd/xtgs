@@ -66,21 +66,21 @@ gF6_3                      ; neg r/m8 = 0 - r/m8
  sep #$20
  mx %10
  lda [pEA]
- sta tmp0
+ sta vFS
  lda #0
- sta tmp1
+ sta vFD
  sec
- sbc tmp0
+ sbc vFS
  sta [pEA]
  jmp flg_sub8
 gF7_3                      ; neg r/m16
  mx %00
  lda [pEA]
- sta tmp0
+ sta vFS
  lda #0
- sta tmp1
+ sta vFD
  sec
- sbc tmp0
+ sbc vFS
  sta [pEA]
  jmp flg_sub16
 
@@ -285,9 +285,9 @@ idiv_late8
  mx %00                    ; flg_sub8_r returns with 16-bit A
  lda tmp6
  bne :keep                 ; subtract path: CF is the compare's own borrow
- lda rFL
- and #$FFFE                ; no-subtract path: the certain borrow reads as 0
- sta rFL
+ lda vLP
+ and #$FFFF-LP_CF          ; no-subtract path: the certain borrow reads as 0
+ sta vLP
 :keep
  rts
 idiv_late16
@@ -309,9 +309,9 @@ idiv_late16
  jsr flg_sub16_r
  lda tmp6
  bne :keep
- lda rFL
- and #$FFFE
- sta rFL
+ lda vLP
+ and #$FFFF-LP_CF
+ sta vLP
 :keep
  rts
 idiv_err8
@@ -547,8 +547,8 @@ op_D2
  jmp (NEXTVEC)
 shift8
  mx %00
- lda rFL
- and #F_CF
+ lda vLP
+ and #LP_CF
  sta vCF
  lda vMODRM
  and #$0038
@@ -578,8 +578,8 @@ op_D3
  jmp (NEXTVEC)
 shift16
  mx %00
- lda rFL
- and #F_CF
+ lda vLP
+ and #LP_CF
  sta vCF
  lda vMODRM
  and #$0038
@@ -937,15 +937,19 @@ sh16_shift_done
 
 *=== decimal adjusts =========================================
 * Written from the 8086 algorithms; SF ZF PF from AL, the
-* undefined flags as they fall out.
+* undefined flags as they fall out. They work on a FLAGS
+* byte in rFL and OF in vOF: flg_sync before, flg_commit
+* after (flags.s).
 op_27                      ; daa
  mx %00
+ jsr flg_sync
  sep #$20
  mx %10
  clc
  bra bcd_adjust
 op_2F                      ; das
  mx %00
+ jsr flg_sync
  sep #$20
  mx %10
  sec
@@ -1029,6 +1033,7 @@ bcd_adjust
  jmp bcd_flags8
 op_37                      ; aaa
  mx %00
+ jsr flg_sync
  sep #$20
  mx %10
  lda rAX
@@ -1058,6 +1063,7 @@ op_37                      ; aaa
  jmp bcd_flags8
 op_3F                      ; aas
  mx %00
+ jsr flg_sync
  sep #$20
  mx %10
  lda rAX
@@ -1113,10 +1119,11 @@ bcd_flags8
  sta rFL
  rep #$20
  mx %00
- jmp (NEXTVEC)
+ jmp flg_commit
 
 op_D4                      ; aam imm8: AH = AL / imm, AL = AL mod imm
  mx %00
+ jsr flg_sync
  lda [bCS],y
  iny
  and #$00FF
@@ -1151,6 +1158,7 @@ op_D4                      ; aam imm8: AH = AL / imm, AL = AL mod imm
  jmp div_err
 op_D5                      ; aad imm8: AL = AH * imm + AL, AH = 0
  mx %00
+ jsr flg_sync
  lda [bCS],y
  iny
  and #$00FF

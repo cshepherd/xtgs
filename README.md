@@ -28,10 +28,11 @@ headless MAME runs and doubled in height (the SHR screen is 640x200 or
 XT/GS is developed and tested in MAME's `apple2gs` driver (ROM 03, 8 MB), and
 it has been **verified to run properly on a real IIGS accelerated to 8 MHz**.
 The screenshots, test results and speed figures in this file are from MAME.
-It is slow: a stock 2.8 MHz IIGS runs the guest at about 15,600 instructions
-a second, roughly 1/19 of a 4.77 MHz XT, and a 16 MHz ZipGS at about 87,000
-(1/3 of an XT). FreeDOS takes about four emulated minutes to reach its prompt
-on a stock machine. A ProDOS folder is drive `C:`, and what DOS writes there
+It is slow: a stock 2.8 MHz IIGS runs the guest at 21,000 to 26,500
+instructions a second on arithmetic code, roughly 1/12 of a 4.77 MHz XT, and
+a 16 MHz ZipGS at 119,000 to 148,000 (somewhat under half an XT). FreeDOS,
+booted from a ProDOS folder, takes a minute and a half of emulated time to
+reach its prompt on a stock machine. A ProDOS folder is drive `C:`, and what DOS writes there
 are ProDOS files that stay; writes to a floppy image stay in memory and are
 lost at power-off. See [Known limits](#known-limits).
 
@@ -111,8 +112,8 @@ real IIGS yet; `docs/relocation.md`.
 
 ![The XTGS folder in the Finder](assets/finder-icon.png)
 
-Booting FreeDOS takes a few minutes of emulated time (MAME's throttle can be
-turned off to shorten the wait). The folder has no `AUTOEXEC.BAT`, so FreeCOM
+Booting FreeDOS takes a minute and a half of emulated time on a stock machine
+(MAME's throttle can be turned off to shorten the wait). The folder has no `AUTOEXEC.BAT`, so FreeCOM
 asks for the date and the time first, showing the IIGS's: press Return twice
 to keep them. Then:
 
@@ -177,8 +178,8 @@ MAME:
 
 | | boot menu | date prompt | `login:` | first `#` |
 | --- | --- | --- | --- | --- |
-| stock IIGS, 2.8 MHz | 18 | 327 | 452 | 493 |
-| ZipGS, 16 MHz | 4 | 33 | 45 | 50 |
+| stock IIGS, 2.8 MHz | 18 | 205 | 279 | 303 |
+| ZipGS, 16 MHz | 4 | 26 | 35 | 39 |
 
 Minix is the guest that takes the PC at its word. Once its kernel is up it
 never calls the BIOS: it moves the 8259's interrupt vectors and masks its
@@ -330,14 +331,28 @@ fetch   lda [bCS],y        ; opcode byte through the cached CS base pointer
         jmp (optab,x)      ; one handler an opcode
 ```
 
-The opcode table, the 256-entry ModR/M decode tables and the ALU handlers are
-generated (`tools/gen_cpu.py`). Each segment register keeps a ready-made
-24-bit host pointer to its base, recomputed only when the segment is loaded.
-The guest's megabyte is sixteen consecutive banks, `$20`-`$2F`, so wrapping an
-address to 20 bits is an `AND` and an `ORA`, and `B800:0000` is simply
-`$2B:8000`. Flags are computed eagerly from the 65816's own flags through
-lookup tables. A forward `REP MOVS` that stays within one bank becomes a
-single `MVN` block move, which is 23 times faster than the loop.
+The opcode table, the ModR/M decode tables and the ALU, `MOV`, `TEST`, `PUSH`
+and `POP` handlers are generated (`tools/gen_cpu.py`). Each segment register
+keeps a ready-made 24-bit host pointer to its base, recomputed only when the
+segment is loaded. The guest's megabyte is sixteen consecutive banks,
+`$20`-`$2F`, so wrapping an address to 20 bits is an `AND` and an `ORA`, done
+only when an offset carries out of its bank, and `B800:0000` is simply
+`$2B:8000`.
+
+Flags are lazy. An arithmetic instruction does not build the 8086's FLAGS; it
+saves the 65816's own status byte, its result and its two operands, which is
+a `PHP` and four stores. A conditional jump tests the saved status byte
+directly (the 65816's N, V, Z and C are the 8086's SF, OF, ZF and CF after
+the same operation), and the whole word is assembled only when something
+reads it: `PUSHF`, an interrupt, `LAHF`.
+
+The common instructions with a ModR/M byte decode it themselves. A
+register-to-register form jumps through a table of its own to a routine that
+has both operands as direct-page addresses; a memory form calls one of 48
+effective-address routines, one for each addressing mode and operand size,
+with the default segment built in. A forward `REP MOVS` that stays within
+one bank becomes a single `MVN` block move, which is 23 times faster than
+the loop.
 
 **The BIOS.** Interrupt vectors point at small stubs in segment `F000`, each
 an undefined opcode that the core treats as a call into the 65816 service
@@ -391,8 +406,8 @@ make test-share   a ProDOS folder as drive C: under FreeDOS: DIR, COPY both
                   BOOT=1: FreeDOS booted from that folder, no disk image)
 make test-minix   boot the Minix 1.5 demonstration diskette
                   (third_party/minix/demo_dsk.ibm) to its shell, type a
-                  command line and judge the screen (ZIP=1: at 16 MHz, 75
-                  emulated seconds instead of 743)
+                  command line and judge the screen (ZIP=1: at 16 MHz, 60
+                  emulated seconds instead of 446)
 make test-layout  the probe, .COM and sampled CPU tests with every part of
                   XT/GS in a different bank, and every bank-$00 page it uses
                   at a different address, than it was assembled for
@@ -412,13 +427,17 @@ suite: all 324 opcode files, 2,883,807 vectors after the exclusions listed in
 
 | Benchmark (`docs/benchmarks.md`) | Stock 2.8 MHz | ZipGS 16 MHz |
 | --- | ---: | ---: |
-| register arithmetic loop | 15,600 IPS | 87,100 IPS |
-| memory-operand loop | 15,300 IPS | 85,200 IPS |
-| `rep movsw` | 218,000 IPS | 983,000 IPS |
+| register arithmetic loop | 26,500 IPS | 148,000 IPS |
+| memory-operand loop | 21,400 IPS | 119,200 IPS |
+| test-and-branch loop | 32,200 IPS | 180,000 IPS |
+| `rep movsw` | 197,000-218,000 IPS | 983,000 IPS |
+| FreeDOS from a folder, to FreeCOM's date prompt | 90 s | |
 
 ## Known limits
 
-- Speed, as above. Eager flag computation is the largest remaining cost.
+- Speed, as above. What is left is spread thin: in a FreeDOS boot, fetching
+  and retiring instructions is about a fifth of the time and the string
+  instructions one at a time another fifth (`docs/benchmarks.md`).
 - Writes to a floppy image are kept in RAM and never written back to the
   ProDOS volume. Files that should last go on the shared drive.
 - The shared drive shows only files with DOS-shaped names, keeps ProDOS's

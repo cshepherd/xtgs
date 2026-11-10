@@ -10,7 +10,8 @@ jcc_t
  jmp jcc_taken
 jcc_n
  mx %00
- jmp jcc_not
+ iny
+ jmp (NEXTVEC)
 
 op_E3                      ; jcxz
  mx %00
@@ -26,16 +27,16 @@ op_E1                      ; loope / loopz
  mx %00
  dec rCX
  beq jcc_n
- lda rFL
- and #F_ZF
+ lda vLP
+ and #LP_ZF
  bne jcc_t
  bra jcc_n
 op_E0                      ; loopne / loopnz
  mx %00
  dec rCX
  beq jcc_n
- lda rFL
- and #F_ZF
+ lda vLP
+ and #LP_ZF
  beq jcc_t
  bra jcc_n
 op_EB                      ; jmp rel8
@@ -167,7 +168,8 @@ op_CC                      ; int 3
  jmp (NEXTVEC)
 op_CE                      ; into
  mx %00
- lda vOF
+ lda vLP
+ and #LP_OF
  beq :no
  sty rIP
  lda #4
@@ -202,17 +204,19 @@ gFF_tab da gFF_0,gFF_1,gFF_2,gFF_3,gFF_4,gFF_5,gFF_6,gFF_6
 gFF_0                      ; inc r/m16
  mx %00
  lda [pEA]
- sta tmp1
- inc
+ sta vFD
+ clc
+ adc #1
  sta [pEA]
- jmp flg_inc16
+ jmp flg_incdec16
 gFF_1                      ; dec r/m16
  mx %00
  lda [pEA]
- sta tmp1
- dec
+ sta vFD
+ sec
+ sbc #1
  sta [pEA]
- jmp flg_dec16
+ jmp flg_incdec16
 gFF_2                      ; call r/m16
  mx %00
  lda [pEA]
@@ -305,16 +309,18 @@ gFE_0                      ; inc r/m8
  sep #$20
  mx %10
  lda [pEA]
- sta tmp1
- inc
+ sta vFD
+ clc
+ adc #1
  sta [pEA]
- jmp flg_inc8
+ jmp flg_incdec8
 gFE_1                      ; dec r/m8
  mx %00
  sep #$20
  mx %10
  lda [pEA]
- sta tmp1
- dec
+ sta vFD
+ sec
+ sbc #1
  sta [pEA]
- jmp flg_dec8
+ jmp flg_incdec8

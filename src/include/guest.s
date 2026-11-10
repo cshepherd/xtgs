@@ -43,8 +43,8 @@ vINTPEND   DS 1              ; $44  pending hardware interrupt vector + 1, 0 non
 vHALT      DS 1              ; $45
 vSLOT      DS 2              ; $46  instructions until the next slot check
 vICOUNT    DS 4              ; $48  retired instructions
-vIPSTART   DS 2              ; $4C  IP of the instruction's first prefix/opcode
-vSTEP      DS 2              ; $4E  harness: nonzero = retire returns to caller
+vLP        DS 2              ; $4C  lazy flags: the 65816's P after the last flag-setting operation (LP_*)
+vLRES      DS 2              ; $4E  lazy flags: that operation's result (the low byte gives PF)
 pSRC       DS 4              ; $50  string source pointer
 pDST       DS 4              ; $54  string destination pointer
 vCOUNT     DS 2              ; $58
@@ -54,13 +54,13 @@ tmp4       DS 2              ; $60
 tmp5       DS 2              ; $62
 tmp6       DS 2              ; $64
 tmp7       DS 2              ; $66
-vOF        DS 2              ; $68  OF as $0080 (set) or $0000; FLAGS bit 11 is assembled on demand
+vOF        DS 2              ; $68  shifts, rotates and the decimal adjusts: OF as $0080 or 0 (flags.s)
 vNEXT2     DS 2              ; $6A  vNEXT saved by the split path
 pSTK       DS 4              ; $6C  stack pointer (host)
 pTMP       DS 4              ; $70  split path's second byte
-vBAD       DS 2              ; $74  unimplemented opcodes retired (harness)
-vIDX       DS 2              ; $76  harness: vector index
-vRECLEN    DS 2              ; $78  harness: record length
+vOVR       DS 2              ; $74  $8000 while a segment override is in force (vSEGOVR), else 0
+vFS        DS 2              ; $76  lazy flags: the operation's source operand
+vFD        DS 2              ; $78  lazy flags: its destination before (AF = bit 4 of vFS ^ vFD ^ vLRES)
 vXRAMOFF   DS 2              ; $7A  harness: offset of the expected-RAM list
 vNRUN      DS 2              ; $7C  harness: vectors run
 vNPASS     DS 2              ; $7E  harness: vectors passed
@@ -134,3 +134,12 @@ F_IF       = $0200
 F_DF       = $0400
 F_OF       = $0800
 F_FIXED    = $F002           ; read as 1 on an 8086/8088
+
+* vLP's low byte (src/core/flags.s): the 65816's own P bits for SF OF ZF
+* CF, and AF either from the operands or given here.
+LP_CF      = $0001           ; C (the 8086's sense: a subtraction stores it inverted)
+LP_ZF      = $0002           ; Z
+LP_AFD     = $0008           ; AF is LP_AF (P's D, clear in the core: AF from vFS ^ vFD ^ vLRES)
+LP_AF      = $0010           ; AF when LP_AFD (P's X, clear in the core)
+LP_OF      = $0040           ; V
+LP_SF      = $0080           ; N

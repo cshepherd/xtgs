@@ -3,42 +3,7 @@
 * CBW/CWD, LAHF/SAHF, PUSH/POP sreg, PUSHF/POPF, POP r/m.
 *----------------------------------------------------------
 
-op_88                      ; mov r/m8, r8
- mx %00
- jsr modrm_b
- sep #$20
- mx %10
- ldx vREGOFF
- lda 0,x
- sta [pEA]
- rep #$20
- mx %00
- jmp (NEXTVEC)
-op_89                      ; mov r/m16, r16
- mx %00
- jsr modrm_w
- ldx vREGOFF
- lda 0,x
- sta [pEA]
- jmp (NEXTVEC)
-op_8A                      ; mov r8, r/m8
- mx %00
- jsr modrm_b
- sep #$20
- mx %10
- lda [pEA]
- ldx vREGOFF
- sta 0,x
- rep #$20
- mx %00
- jmp (NEXTVEC)
-op_8B                      ; mov r16, r/m16
- mx %00
- jsr modrm_w
- lda [pEA]
- ldx vREGOFF
- sta 0,x
- jmp (NEXTVEC)
+* (MOV r/m,reg and reg,r/m, 88-8B, are generated: gen/alu.s)
 op_8C                      ; mov r/m16, sreg (reg bit 2 ignored, as the 8086)
  mx %00
  jsr modrm_w
@@ -80,11 +45,7 @@ op_8F                      ; pop r/m16
 
 op_A0                      ; mov AL, [moffs16]
  mx %00
- lda [bCS],y
- iny
- iny
- sta vEA
- jsr ea_ds_b
+ jsr emb_06                ; [disp16], DS or the override
  sep #$20
  mx %10
  lda [pEA]
@@ -94,21 +55,13 @@ op_A0                      ; mov AL, [moffs16]
  jmp (NEXTVEC)
 op_A1                      ; mov AX, [moffs16]
  mx %00
- lda [bCS],y
- iny
- iny
- sta vEA
- jsr ea_ds_w
+ jsr emw_06                ; [disp16], DS or the override
  lda [pEA]
  sta rAX
  jmp (NEXTVEC)
 op_A2                      ; mov [moffs16], AL
  mx %00
- lda [bCS],y
- iny
- iny
- sta vEA
- jsr ea_ds_b
+ jsr emb_06                ; [disp16], DS or the override
  sep #$20
  mx %10
  lda rAX
@@ -118,11 +71,7 @@ op_A2                      ; mov [moffs16], AL
  jmp (NEXTVEC)
 op_A3                      ; mov [moffs16], AX
  mx %00
- lda [bCS],y
- iny
- iny
- sta vEA
- jsr ea_ds_w
+ jsr emw_06                ; [disp16], DS or the override
  lda rAX
  sta [pEA]
  jmp (NEXTVEC)
@@ -179,22 +128,18 @@ op_99                      ; cwd
 
 op_9E                      ; sahf: SF ZF AF PF CF from AH
  mx %00
- sep #$20
- mx %10
+ lda vLP
+ and #LP_OF
+ sta tmp4
  lda rAX+1
- and #$D5
- ora #$02
- sta rFL
- rep #$20
- mx %00
+ and #$00FF
+ jsr flags_low
  jmp (NEXTVEC)
 op_9F                      ; lahf
  mx %00
+ jsr flags_get
  sep #$20
  mx %10
- lda rFL
- ora #$02
- and #$D7
  sta rAX+1
  rep #$20
  mx %00
@@ -337,26 +282,7 @@ op_9D                      ; popf
  jmp irq_soon
 
 *--- test
-op_84                      ; test r/m8, r8
- mx %00
- jsr modrm_b
- sep #$20
- mx %10
- ldx vREGOFF
- lda 0,x
- sta tmp0
- lda [pEA]
- and tmp0
- jmp flg_log8
-op_85                      ; test r/m16, r16
- mx %00
- jsr modrm_w
- ldx vREGOFF
- lda 0,x
- sta tmp0
- lda [pEA]
- and tmp0
- jmp flg_log16
+* (TEST r/m,reg, 84/85, is generated: gen/alu.s)
 op_A8                      ; test AL, imm8
  mx %00
  lda [bCS],y

@@ -47,7 +47,7 @@ harness_run
  sta vRECLEN
  lda vIDX
  sta >MB_RUNIDX
-* Registers, then FLAGS into rFL/vOF, then the bases.
+* Registers, then FLAGS (flags_set), then the bases.
  ldy #2
  ldx #0
 :regs
@@ -65,6 +65,7 @@ harness_run
  stz vBAD
  stz vHALT
  stz vSEGOVR
+ stz vOVR
  stz vREP
 * Initial RAM.
  ldy #60
@@ -242,6 +243,9 @@ harness_run
  rts
 
 bit_tab hex 0102040810204080
+vIDX       dw 0              ; vector index
+vRECLEN    dw 0              ; record length
+vBAD       dw 0              ; unimplemented opcodes retired (op_bad)
 
 * run_one - execute one instruction from the guest state;
 * returns when it retires (prefixes and REP included).
@@ -249,6 +253,7 @@ run_one
  mx %00
  lda #step_done
  sta vNEXT
+ sta vnext0
  sta vHALTVEC
  ldy rIP
  jmp fetch
@@ -256,5 +261,6 @@ step_done
  mx %00
  sty rIP
  stz vSEGOVR
+ stz vOVR
  stz vREP
  rts

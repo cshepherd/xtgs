@@ -283,7 +283,7 @@ test-clock: $(PO) $(FDIMG)
 # the date, a login and a shell that lists directories, with the 8259, the
 # diskette controller and the 6845 as Minix drives them itself. MINIX= is
 # the 360K image (third_party/minix, with its licence); ZIP=1 a 16 MHz
-# ZipGS (a stock IIGS takes twelve emulated minutes).
+# ZipGS (a stock IIGS takes seven and a half emulated minutes).
 MINIX        := third_party/minix/demo_dsk.ibm
 test-minix: $(PO)
 	$(PY) tools/minix_test.py $(MINIX) $(if $(ZIP),--zip)

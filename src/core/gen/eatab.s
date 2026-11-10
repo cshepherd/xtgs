@@ -606,10 +606,10 @@ eab_40      ; reg=AL [bx+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rSI
@@ -622,10 +622,10 @@ eab_41      ; reg=AL [bx+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rDI
@@ -638,10 +638,10 @@ eab_42      ; reg=AL [bp+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rSI
@@ -654,10 +654,10 @@ eab_43      ; reg=AL [bp+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rDI
@@ -670,10 +670,10 @@ eab_44      ; reg=AL [si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rSI
  sta vEA
  jmp ea_ds_b
@@ -684,10 +684,10 @@ eab_45      ; reg=AL [di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rDI
  sta vEA
  jmp ea_ds_b
@@ -698,10 +698,10 @@ eab_46      ; reg=AL [bp+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  sta vEA
  jmp ea_ss_b
@@ -712,10 +712,10 @@ eab_47      ; reg=AL [bx+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  sta vEA
  jmp ea_ds_b
@@ -726,10 +726,10 @@ eab_48      ; reg=CL [bx+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rSI
@@ -742,10 +742,10 @@ eab_49      ; reg=CL [bx+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rDI
@@ -758,10 +758,10 @@ eab_4A      ; reg=CL [bp+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rSI
@@ -774,10 +774,10 @@ eab_4B      ; reg=CL [bp+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rDI
@@ -790,10 +790,10 @@ eab_4C      ; reg=CL [si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rSI
  sta vEA
  jmp ea_ds_b
@@ -804,10 +804,10 @@ eab_4D      ; reg=CL [di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rDI
  sta vEA
  jmp ea_ds_b
@@ -818,10 +818,10 @@ eab_4E      ; reg=CL [bp+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  sta vEA
  jmp ea_ss_b
@@ -832,10 +832,10 @@ eab_4F      ; reg=CL [bx+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  sta vEA
  jmp ea_ds_b
@@ -846,10 +846,10 @@ eab_50      ; reg=DL [bx+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rSI
@@ -862,10 +862,10 @@ eab_51      ; reg=DL [bx+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rDI
@@ -878,10 +878,10 @@ eab_52      ; reg=DL [bp+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rSI
@@ -894,10 +894,10 @@ eab_53      ; reg=DL [bp+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rDI
@@ -910,10 +910,10 @@ eab_54      ; reg=DL [si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rSI
  sta vEA
  jmp ea_ds_b
@@ -924,10 +924,10 @@ eab_55      ; reg=DL [di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rDI
  sta vEA
  jmp ea_ds_b
@@ -938,10 +938,10 @@ eab_56      ; reg=DL [bp+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  sta vEA
  jmp ea_ss_b
@@ -952,10 +952,10 @@ eab_57      ; reg=DL [bx+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  sta vEA
  jmp ea_ds_b
@@ -966,10 +966,10 @@ eab_58      ; reg=BL [bx+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rSI
@@ -982,10 +982,10 @@ eab_59      ; reg=BL [bx+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rDI
@@ -998,10 +998,10 @@ eab_5A      ; reg=BL [bp+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rSI
@@ -1014,10 +1014,10 @@ eab_5B      ; reg=BL [bp+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rDI
@@ -1030,10 +1030,10 @@ eab_5C      ; reg=BL [si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rSI
  sta vEA
  jmp ea_ds_b
@@ -1044,10 +1044,10 @@ eab_5D      ; reg=BL [di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rDI
  sta vEA
  jmp ea_ds_b
@@ -1058,10 +1058,10 @@ eab_5E      ; reg=BL [bp+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  sta vEA
  jmp ea_ss_b
@@ -1072,10 +1072,10 @@ eab_5F      ; reg=BL [bx+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  sta vEA
  jmp ea_ds_b
@@ -1086,10 +1086,10 @@ eab_60      ; reg=AH [bx+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rSI
@@ -1102,10 +1102,10 @@ eab_61      ; reg=AH [bx+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rDI
@@ -1118,10 +1118,10 @@ eab_62      ; reg=AH [bp+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rSI
@@ -1134,10 +1134,10 @@ eab_63      ; reg=AH [bp+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rDI
@@ -1150,10 +1150,10 @@ eab_64      ; reg=AH [si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rSI
  sta vEA
  jmp ea_ds_b
@@ -1164,10 +1164,10 @@ eab_65      ; reg=AH [di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rDI
  sta vEA
  jmp ea_ds_b
@@ -1178,10 +1178,10 @@ eab_66      ; reg=AH [bp+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  sta vEA
  jmp ea_ss_b
@@ -1192,10 +1192,10 @@ eab_67      ; reg=AH [bx+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  sta vEA
  jmp ea_ds_b
@@ -1206,10 +1206,10 @@ eab_68      ; reg=CH [bx+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rSI
@@ -1222,10 +1222,10 @@ eab_69      ; reg=CH [bx+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rDI
@@ -1238,10 +1238,10 @@ eab_6A      ; reg=CH [bp+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rSI
@@ -1254,10 +1254,10 @@ eab_6B      ; reg=CH [bp+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rDI
@@ -1270,10 +1270,10 @@ eab_6C      ; reg=CH [si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rSI
  sta vEA
  jmp ea_ds_b
@@ -1284,10 +1284,10 @@ eab_6D      ; reg=CH [di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rDI
  sta vEA
  jmp ea_ds_b
@@ -1298,10 +1298,10 @@ eab_6E      ; reg=CH [bp+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  sta vEA
  jmp ea_ss_b
@@ -1312,10 +1312,10 @@ eab_6F      ; reg=CH [bx+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  sta vEA
  jmp ea_ds_b
@@ -1326,10 +1326,10 @@ eab_70      ; reg=DH [bx+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rSI
@@ -1342,10 +1342,10 @@ eab_71      ; reg=DH [bx+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rDI
@@ -1358,10 +1358,10 @@ eab_72      ; reg=DH [bp+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rSI
@@ -1374,10 +1374,10 @@ eab_73      ; reg=DH [bp+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rDI
@@ -1390,10 +1390,10 @@ eab_74      ; reg=DH [si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rSI
  sta vEA
  jmp ea_ds_b
@@ -1404,10 +1404,10 @@ eab_75      ; reg=DH [di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rDI
  sta vEA
  jmp ea_ds_b
@@ -1418,10 +1418,10 @@ eab_76      ; reg=DH [bp+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  sta vEA
  jmp ea_ss_b
@@ -1432,10 +1432,10 @@ eab_77      ; reg=DH [bx+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  sta vEA
  jmp ea_ds_b
@@ -1446,10 +1446,10 @@ eab_78      ; reg=BH [bx+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rSI
@@ -1462,10 +1462,10 @@ eab_79      ; reg=BH [bx+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rDI
@@ -1478,10 +1478,10 @@ eab_7A      ; reg=BH [bp+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rSI
@@ -1494,10 +1494,10 @@ eab_7B      ; reg=BH [bp+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rDI
@@ -1510,10 +1510,10 @@ eab_7C      ; reg=BH [si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rSI
  sta vEA
  jmp ea_ds_b
@@ -1524,10 +1524,10 @@ eab_7D      ; reg=BH [di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rDI
  sta vEA
  jmp ea_ds_b
@@ -1538,10 +1538,10 @@ eab_7E      ; reg=BH [bp+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  sta vEA
  jmp ea_ss_b
@@ -1552,10 +1552,10 @@ eab_7F      ; reg=BH [bx+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  sta vEA
  jmp ea_ds_b
@@ -3374,10 +3374,10 @@ eaw_40      ; reg=AX [bx+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rSI
@@ -3390,10 +3390,10 @@ eaw_41      ; reg=AX [bx+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rDI
@@ -3406,10 +3406,10 @@ eaw_42      ; reg=AX [bp+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rSI
@@ -3422,10 +3422,10 @@ eaw_43      ; reg=AX [bp+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rDI
@@ -3438,10 +3438,10 @@ eaw_44      ; reg=AX [si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rSI
  sta vEA
  jmp ea_ds_w
@@ -3452,10 +3452,10 @@ eaw_45      ; reg=AX [di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rDI
  sta vEA
  jmp ea_ds_w
@@ -3466,10 +3466,10 @@ eaw_46      ; reg=AX [bp+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  sta vEA
  jmp ea_ss_w
@@ -3480,10 +3480,10 @@ eaw_47      ; reg=AX [bx+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  sta vEA
  jmp ea_ds_w
@@ -3494,10 +3494,10 @@ eaw_48      ; reg=CX [bx+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rSI
@@ -3510,10 +3510,10 @@ eaw_49      ; reg=CX [bx+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rDI
@@ -3526,10 +3526,10 @@ eaw_4A      ; reg=CX [bp+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rSI
@@ -3542,10 +3542,10 @@ eaw_4B      ; reg=CX [bp+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rDI
@@ -3558,10 +3558,10 @@ eaw_4C      ; reg=CX [si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rSI
  sta vEA
  jmp ea_ds_w
@@ -3572,10 +3572,10 @@ eaw_4D      ; reg=CX [di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rDI
  sta vEA
  jmp ea_ds_w
@@ -3586,10 +3586,10 @@ eaw_4E      ; reg=CX [bp+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  sta vEA
  jmp ea_ss_w
@@ -3600,10 +3600,10 @@ eaw_4F      ; reg=CX [bx+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  sta vEA
  jmp ea_ds_w
@@ -3614,10 +3614,10 @@ eaw_50      ; reg=DX [bx+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rSI
@@ -3630,10 +3630,10 @@ eaw_51      ; reg=DX [bx+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rDI
@@ -3646,10 +3646,10 @@ eaw_52      ; reg=DX [bp+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rSI
@@ -3662,10 +3662,10 @@ eaw_53      ; reg=DX [bp+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rDI
@@ -3678,10 +3678,10 @@ eaw_54      ; reg=DX [si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rSI
  sta vEA
  jmp ea_ds_w
@@ -3692,10 +3692,10 @@ eaw_55      ; reg=DX [di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rDI
  sta vEA
  jmp ea_ds_w
@@ -3706,10 +3706,10 @@ eaw_56      ; reg=DX [bp+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  sta vEA
  jmp ea_ss_w
@@ -3720,10 +3720,10 @@ eaw_57      ; reg=DX [bx+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  sta vEA
  jmp ea_ds_w
@@ -3734,10 +3734,10 @@ eaw_58      ; reg=BX [bx+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rSI
@@ -3750,10 +3750,10 @@ eaw_59      ; reg=BX [bx+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rDI
@@ -3766,10 +3766,10 @@ eaw_5A      ; reg=BX [bp+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rSI
@@ -3782,10 +3782,10 @@ eaw_5B      ; reg=BX [bp+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rDI
@@ -3798,10 +3798,10 @@ eaw_5C      ; reg=BX [si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rSI
  sta vEA
  jmp ea_ds_w
@@ -3812,10 +3812,10 @@ eaw_5D      ; reg=BX [di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rDI
  sta vEA
  jmp ea_ds_w
@@ -3826,10 +3826,10 @@ eaw_5E      ; reg=BX [bp+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  sta vEA
  jmp ea_ss_w
@@ -3840,10 +3840,10 @@ eaw_5F      ; reg=BX [bx+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  sta vEA
  jmp ea_ds_w
@@ -3854,10 +3854,10 @@ eaw_60      ; reg=SP [bx+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rSI
@@ -3870,10 +3870,10 @@ eaw_61      ; reg=SP [bx+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rDI
@@ -3886,10 +3886,10 @@ eaw_62      ; reg=SP [bp+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rSI
@@ -3902,10 +3902,10 @@ eaw_63      ; reg=SP [bp+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rDI
@@ -3918,10 +3918,10 @@ eaw_64      ; reg=SP [si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rSI
  sta vEA
  jmp ea_ds_w
@@ -3932,10 +3932,10 @@ eaw_65      ; reg=SP [di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rDI
  sta vEA
  jmp ea_ds_w
@@ -3946,10 +3946,10 @@ eaw_66      ; reg=SP [bp+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  sta vEA
  jmp ea_ss_w
@@ -3960,10 +3960,10 @@ eaw_67      ; reg=SP [bx+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  sta vEA
  jmp ea_ds_w
@@ -3974,10 +3974,10 @@ eaw_68      ; reg=BP [bx+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rSI
@@ -3990,10 +3990,10 @@ eaw_69      ; reg=BP [bx+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rDI
@@ -4006,10 +4006,10 @@ eaw_6A      ; reg=BP [bp+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rSI
@@ -4022,10 +4022,10 @@ eaw_6B      ; reg=BP [bp+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rDI
@@ -4038,10 +4038,10 @@ eaw_6C      ; reg=BP [si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rSI
  sta vEA
  jmp ea_ds_w
@@ -4052,10 +4052,10 @@ eaw_6D      ; reg=BP [di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rDI
  sta vEA
  jmp ea_ds_w
@@ -4066,10 +4066,10 @@ eaw_6E      ; reg=BP [bp+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  sta vEA
  jmp ea_ss_w
@@ -4080,10 +4080,10 @@ eaw_6F      ; reg=BP [bx+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  sta vEA
  jmp ea_ds_w
@@ -4094,10 +4094,10 @@ eaw_70      ; reg=SI [bx+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rSI
@@ -4110,10 +4110,10 @@ eaw_71      ; reg=SI [bx+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rDI
@@ -4126,10 +4126,10 @@ eaw_72      ; reg=SI [bp+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rSI
@@ -4142,10 +4142,10 @@ eaw_73      ; reg=SI [bp+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rDI
@@ -4158,10 +4158,10 @@ eaw_74      ; reg=SI [si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rSI
  sta vEA
  jmp ea_ds_w
@@ -4172,10 +4172,10 @@ eaw_75      ; reg=SI [di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rDI
  sta vEA
  jmp ea_ds_w
@@ -4186,10 +4186,10 @@ eaw_76      ; reg=SI [bp+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  sta vEA
  jmp ea_ss_w
@@ -4200,10 +4200,10 @@ eaw_77      ; reg=SI [bx+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  sta vEA
  jmp ea_ds_w
@@ -4214,10 +4214,10 @@ eaw_78      ; reg=DI [bx+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rSI
@@ -4230,10 +4230,10 @@ eaw_79      ; reg=DI [bx+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  clc
  adc rDI
@@ -4246,10 +4246,10 @@ eaw_7A      ; reg=DI [bp+si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rSI
@@ -4262,10 +4262,10 @@ eaw_7B      ; reg=DI [bp+di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  clc
  adc rDI
@@ -4278,10 +4278,10 @@ eaw_7C      ; reg=DI [si+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rSI
  sta vEA
  jmp ea_ds_w
@@ -4292,10 +4292,10 @@ eaw_7D      ; reg=DI [di+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rDI
  sta vEA
  jmp ea_ds_w
@@ -4306,10 +4306,10 @@ eaw_7E      ; reg=DI [bp+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBP
  sta vEA
  jmp ea_ss_w
@@ -4320,10 +4320,10 @@ eaw_7F      ; reg=DI [bx+disp8]
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- clc
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
  adc rBX
  sta vEA
  jmp ea_ds_w
@@ -5607,3 +5607,1422 @@ eaw_FF      ; reg=DI rm=DI
  sta pEA
  stz pEA+2
  rts
+
+* The fast set (em?_tab): for the handlers that dispatch on the ModR/M
+* byte themselves. X = modrm*2 on entry and on return; pEA is all a
+* routine sets. regw_tab / regb_tab: the reg field's DP offset by
+* modrm*2 (mod < 3); rm8_tab: the rm field's as a byte register, by
+* modrm*2 - $180 (mod = 3).
+
+emb_tab
+ da emb_00,emb_01,emb_02,emb_03,emb_04,emb_05,emb_06,emb_07
+ da emb_00,emb_01,emb_02,emb_03,emb_04,emb_05,emb_06,emb_07
+ da emb_00,emb_01,emb_02,emb_03,emb_04,emb_05,emb_06,emb_07
+ da emb_00,emb_01,emb_02,emb_03,emb_04,emb_05,emb_06,emb_07
+ da emb_00,emb_01,emb_02,emb_03,emb_04,emb_05,emb_06,emb_07
+ da emb_00,emb_01,emb_02,emb_03,emb_04,emb_05,emb_06,emb_07
+ da emb_00,emb_01,emb_02,emb_03,emb_04,emb_05,emb_06,emb_07
+ da emb_00,emb_01,emb_02,emb_03,emb_04,emb_05,emb_06,emb_07
+ da emb_10,emb_11,emb_12,emb_13,emb_14,emb_15,emb_16,emb_17
+ da emb_10,emb_11,emb_12,emb_13,emb_14,emb_15,emb_16,emb_17
+ da emb_10,emb_11,emb_12,emb_13,emb_14,emb_15,emb_16,emb_17
+ da emb_10,emb_11,emb_12,emb_13,emb_14,emb_15,emb_16,emb_17
+ da emb_10,emb_11,emb_12,emb_13,emb_14,emb_15,emb_16,emb_17
+ da emb_10,emb_11,emb_12,emb_13,emb_14,emb_15,emb_16,emb_17
+ da emb_10,emb_11,emb_12,emb_13,emb_14,emb_15,emb_16,emb_17
+ da emb_10,emb_11,emb_12,emb_13,emb_14,emb_15,emb_16,emb_17
+ da emb_20,emb_21,emb_22,emb_23,emb_24,emb_25,emb_26,emb_27
+ da emb_20,emb_21,emb_22,emb_23,emb_24,emb_25,emb_26,emb_27
+ da emb_20,emb_21,emb_22,emb_23,emb_24,emb_25,emb_26,emb_27
+ da emb_20,emb_21,emb_22,emb_23,emb_24,emb_25,emb_26,emb_27
+ da emb_20,emb_21,emb_22,emb_23,emb_24,emb_25,emb_26,emb_27
+ da emb_20,emb_21,emb_22,emb_23,emb_24,emb_25,emb_26,emb_27
+ da emb_20,emb_21,emb_22,emb_23,emb_24,emb_25,emb_26,emb_27
+ da emb_20,emb_21,emb_22,emb_23,emb_24,emb_25,emb_26,emb_27
+ da em_none,em_none,em_none,em_none,em_none,em_none,em_none,em_none
+ da em_none,em_none,em_none,em_none,em_none,em_none,em_none,em_none
+ da em_none,em_none,em_none,em_none,em_none,em_none,em_none,em_none
+ da em_none,em_none,em_none,em_none,em_none,em_none,em_none,em_none
+ da em_none,em_none,em_none,em_none,em_none,em_none,em_none,em_none
+ da em_none,em_none,em_none,em_none,em_none,em_none,em_none,em_none
+ da em_none,em_none,em_none,em_none,em_none,em_none,em_none,em_none
+ da em_none,em_none,em_none,em_none,em_none,em_none,em_none,em_none
+regb_tab
+ dw 0,0,0,0,0,0,0,0
+ dw 2,2,2,2,2,2,2,2
+ dw 4,4,4,4,4,4,4,4
+ dw 6,6,6,6,6,6,6,6
+ dw 1,1,1,1,1,1,1,1
+ dw 3,3,3,3,3,3,3,3
+ dw 5,5,5,5,5,5,5,5
+ dw 7,7,7,7,7,7,7,7
+ dw 0,0,0,0,0,0,0,0
+ dw 2,2,2,2,2,2,2,2
+ dw 4,4,4,4,4,4,4,4
+ dw 6,6,6,6,6,6,6,6
+ dw 1,1,1,1,1,1,1,1
+ dw 3,3,3,3,3,3,3,3
+ dw 5,5,5,5,5,5,5,5
+ dw 7,7,7,7,7,7,7,7
+ dw 0,0,0,0,0,0,0,0
+ dw 2,2,2,2,2,2,2,2
+ dw 4,4,4,4,4,4,4,4
+ dw 6,6,6,6,6,6,6,6
+ dw 1,1,1,1,1,1,1,1
+ dw 3,3,3,3,3,3,3,3
+ dw 5,5,5,5,5,5,5,5
+ dw 7,7,7,7,7,7,7,7
+emw_tab
+ da emw_00,emw_01,emw_02,emw_03,emw_04,emw_05,emw_06,emw_07
+ da emw_00,emw_01,emw_02,emw_03,emw_04,emw_05,emw_06,emw_07
+ da emw_00,emw_01,emw_02,emw_03,emw_04,emw_05,emw_06,emw_07
+ da emw_00,emw_01,emw_02,emw_03,emw_04,emw_05,emw_06,emw_07
+ da emw_00,emw_01,emw_02,emw_03,emw_04,emw_05,emw_06,emw_07
+ da emw_00,emw_01,emw_02,emw_03,emw_04,emw_05,emw_06,emw_07
+ da emw_00,emw_01,emw_02,emw_03,emw_04,emw_05,emw_06,emw_07
+ da emw_00,emw_01,emw_02,emw_03,emw_04,emw_05,emw_06,emw_07
+ da emw_10,emw_11,emw_12,emw_13,emw_14,emw_15,emw_16,emw_17
+ da emw_10,emw_11,emw_12,emw_13,emw_14,emw_15,emw_16,emw_17
+ da emw_10,emw_11,emw_12,emw_13,emw_14,emw_15,emw_16,emw_17
+ da emw_10,emw_11,emw_12,emw_13,emw_14,emw_15,emw_16,emw_17
+ da emw_10,emw_11,emw_12,emw_13,emw_14,emw_15,emw_16,emw_17
+ da emw_10,emw_11,emw_12,emw_13,emw_14,emw_15,emw_16,emw_17
+ da emw_10,emw_11,emw_12,emw_13,emw_14,emw_15,emw_16,emw_17
+ da emw_10,emw_11,emw_12,emw_13,emw_14,emw_15,emw_16,emw_17
+ da emw_20,emw_21,emw_22,emw_23,emw_24,emw_25,emw_26,emw_27
+ da emw_20,emw_21,emw_22,emw_23,emw_24,emw_25,emw_26,emw_27
+ da emw_20,emw_21,emw_22,emw_23,emw_24,emw_25,emw_26,emw_27
+ da emw_20,emw_21,emw_22,emw_23,emw_24,emw_25,emw_26,emw_27
+ da emw_20,emw_21,emw_22,emw_23,emw_24,emw_25,emw_26,emw_27
+ da emw_20,emw_21,emw_22,emw_23,emw_24,emw_25,emw_26,emw_27
+ da emw_20,emw_21,emw_22,emw_23,emw_24,emw_25,emw_26,emw_27
+ da emw_20,emw_21,emw_22,emw_23,emw_24,emw_25,emw_26,emw_27
+ da em_none,em_none,em_none,em_none,em_none,em_none,em_none,em_none
+ da em_none,em_none,em_none,em_none,em_none,em_none,em_none,em_none
+ da em_none,em_none,em_none,em_none,em_none,em_none,em_none,em_none
+ da em_none,em_none,em_none,em_none,em_none,em_none,em_none,em_none
+ da em_none,em_none,em_none,em_none,em_none,em_none,em_none,em_none
+ da em_none,em_none,em_none,em_none,em_none,em_none,em_none,em_none
+ da em_none,em_none,em_none,em_none,em_none,em_none,em_none,em_none
+ da em_none,em_none,em_none,em_none,em_none,em_none,em_none,em_none
+regw_tab
+ dw 0,0,0,0,0,0,0,0
+ dw 2,2,2,2,2,2,2,2
+ dw 4,4,4,4,4,4,4,4
+ dw 6,6,6,6,6,6,6,6
+ dw 8,8,8,8,8,8,8,8
+ dw 10,10,10,10,10,10,10,10
+ dw 12,12,12,12,12,12,12,12
+ dw 14,14,14,14,14,14,14,14
+ dw 0,0,0,0,0,0,0,0
+ dw 2,2,2,2,2,2,2,2
+ dw 4,4,4,4,4,4,4,4
+ dw 6,6,6,6,6,6,6,6
+ dw 8,8,8,8,8,8,8,8
+ dw 10,10,10,10,10,10,10,10
+ dw 12,12,12,12,12,12,12,12
+ dw 14,14,14,14,14,14,14,14
+ dw 0,0,0,0,0,0,0,0
+ dw 2,2,2,2,2,2,2,2
+ dw 4,4,4,4,4,4,4,4
+ dw 6,6,6,6,6,6,6,6
+ dw 8,8,8,8,8,8,8,8
+ dw 10,10,10,10,10,10,10,10
+ dw 12,12,12,12,12,12,12,12
+ dw 14,14,14,14,14,14,14,14
+rm8_tab
+ dw 0,2,4,6,1,3,5,7
+ dw 0,2,4,6,1,3,5,7
+ dw 0,2,4,6,1,3,5,7
+ dw 0,2,4,6,1,3,5,7
+ dw 0,2,4,6,1,3,5,7
+ dw 0,2,4,6,1,3,5,7
+ dw 0,2,4,6,1,3,5,7
+ dw 0,2,4,6,1,3,5,7
+em_none
+ mx %00
+ rts
+emb_00
+ mx %00
+ lda rBX
+ clc
+ adc rSI
+ bit vOVR
+ bmi :ovr
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efb_ovr
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emb_01
+ mx %00
+ lda rBX
+ clc
+ adc rDI
+ bit vOVR
+ bmi :ovr
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efb_ovr
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emb_02
+ mx %00
+ lda rBP
+ clc
+ adc rSI
+ bit vOVR
+ bmi :ovr
+ clc
+ adc bSS
+ sta pEA
+ lda bSS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efb_ovr
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emb_03
+ mx %00
+ lda rBP
+ clc
+ adc rDI
+ bit vOVR
+ bmi :ovr
+ clc
+ adc bSS
+ sta pEA
+ lda bSS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efb_ovr
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emb_04
+ mx %00
+ lda rSI
+ bit vOVR
+ bmi :ovr
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efb_ovr
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emb_05
+ mx %00
+ lda rDI
+ bit vOVR
+ bmi :ovr
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efb_ovr
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emb_06
+ mx %00
+ lda [bCS],y
+ iny
+ iny
+ bit vOVR
+ bmi :ovr
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efb_ovr
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emb_07
+ mx %00
+ lda rBX
+ bit vOVR
+ bmi :ovr
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efb_ovr
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emb_10
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
+ adc rBX
+ clc
+ adc rSI
+ bit vOVR
+ bmi :ovr
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efb_ovr
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emb_11
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
+ adc rBX
+ clc
+ adc rDI
+ bit vOVR
+ bmi :ovr
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efb_ovr
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emb_12
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
+ adc rBP
+ clc
+ adc rSI
+ bit vOVR
+ bmi :ovr
+ clc
+ adc bSS
+ sta pEA
+ lda bSS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efb_ovr
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emb_13
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
+ adc rBP
+ clc
+ adc rDI
+ bit vOVR
+ bmi :ovr
+ clc
+ adc bSS
+ sta pEA
+ lda bSS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efb_ovr
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emb_14
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
+ adc rSI
+ bit vOVR
+ bmi :ovr
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efb_ovr
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emb_15
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
+ adc rDI
+ bit vOVR
+ bmi :ovr
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efb_ovr
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emb_16
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
+ adc rBP
+ bit vOVR
+ bmi :ovr
+ clc
+ adc bSS
+ sta pEA
+ lda bSS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efb_ovr
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emb_17
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
+ adc rBX
+ bit vOVR
+ bmi :ovr
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efb_ovr
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emb_20
+ mx %00
+ lda [bCS],y
+ iny
+ iny
+ clc
+ adc rBX
+ clc
+ adc rSI
+ bit vOVR
+ bmi :ovr
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efb_ovr
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emb_21
+ mx %00
+ lda [bCS],y
+ iny
+ iny
+ clc
+ adc rBX
+ clc
+ adc rDI
+ bit vOVR
+ bmi :ovr
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efb_ovr
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emb_22
+ mx %00
+ lda [bCS],y
+ iny
+ iny
+ clc
+ adc rBP
+ clc
+ adc rSI
+ bit vOVR
+ bmi :ovr
+ clc
+ adc bSS
+ sta pEA
+ lda bSS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efb_ovr
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emb_23
+ mx %00
+ lda [bCS],y
+ iny
+ iny
+ clc
+ adc rBP
+ clc
+ adc rDI
+ bit vOVR
+ bmi :ovr
+ clc
+ adc bSS
+ sta pEA
+ lda bSS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efb_ovr
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emb_24
+ mx %00
+ lda [bCS],y
+ iny
+ iny
+ clc
+ adc rSI
+ bit vOVR
+ bmi :ovr
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efb_ovr
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emb_25
+ mx %00
+ lda [bCS],y
+ iny
+ iny
+ clc
+ adc rDI
+ bit vOVR
+ bmi :ovr
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efb_ovr
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emb_26
+ mx %00
+ lda [bCS],y
+ iny
+ iny
+ clc
+ adc rBP
+ bit vOVR
+ bmi :ovr
+ clc
+ adc bSS
+ sta pEA
+ lda bSS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efb_ovr
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emb_27
+ mx %00
+ lda [bCS],y
+ iny
+ iny
+ clc
+ adc rBX
+ bit vOVR
+ bmi :ovr
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efb_ovr
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emw_00
+ mx %00
+ lda rBX
+ clc
+ adc rSI
+ bit vOVR
+ bmi :ovr
+ cmp #$FFFF
+ beq :split
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efw_ovr
+:split
+ jmp efw_split_ds
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emw_01
+ mx %00
+ lda rBX
+ clc
+ adc rDI
+ bit vOVR
+ bmi :ovr
+ cmp #$FFFF
+ beq :split
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efw_ovr
+:split
+ jmp efw_split_ds
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emw_02
+ mx %00
+ lda rBP
+ clc
+ adc rSI
+ bit vOVR
+ bmi :ovr
+ cmp #$FFFF
+ beq :split
+ clc
+ adc bSS
+ sta pEA
+ lda bSS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efw_ovr
+:split
+ jmp efw_split_ss
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emw_03
+ mx %00
+ lda rBP
+ clc
+ adc rDI
+ bit vOVR
+ bmi :ovr
+ cmp #$FFFF
+ beq :split
+ clc
+ adc bSS
+ sta pEA
+ lda bSS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efw_ovr
+:split
+ jmp efw_split_ss
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emw_04
+ mx %00
+ lda rSI
+ bit vOVR
+ bmi :ovr
+ cmp #$FFFF
+ beq :split
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efw_ovr
+:split
+ jmp efw_split_ds
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emw_05
+ mx %00
+ lda rDI
+ bit vOVR
+ bmi :ovr
+ cmp #$FFFF
+ beq :split
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efw_ovr
+:split
+ jmp efw_split_ds
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emw_06
+ mx %00
+ lda [bCS],y
+ iny
+ iny
+ bit vOVR
+ bmi :ovr
+ cmp #$FFFF
+ beq :split
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efw_ovr
+:split
+ jmp efw_split_ds
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emw_07
+ mx %00
+ lda rBX
+ bit vOVR
+ bmi :ovr
+ cmp #$FFFF
+ beq :split
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efw_ovr
+:split
+ jmp efw_split_ds
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emw_10
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
+ adc rBX
+ clc
+ adc rSI
+ bit vOVR
+ bmi :ovr
+ cmp #$FFFF
+ beq :split
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efw_ovr
+:split
+ jmp efw_split_ds
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emw_11
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
+ adc rBX
+ clc
+ adc rDI
+ bit vOVR
+ bmi :ovr
+ cmp #$FFFF
+ beq :split
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efw_ovr
+:split
+ jmp efw_split_ds
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emw_12
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
+ adc rBP
+ clc
+ adc rSI
+ bit vOVR
+ bmi :ovr
+ cmp #$FFFF
+ beq :split
+ clc
+ adc bSS
+ sta pEA
+ lda bSS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efw_ovr
+:split
+ jmp efw_split_ss
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emw_13
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
+ adc rBP
+ clc
+ adc rDI
+ bit vOVR
+ bmi :ovr
+ cmp #$FFFF
+ beq :split
+ clc
+ adc bSS
+ sta pEA
+ lda bSS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efw_ovr
+:split
+ jmp efw_split_ss
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emw_14
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
+ adc rSI
+ bit vOVR
+ bmi :ovr
+ cmp #$FFFF
+ beq :split
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efw_ovr
+:split
+ jmp efw_split_ds
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emw_15
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
+ adc rDI
+ bit vOVR
+ bmi :ovr
+ cmp #$FFFF
+ beq :split
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efw_ovr
+:split
+ jmp efw_split_ds
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emw_16
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
+ adc rBP
+ bit vOVR
+ bmi :ovr
+ cmp #$FFFF
+ beq :split
+ clc
+ adc bSS
+ sta pEA
+ lda bSS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efw_ovr
+:split
+ jmp efw_split_ss
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emw_17
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ adc #$FEFF
+:p
+ adc rBX
+ bit vOVR
+ bmi :ovr
+ cmp #$FFFF
+ beq :split
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efw_ovr
+:split
+ jmp efw_split_ds
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emw_20
+ mx %00
+ lda [bCS],y
+ iny
+ iny
+ clc
+ adc rBX
+ clc
+ adc rSI
+ bit vOVR
+ bmi :ovr
+ cmp #$FFFF
+ beq :split
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efw_ovr
+:split
+ jmp efw_split_ds
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emw_21
+ mx %00
+ lda [bCS],y
+ iny
+ iny
+ clc
+ adc rBX
+ clc
+ adc rDI
+ bit vOVR
+ bmi :ovr
+ cmp #$FFFF
+ beq :split
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efw_ovr
+:split
+ jmp efw_split_ds
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emw_22
+ mx %00
+ lda [bCS],y
+ iny
+ iny
+ clc
+ adc rBP
+ clc
+ adc rSI
+ bit vOVR
+ bmi :ovr
+ cmp #$FFFF
+ beq :split
+ clc
+ adc bSS
+ sta pEA
+ lda bSS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efw_ovr
+:split
+ jmp efw_split_ss
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emw_23
+ mx %00
+ lda [bCS],y
+ iny
+ iny
+ clc
+ adc rBP
+ clc
+ adc rDI
+ bit vOVR
+ bmi :ovr
+ cmp #$FFFF
+ beq :split
+ clc
+ adc bSS
+ sta pEA
+ lda bSS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efw_ovr
+:split
+ jmp efw_split_ss
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emw_24
+ mx %00
+ lda [bCS],y
+ iny
+ iny
+ clc
+ adc rSI
+ bit vOVR
+ bmi :ovr
+ cmp #$FFFF
+ beq :split
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efw_ovr
+:split
+ jmp efw_split_ds
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emw_25
+ mx %00
+ lda [bCS],y
+ iny
+ iny
+ clc
+ adc rDI
+ bit vOVR
+ bmi :ovr
+ cmp #$FFFF
+ beq :split
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efw_ovr
+:split
+ jmp efw_split_ds
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emw_26
+ mx %00
+ lda [bCS],y
+ iny
+ iny
+ clc
+ adc rBP
+ bit vOVR
+ bmi :ovr
+ cmp #$FFFF
+ beq :split
+ clc
+ adc bSS
+ sta pEA
+ lda bSS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efw_ovr
+:split
+ jmp efw_split_ss
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid
+emw_27
+ mx %00
+ lda [bCS],y
+ iny
+ iny
+ clc
+ adc rBX
+ bit vOVR
+ bmi :ovr
+ cmp #$FFFF
+ beq :split
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcs :carry
+ sta pEA+2
+ cmp #^H_TXT
+ beq :vid
+ rts
+:ovr
+ jmp efw_ovr
+:split
+ jmp efw_split_ds
+:carry
+ jmp ef_carry
+:vid
+ jmp ef_vid

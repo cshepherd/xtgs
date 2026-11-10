@@ -17,7 +17,15 @@ run_guest                  ; until HLT; rIP = IP after it
  lda #run_done
  sta vHALTVEC
  lda #next
+ ldx vTRACE
+ beq :plain
+ lda #next_trace
+:plain
  sta vNEXT
+ sta vnext0
+ stz vSEGOVR
+ stz vOVR
+ stz vREP
  lda #SLOT_N
  sta vSLOT
  ldy rIP

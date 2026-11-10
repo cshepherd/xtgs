@@ -3,1131 +3,10539 @@
 
 op_00       ; add r/m8, r8
  mx %00
- jsr modrm_b
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f00_r-$180,x)
+:mem
+ jsr (emb_tab,x)
+ lda regb_tab,x
+ tax
  sep #$20
  mx %10
- ldx vREGOFF
  lda 0,x
- sta tmp0
- lda [pEA]
- sta tmp1
+ sta vFS
  clc
- adc tmp0
+ lda [pEA]
+ sta vFD
+ adc vFS
  sta [pEA]
- jmp flg_add8
-op_01       ; add r/m16, r16
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
  mx %00
- jsr modrm_w
- ldx vREGOFF
- lda 0,x
- sta tmp0
- lda [pEA]
- sta tmp1
+ jmp (NEXTVEC)
+f00_r
+ da f00_r0,f00_r0,f00_r0,f00_r0,f00_r0,f00_r0,f00_r0,f00_r0
+ da f00_r1,f00_r1,f00_r1,f00_r1,f00_r1,f00_r1,f00_r1,f00_r1
+ da f00_r2,f00_r2,f00_r2,f00_r2,f00_r2,f00_r2,f00_r2,f00_r2
+ da f00_r3,f00_r3,f00_r3,f00_r3,f00_r3,f00_r3,f00_r3,f00_r3
+ da f00_r4,f00_r4,f00_r4,f00_r4,f00_r4,f00_r4,f00_r4,f00_r4
+ da f00_r5,f00_r5,f00_r5,f00_r5,f00_r5,f00_r5,f00_r5,f00_r5
+ da f00_r6,f00_r6,f00_r6,f00_r6,f00_r6,f00_r6,f00_r6,f00_r6
+ da f00_r7,f00_r7,f00_r7,f00_r7,f00_r7,f00_r7,f00_r7,f00_r7
+f00_r0       ; add r, AL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rAX
+ sta vFS
  clc
- adc tmp0
- sta [pEA]
- jmp flg_add16
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f00_r1       ; add r, CL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rCX
+ sta vFS
+ clc
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f00_r2       ; add r, DL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rDX
+ sta vFS
+ clc
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f00_r3       ; add r, BL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rBX
+ sta vFS
+ clc
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f00_r4       ; add r, AH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rAX+1
+ sta vFS
+ clc
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f00_r5       ; add r, CH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rCX+1
+ sta vFS
+ clc
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f00_r6       ; add r, DH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rDX+1
+ sta vFS
+ clc
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f00_r7       ; add r, BH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rBX+1
+ sta vFS
+ clc
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
 op_02       ; add r8, r/m8
  mx %00
- jsr modrm_b
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f02_r-$180,x)
+:mem
+ jsr (emb_tab,x)
+ lda regb_tab,x
+ tax
  sep #$20
  mx %10
  lda [pEA]
- sta tmp0
- ldx vREGOFF
- lda 0,x
- sta tmp1
+ sta vFS
  clc
- adc tmp0
+ lda 0,x
+ sta vFD
+ adc vFS
  sta 0,x
- jmp flg_add8
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f02_r
+ da f02_r0,f02_r0,f02_r0,f02_r0,f02_r0,f02_r0,f02_r0,f02_r0
+ da f02_r1,f02_r1,f02_r1,f02_r1,f02_r1,f02_r1,f02_r1,f02_r1
+ da f02_r2,f02_r2,f02_r2,f02_r2,f02_r2,f02_r2,f02_r2,f02_r2
+ da f02_r3,f02_r3,f02_r3,f02_r3,f02_r3,f02_r3,f02_r3,f02_r3
+ da f02_r4,f02_r4,f02_r4,f02_r4,f02_r4,f02_r4,f02_r4,f02_r4
+ da f02_r5,f02_r5,f02_r5,f02_r5,f02_r5,f02_r5,f02_r5,f02_r5
+ da f02_r6,f02_r6,f02_r6,f02_r6,f02_r6,f02_r6,f02_r6,f02_r6
+ da f02_r7,f02_r7,f02_r7,f02_r7,f02_r7,f02_r7,f02_r7,f02_r7
+f02_r0       ; add AL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ clc
+ lda rAX
+ sta vFD
+ adc vFS
+ sta rAX
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f02_r1       ; add CL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ clc
+ lda rCX
+ sta vFD
+ adc vFS
+ sta rCX
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f02_r2       ; add DL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ clc
+ lda rDX
+ sta vFD
+ adc vFS
+ sta rDX
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f02_r3       ; add BL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ clc
+ lda rBX
+ sta vFD
+ adc vFS
+ sta rBX
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f02_r4       ; add AH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ clc
+ lda rAX+1
+ sta vFD
+ adc vFS
+ sta rAX+1
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f02_r5       ; add CH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ clc
+ lda rCX+1
+ sta vFD
+ adc vFS
+ sta rCX+1
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f02_r6       ; add DH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ clc
+ lda rDX+1
+ sta vFD
+ adc vFS
+ sta rDX+1
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f02_r7       ; add BH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ clc
+ lda rBX+1
+ sta vFD
+ adc vFS
+ sta rBX+1
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+op_01       ; add r/m16, r16
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f01_r-$180,x)
+:mem
+ jsr (emw_tab,x)
+ lda regw_tab,x
+ tax
+ lda 0,x
+ sta vFS
+ clc
+ lda [pEA]
+ sta vFD
+ adc vFS
+ sta [pEA]
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f01_r
+ da f01_r0,f01_r0,f01_r0,f01_r0,f01_r0,f01_r0,f01_r0,f01_r0
+ da f01_r1,f01_r1,f01_r1,f01_r1,f01_r1,f01_r1,f01_r1,f01_r1
+ da f01_r2,f01_r2,f01_r2,f01_r2,f01_r2,f01_r2,f01_r2,f01_r2
+ da f01_r3,f01_r3,f01_r3,f01_r3,f01_r3,f01_r3,f01_r3,f01_r3
+ da f01_r4,f01_r4,f01_r4,f01_r4,f01_r4,f01_r4,f01_r4,f01_r4
+ da f01_r5,f01_r5,f01_r5,f01_r5,f01_r5,f01_r5,f01_r5,f01_r5
+ da f01_r6,f01_r6,f01_r6,f01_r6,f01_r6,f01_r6,f01_r6,f01_r6
+ da f01_r7,f01_r7,f01_r7,f01_r7,f01_r7,f01_r7,f01_r7,f01_r7
+f01_r0       ; add r, AX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rAX
+ sta vFS
+ clc
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f01_r1       ; add r, CX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rCX
+ sta vFS
+ clc
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f01_r2       ; add r, DX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rDX
+ sta vFS
+ clc
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f01_r3       ; add r, BX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rBX
+ sta vFS
+ clc
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f01_r4       ; add r, SP
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rSP
+ sta vFS
+ clc
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f01_r5       ; add r, BP
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rBP
+ sta vFS
+ clc
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f01_r6       ; add r, SI
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rSI
+ sta vFS
+ clc
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f01_r7       ; add r, DI
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rDI
+ sta vFS
+ clc
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
 op_03       ; add r16, r/m16
  mx %00
- jsr modrm_w
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f03_r-$180,x)
+:mem
+ jsr (emw_tab,x)
+ lda regw_tab,x
+ tax
  lda [pEA]
- sta tmp0
- ldx vREGOFF
- lda 0,x
- sta tmp1
+ sta vFS
  clc
- adc tmp0
+ lda 0,x
+ sta vFD
+ adc vFS
  sta 0,x
- jmp flg_add16
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f03_r
+ da f03_r0,f03_r0,f03_r0,f03_r0,f03_r0,f03_r0,f03_r0,f03_r0
+ da f03_r1,f03_r1,f03_r1,f03_r1,f03_r1,f03_r1,f03_r1,f03_r1
+ da f03_r2,f03_r2,f03_r2,f03_r2,f03_r2,f03_r2,f03_r2,f03_r2
+ da f03_r3,f03_r3,f03_r3,f03_r3,f03_r3,f03_r3,f03_r3,f03_r3
+ da f03_r4,f03_r4,f03_r4,f03_r4,f03_r4,f03_r4,f03_r4,f03_r4
+ da f03_r5,f03_r5,f03_r5,f03_r5,f03_r5,f03_r5,f03_r5,f03_r5
+ da f03_r6,f03_r6,f03_r6,f03_r6,f03_r6,f03_r6,f03_r6,f03_r6
+ da f03_r7,f03_r7,f03_r7,f03_r7,f03_r7,f03_r7,f03_r7,f03_r7
+f03_r0       ; add AX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ clc
+ lda rAX
+ sta vFD
+ adc vFS
+ sta rAX
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f03_r1       ; add CX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ clc
+ lda rCX
+ sta vFD
+ adc vFS
+ sta rCX
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f03_r2       ; add DX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ clc
+ lda rDX
+ sta vFD
+ adc vFS
+ sta rDX
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f03_r3       ; add BX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ clc
+ lda rBX
+ sta vFD
+ adc vFS
+ sta rBX
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f03_r4       ; add SP, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ clc
+ lda rSP
+ sta vFD
+ adc vFS
+ sta rSP
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f03_r5       ; add BP, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ clc
+ lda rBP
+ sta vFD
+ adc vFS
+ sta rBP
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f03_r6       ; add SI, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ clc
+ lda rSI
+ sta vFD
+ adc vFS
+ sta rSI
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f03_r7       ; add DI, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ clc
+ lda rDI
+ sta vFD
+ adc vFS
+ sta rDI
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
 op_04       ; add AL, imm8
  mx %00
  lda [bCS],y
  iny
  sep #$20
  mx %10
- sta tmp0
- lda rAX
- sta tmp1
+ sta vFS
  clc
- adc tmp0
+ lda rAX
+ sta vFD
+ adc vFS
  sta rAX
- jmp flg_add8
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
 op_05       ; add AX, imm16
  mx %00
  lda [bCS],y
  iny
  iny
- sta tmp0
- lda rAX
- sta tmp1
+ sta vFS
  clc
- adc tmp0
+ lda rAX
+ sta vFD
+ adc vFS
  sta rAX
- jmp flg_add16
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
 op_08       ; or r/m8, r8
  mx %00
- jsr modrm_b
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f08_r-$180,x)
+:mem
+ jsr (emb_tab,x)
+ lda regb_tab,x
+ tax
  sep #$20
  mx %10
- ldx vREGOFF
- lda 0,x
- sta tmp0
  lda [pEA]
- sta tmp1
- ora tmp0
+ ora 0,x
  sta [pEA]
- jmp flg_log8
-op_09       ; or r/m16, r16
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
  mx %00
- jsr modrm_w
- ldx vREGOFF
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f08_r
+ da f08_r0,f08_r0,f08_r0,f08_r0,f08_r0,f08_r0,f08_r0,f08_r0
+ da f08_r1,f08_r1,f08_r1,f08_r1,f08_r1,f08_r1,f08_r1,f08_r1
+ da f08_r2,f08_r2,f08_r2,f08_r2,f08_r2,f08_r2,f08_r2,f08_r2
+ da f08_r3,f08_r3,f08_r3,f08_r3,f08_r3,f08_r3,f08_r3,f08_r3
+ da f08_r4,f08_r4,f08_r4,f08_r4,f08_r4,f08_r4,f08_r4,f08_r4
+ da f08_r5,f08_r5,f08_r5,f08_r5,f08_r5,f08_r5,f08_r5,f08_r5
+ da f08_r6,f08_r6,f08_r6,f08_r6,f08_r6,f08_r6,f08_r6,f08_r6
+ da f08_r7,f08_r7,f08_r7,f08_r7,f08_r7,f08_r7,f08_r7,f08_r7
+f08_r0       ; or r, AL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
  lda 0,x
- sta tmp0
- lda [pEA]
- sta tmp1
- ora tmp0
- sta [pEA]
- jmp flg_log16
+ ora rAX
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f08_r1       ; or r, CL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ ora rCX
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f08_r2       ; or r, DL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ ora rDX
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f08_r3       ; or r, BL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ ora rBX
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f08_r4       ; or r, AH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ ora rAX+1
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f08_r5       ; or r, CH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ ora rCX+1
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f08_r6       ; or r, DH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ ora rDX+1
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f08_r7       ; or r, BH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ ora rBX+1
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
 op_0A       ; or r8, r/m8
  mx %00
- jsr modrm_b
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f0A_r-$180,x)
+:mem
+ jsr (emb_tab,x)
+ lda regb_tab,x
+ tax
  sep #$20
  mx %10
- lda [pEA]
- sta tmp0
- ldx vREGOFF
  lda 0,x
- sta tmp1
- ora tmp0
+ ora [pEA]
  sta 0,x
- jmp flg_log8
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f0A_r
+ da f0A_r0,f0A_r0,f0A_r0,f0A_r0,f0A_r0,f0A_r0,f0A_r0,f0A_r0
+ da f0A_r1,f0A_r1,f0A_r1,f0A_r1,f0A_r1,f0A_r1,f0A_r1,f0A_r1
+ da f0A_r2,f0A_r2,f0A_r2,f0A_r2,f0A_r2,f0A_r2,f0A_r2,f0A_r2
+ da f0A_r3,f0A_r3,f0A_r3,f0A_r3,f0A_r3,f0A_r3,f0A_r3,f0A_r3
+ da f0A_r4,f0A_r4,f0A_r4,f0A_r4,f0A_r4,f0A_r4,f0A_r4,f0A_r4
+ da f0A_r5,f0A_r5,f0A_r5,f0A_r5,f0A_r5,f0A_r5,f0A_r5,f0A_r5
+ da f0A_r6,f0A_r6,f0A_r6,f0A_r6,f0A_r6,f0A_r6,f0A_r6,f0A_r6
+ da f0A_r7,f0A_r7,f0A_r7,f0A_r7,f0A_r7,f0A_r7,f0A_r7,f0A_r7
+f0A_r0       ; or AL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rAX
+ ora 0,x
+ sta rAX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f0A_r1       ; or CL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rCX
+ ora 0,x
+ sta rCX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f0A_r2       ; or DL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rDX
+ ora 0,x
+ sta rDX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f0A_r3       ; or BL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rBX
+ ora 0,x
+ sta rBX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f0A_r4       ; or AH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rAX+1
+ ora 0,x
+ sta rAX+1
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f0A_r5       ; or CH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rCX+1
+ ora 0,x
+ sta rCX+1
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f0A_r6       ; or DH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rDX+1
+ ora 0,x
+ sta rDX+1
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f0A_r7       ; or BH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rBX+1
+ ora 0,x
+ sta rBX+1
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+op_09       ; or r/m16, r16
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f09_r-$180,x)
+:mem
+ jsr (emw_tab,x)
+ lda regw_tab,x
+ tax
+ lda [pEA]
+ ora 0,x
+ sta [pEA]
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f09_r
+ da f09_r0,f09_r0,f09_r0,f09_r0,f09_r0,f09_r0,f09_r0,f09_r0
+ da f09_r1,f09_r1,f09_r1,f09_r1,f09_r1,f09_r1,f09_r1,f09_r1
+ da f09_r2,f09_r2,f09_r2,f09_r2,f09_r2,f09_r2,f09_r2,f09_r2
+ da f09_r3,f09_r3,f09_r3,f09_r3,f09_r3,f09_r3,f09_r3,f09_r3
+ da f09_r4,f09_r4,f09_r4,f09_r4,f09_r4,f09_r4,f09_r4,f09_r4
+ da f09_r5,f09_r5,f09_r5,f09_r5,f09_r5,f09_r5,f09_r5,f09_r5
+ da f09_r6,f09_r6,f09_r6,f09_r6,f09_r6,f09_r6,f09_r6,f09_r6
+ da f09_r7,f09_r7,f09_r7,f09_r7,f09_r7,f09_r7,f09_r7,f09_r7
+f09_r0       ; or r, AX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ ora rAX
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f09_r1       ; or r, CX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ ora rCX
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f09_r2       ; or r, DX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ ora rDX
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f09_r3       ; or r, BX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ ora rBX
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f09_r4       ; or r, SP
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ ora rSP
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f09_r5       ; or r, BP
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ ora rBP
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f09_r6       ; or r, SI
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ ora rSI
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f09_r7       ; or r, DI
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ ora rDI
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
 op_0B       ; or r16, r/m16
  mx %00
- jsr modrm_w
- lda [pEA]
- sta tmp0
- ldx vREGOFF
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f0B_r-$180,x)
+:mem
+ jsr (emw_tab,x)
+ lda regw_tab,x
+ tax
  lda 0,x
- sta tmp1
- ora tmp0
+ ora [pEA]
  sta 0,x
- jmp flg_log16
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f0B_r
+ da f0B_r0,f0B_r0,f0B_r0,f0B_r0,f0B_r0,f0B_r0,f0B_r0,f0B_r0
+ da f0B_r1,f0B_r1,f0B_r1,f0B_r1,f0B_r1,f0B_r1,f0B_r1,f0B_r1
+ da f0B_r2,f0B_r2,f0B_r2,f0B_r2,f0B_r2,f0B_r2,f0B_r2,f0B_r2
+ da f0B_r3,f0B_r3,f0B_r3,f0B_r3,f0B_r3,f0B_r3,f0B_r3,f0B_r3
+ da f0B_r4,f0B_r4,f0B_r4,f0B_r4,f0B_r4,f0B_r4,f0B_r4,f0B_r4
+ da f0B_r5,f0B_r5,f0B_r5,f0B_r5,f0B_r5,f0B_r5,f0B_r5,f0B_r5
+ da f0B_r6,f0B_r6,f0B_r6,f0B_r6,f0B_r6,f0B_r6,f0B_r6,f0B_r6
+ da f0B_r7,f0B_r7,f0B_r7,f0B_r7,f0B_r7,f0B_r7,f0B_r7,f0B_r7
+f0B_r0       ; or AX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rAX
+ ora 0,x
+ sta rAX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f0B_r1       ; or CX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rCX
+ ora 0,x
+ sta rCX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f0B_r2       ; or DX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rDX
+ ora 0,x
+ sta rDX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f0B_r3       ; or BX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rBX
+ ora 0,x
+ sta rBX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f0B_r4       ; or SP, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rSP
+ ora 0,x
+ sta rSP
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f0B_r5       ; or BP, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rBP
+ ora 0,x
+ sta rBP
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f0B_r6       ; or SI, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rSI
+ ora 0,x
+ sta rSI
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f0B_r7       ; or DI, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rDI
+ ora 0,x
+ sta rDI
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
 op_0C       ; or AL, imm8
  mx %00
  lda [bCS],y
  iny
  sep #$20
  mx %10
- sta tmp0
- lda rAX
- sta tmp1
- ora tmp0
+ ora rAX
  sta rAX
- jmp flg_log8
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
 op_0D       ; or AX, imm16
  mx %00
  lda [bCS],y
  iny
  iny
- sta tmp0
- lda rAX
- sta tmp1
- ora tmp0
+ ora rAX
  sta rAX
- jmp flg_log16
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
 op_10       ; adc r/m8, r8
  mx %00
- jsr modrm_b
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f10_r-$180,x)
+:mem
+ jsr (emb_tab,x)
+ lda regb_tab,x
+ tax
  sep #$20
  mx %10
- ldx vREGOFF
  lda 0,x
- sta tmp0
- lda [pEA]
- sta tmp1
- lda rFL
+ sta vFS
+ lda vLP
  lsr
- lda tmp1
- adc tmp0
+ lda [pEA]
+ sta vFD
+ adc vFS
  sta [pEA]
- jmp flg_add8
-op_11       ; adc r/m16, r16
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
  mx %00
- jsr modrm_w
- ldx vREGOFF
- lda 0,x
- sta tmp0
- lda [pEA]
- sta tmp1
- lda rFL
+ jmp (NEXTVEC)
+f10_r
+ da f10_r0,f10_r0,f10_r0,f10_r0,f10_r0,f10_r0,f10_r0,f10_r0
+ da f10_r1,f10_r1,f10_r1,f10_r1,f10_r1,f10_r1,f10_r1,f10_r1
+ da f10_r2,f10_r2,f10_r2,f10_r2,f10_r2,f10_r2,f10_r2,f10_r2
+ da f10_r3,f10_r3,f10_r3,f10_r3,f10_r3,f10_r3,f10_r3,f10_r3
+ da f10_r4,f10_r4,f10_r4,f10_r4,f10_r4,f10_r4,f10_r4,f10_r4
+ da f10_r5,f10_r5,f10_r5,f10_r5,f10_r5,f10_r5,f10_r5,f10_r5
+ da f10_r6,f10_r6,f10_r6,f10_r6,f10_r6,f10_r6,f10_r6,f10_r6
+ da f10_r7,f10_r7,f10_r7,f10_r7,f10_r7,f10_r7,f10_r7,f10_r7
+f10_r0       ; adc r, AL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rAX
+ sta vFS
+ lda vLP
  lsr
- lda tmp1
- adc tmp0
- sta [pEA]
- jmp flg_add16
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f10_r1       ; adc r, CL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rCX
+ sta vFS
+ lda vLP
+ lsr
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f10_r2       ; adc r, DL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rDX
+ sta vFS
+ lda vLP
+ lsr
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f10_r3       ; adc r, BL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rBX
+ sta vFS
+ lda vLP
+ lsr
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f10_r4       ; adc r, AH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rAX+1
+ sta vFS
+ lda vLP
+ lsr
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f10_r5       ; adc r, CH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rCX+1
+ sta vFS
+ lda vLP
+ lsr
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f10_r6       ; adc r, DH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rDX+1
+ sta vFS
+ lda vLP
+ lsr
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f10_r7       ; adc r, BH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rBX+1
+ sta vFS
+ lda vLP
+ lsr
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
 op_12       ; adc r8, r/m8
  mx %00
- jsr modrm_b
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f12_r-$180,x)
+:mem
+ jsr (emb_tab,x)
+ lda regb_tab,x
+ tax
  sep #$20
  mx %10
  lda [pEA]
- sta tmp0
- ldx vREGOFF
- lda 0,x
- sta tmp1
- lda rFL
+ sta vFS
+ lda vLP
  lsr
- lda tmp1
- adc tmp0
+ lda 0,x
+ sta vFD
+ adc vFS
  sta 0,x
- jmp flg_add8
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f12_r
+ da f12_r0,f12_r0,f12_r0,f12_r0,f12_r0,f12_r0,f12_r0,f12_r0
+ da f12_r1,f12_r1,f12_r1,f12_r1,f12_r1,f12_r1,f12_r1,f12_r1
+ da f12_r2,f12_r2,f12_r2,f12_r2,f12_r2,f12_r2,f12_r2,f12_r2
+ da f12_r3,f12_r3,f12_r3,f12_r3,f12_r3,f12_r3,f12_r3,f12_r3
+ da f12_r4,f12_r4,f12_r4,f12_r4,f12_r4,f12_r4,f12_r4,f12_r4
+ da f12_r5,f12_r5,f12_r5,f12_r5,f12_r5,f12_r5,f12_r5,f12_r5
+ da f12_r6,f12_r6,f12_r6,f12_r6,f12_r6,f12_r6,f12_r6,f12_r6
+ da f12_r7,f12_r7,f12_r7,f12_r7,f12_r7,f12_r7,f12_r7,f12_r7
+f12_r0       ; adc AL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ lda vLP
+ lsr
+ lda rAX
+ sta vFD
+ adc vFS
+ sta rAX
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f12_r1       ; adc CL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ lda vLP
+ lsr
+ lda rCX
+ sta vFD
+ adc vFS
+ sta rCX
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f12_r2       ; adc DL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ lda vLP
+ lsr
+ lda rDX
+ sta vFD
+ adc vFS
+ sta rDX
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f12_r3       ; adc BL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ lda vLP
+ lsr
+ lda rBX
+ sta vFD
+ adc vFS
+ sta rBX
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f12_r4       ; adc AH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ lda vLP
+ lsr
+ lda rAX+1
+ sta vFD
+ adc vFS
+ sta rAX+1
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f12_r5       ; adc CH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ lda vLP
+ lsr
+ lda rCX+1
+ sta vFD
+ adc vFS
+ sta rCX+1
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f12_r6       ; adc DH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ lda vLP
+ lsr
+ lda rDX+1
+ sta vFD
+ adc vFS
+ sta rDX+1
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f12_r7       ; adc BH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ lda vLP
+ lsr
+ lda rBX+1
+ sta vFD
+ adc vFS
+ sta rBX+1
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+op_11       ; adc r/m16, r16
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f11_r-$180,x)
+:mem
+ jsr (emw_tab,x)
+ lda regw_tab,x
+ tax
+ lda 0,x
+ sta vFS
+ lda vLP
+ lsr
+ lda [pEA]
+ sta vFD
+ adc vFS
+ sta [pEA]
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f11_r
+ da f11_r0,f11_r0,f11_r0,f11_r0,f11_r0,f11_r0,f11_r0,f11_r0
+ da f11_r1,f11_r1,f11_r1,f11_r1,f11_r1,f11_r1,f11_r1,f11_r1
+ da f11_r2,f11_r2,f11_r2,f11_r2,f11_r2,f11_r2,f11_r2,f11_r2
+ da f11_r3,f11_r3,f11_r3,f11_r3,f11_r3,f11_r3,f11_r3,f11_r3
+ da f11_r4,f11_r4,f11_r4,f11_r4,f11_r4,f11_r4,f11_r4,f11_r4
+ da f11_r5,f11_r5,f11_r5,f11_r5,f11_r5,f11_r5,f11_r5,f11_r5
+ da f11_r6,f11_r6,f11_r6,f11_r6,f11_r6,f11_r6,f11_r6,f11_r6
+ da f11_r7,f11_r7,f11_r7,f11_r7,f11_r7,f11_r7,f11_r7,f11_r7
+f11_r0       ; adc r, AX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rAX
+ sta vFS
+ lda vLP
+ lsr
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f11_r1       ; adc r, CX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rCX
+ sta vFS
+ lda vLP
+ lsr
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f11_r2       ; adc r, DX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rDX
+ sta vFS
+ lda vLP
+ lsr
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f11_r3       ; adc r, BX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rBX
+ sta vFS
+ lda vLP
+ lsr
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f11_r4       ; adc r, SP
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rSP
+ sta vFS
+ lda vLP
+ lsr
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f11_r5       ; adc r, BP
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rBP
+ sta vFS
+ lda vLP
+ lsr
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f11_r6       ; adc r, SI
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rSI
+ sta vFS
+ lda vLP
+ lsr
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f11_r7       ; adc r, DI
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rDI
+ sta vFS
+ lda vLP
+ lsr
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
 op_13       ; adc r16, r/m16
  mx %00
- jsr modrm_w
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f13_r-$180,x)
+:mem
+ jsr (emw_tab,x)
+ lda regw_tab,x
+ tax
  lda [pEA]
- sta tmp0
- ldx vREGOFF
- lda 0,x
- sta tmp1
- lda rFL
+ sta vFS
+ lda vLP
  lsr
- lda tmp1
- adc tmp0
+ lda 0,x
+ sta vFD
+ adc vFS
  sta 0,x
- jmp flg_add16
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f13_r
+ da f13_r0,f13_r0,f13_r0,f13_r0,f13_r0,f13_r0,f13_r0,f13_r0
+ da f13_r1,f13_r1,f13_r1,f13_r1,f13_r1,f13_r1,f13_r1,f13_r1
+ da f13_r2,f13_r2,f13_r2,f13_r2,f13_r2,f13_r2,f13_r2,f13_r2
+ da f13_r3,f13_r3,f13_r3,f13_r3,f13_r3,f13_r3,f13_r3,f13_r3
+ da f13_r4,f13_r4,f13_r4,f13_r4,f13_r4,f13_r4,f13_r4,f13_r4
+ da f13_r5,f13_r5,f13_r5,f13_r5,f13_r5,f13_r5,f13_r5,f13_r5
+ da f13_r6,f13_r6,f13_r6,f13_r6,f13_r6,f13_r6,f13_r6,f13_r6
+ da f13_r7,f13_r7,f13_r7,f13_r7,f13_r7,f13_r7,f13_r7,f13_r7
+f13_r0       ; adc AX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ lda vLP
+ lsr
+ lda rAX
+ sta vFD
+ adc vFS
+ sta rAX
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f13_r1       ; adc CX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ lda vLP
+ lsr
+ lda rCX
+ sta vFD
+ adc vFS
+ sta rCX
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f13_r2       ; adc DX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ lda vLP
+ lsr
+ lda rDX
+ sta vFD
+ adc vFS
+ sta rDX
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f13_r3       ; adc BX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ lda vLP
+ lsr
+ lda rBX
+ sta vFD
+ adc vFS
+ sta rBX
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f13_r4       ; adc SP, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ lda vLP
+ lsr
+ lda rSP
+ sta vFD
+ adc vFS
+ sta rSP
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f13_r5       ; adc BP, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ lda vLP
+ lsr
+ lda rBP
+ sta vFD
+ adc vFS
+ sta rBP
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f13_r6       ; adc SI, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ lda vLP
+ lsr
+ lda rSI
+ sta vFD
+ adc vFS
+ sta rSI
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+f13_r7       ; adc DI, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ lda vLP
+ lsr
+ lda rDI
+ sta vFD
+ adc vFS
+ sta rDI
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
 op_14       ; adc AL, imm8
  mx %00
  lda [bCS],y
  iny
  sep #$20
  mx %10
- sta tmp0
- lda rAX
- sta tmp1
- lda rFL
+ sta vFS
+ lda vLP
  lsr
- lda tmp1
- adc tmp0
+ lda rAX
+ sta vFD
+ adc vFS
  sta rAX
- jmp flg_add8
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
 op_15       ; adc AX, imm16
  mx %00
  lda [bCS],y
  iny
  iny
- sta tmp0
- lda rAX
- sta tmp1
- lda rFL
+ sta vFS
+ lda vLP
  lsr
- lda tmp1
- adc tmp0
+ lda rAX
+ sta vFD
+ adc vFS
  sta rAX
- jmp flg_add16
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
 op_18       ; sbb r/m8, r8
  mx %00
- jsr modrm_b
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f18_r-$180,x)
+:mem
+ jsr (emb_tab,x)
+ lda regb_tab,x
+ tax
  sep #$20
  mx %10
- ldx vREGOFF
  lda 0,x
- sta tmp0
- lda [pEA]
- sta tmp1
- lda rFL
+ sta vFS
+ lda vLP
  eor #1
  lsr
- lda tmp1
- sbc tmp0
+ lda [pEA]
+ sta vFD
+ sbc vFS
  sta [pEA]
- jmp flg_sub8
-op_19       ; sbb r/m16, r16
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
  mx %00
- jsr modrm_w
- ldx vREGOFF
- lda 0,x
- sta tmp0
- lda [pEA]
- sta tmp1
- lda rFL
+ jmp (NEXTVEC)
+f18_r
+ da f18_r0,f18_r0,f18_r0,f18_r0,f18_r0,f18_r0,f18_r0,f18_r0
+ da f18_r1,f18_r1,f18_r1,f18_r1,f18_r1,f18_r1,f18_r1,f18_r1
+ da f18_r2,f18_r2,f18_r2,f18_r2,f18_r2,f18_r2,f18_r2,f18_r2
+ da f18_r3,f18_r3,f18_r3,f18_r3,f18_r3,f18_r3,f18_r3,f18_r3
+ da f18_r4,f18_r4,f18_r4,f18_r4,f18_r4,f18_r4,f18_r4,f18_r4
+ da f18_r5,f18_r5,f18_r5,f18_r5,f18_r5,f18_r5,f18_r5,f18_r5
+ da f18_r6,f18_r6,f18_r6,f18_r6,f18_r6,f18_r6,f18_r6,f18_r6
+ da f18_r7,f18_r7,f18_r7,f18_r7,f18_r7,f18_r7,f18_r7,f18_r7
+f18_r0       ; sbb r, AL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rAX
+ sta vFS
+ lda vLP
  eor #1
  lsr
- lda tmp1
- sbc tmp0
- sta [pEA]
- jmp flg_sub16
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f18_r1       ; sbb r, CL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rCX
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f18_r2       ; sbb r, DL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rDX
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f18_r3       ; sbb r, BL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rBX
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f18_r4       ; sbb r, AH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rAX+1
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f18_r5       ; sbb r, CH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rCX+1
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f18_r6       ; sbb r, DH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rDX+1
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f18_r7       ; sbb r, BH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rBX+1
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
 op_1A       ; sbb r8, r/m8
  mx %00
- jsr modrm_b
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f1A_r-$180,x)
+:mem
+ jsr (emb_tab,x)
+ lda regb_tab,x
+ tax
  sep #$20
  mx %10
  lda [pEA]
- sta tmp0
- ldx vREGOFF
- lda 0,x
- sta tmp1
- lda rFL
+ sta vFS
+ lda vLP
  eor #1
  lsr
- lda tmp1
- sbc tmp0
+ lda 0,x
+ sta vFD
+ sbc vFS
  sta 0,x
- jmp flg_sub8
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f1A_r
+ da f1A_r0,f1A_r0,f1A_r0,f1A_r0,f1A_r0,f1A_r0,f1A_r0,f1A_r0
+ da f1A_r1,f1A_r1,f1A_r1,f1A_r1,f1A_r1,f1A_r1,f1A_r1,f1A_r1
+ da f1A_r2,f1A_r2,f1A_r2,f1A_r2,f1A_r2,f1A_r2,f1A_r2,f1A_r2
+ da f1A_r3,f1A_r3,f1A_r3,f1A_r3,f1A_r3,f1A_r3,f1A_r3,f1A_r3
+ da f1A_r4,f1A_r4,f1A_r4,f1A_r4,f1A_r4,f1A_r4,f1A_r4,f1A_r4
+ da f1A_r5,f1A_r5,f1A_r5,f1A_r5,f1A_r5,f1A_r5,f1A_r5,f1A_r5
+ da f1A_r6,f1A_r6,f1A_r6,f1A_r6,f1A_r6,f1A_r6,f1A_r6,f1A_r6
+ da f1A_r7,f1A_r7,f1A_r7,f1A_r7,f1A_r7,f1A_r7,f1A_r7,f1A_r7
+f1A_r0       ; sbb AL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda rAX
+ sta vFD
+ sbc vFS
+ sta rAX
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f1A_r1       ; sbb CL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda rCX
+ sta vFD
+ sbc vFS
+ sta rCX
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f1A_r2       ; sbb DL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda rDX
+ sta vFD
+ sbc vFS
+ sta rDX
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f1A_r3       ; sbb BL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda rBX
+ sta vFD
+ sbc vFS
+ sta rBX
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f1A_r4       ; sbb AH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda rAX+1
+ sta vFD
+ sbc vFS
+ sta rAX+1
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f1A_r5       ; sbb CH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda rCX+1
+ sta vFD
+ sbc vFS
+ sta rCX+1
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f1A_r6       ; sbb DH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda rDX+1
+ sta vFD
+ sbc vFS
+ sta rDX+1
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f1A_r7       ; sbb BH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda rBX+1
+ sta vFD
+ sbc vFS
+ sta rBX+1
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+op_19       ; sbb r/m16, r16
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f19_r-$180,x)
+:mem
+ jsr (emw_tab,x)
+ lda regw_tab,x
+ tax
+ lda 0,x
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda [pEA]
+ sta vFD
+ sbc vFS
+ sta [pEA]
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f19_r
+ da f19_r0,f19_r0,f19_r0,f19_r0,f19_r0,f19_r0,f19_r0,f19_r0
+ da f19_r1,f19_r1,f19_r1,f19_r1,f19_r1,f19_r1,f19_r1,f19_r1
+ da f19_r2,f19_r2,f19_r2,f19_r2,f19_r2,f19_r2,f19_r2,f19_r2
+ da f19_r3,f19_r3,f19_r3,f19_r3,f19_r3,f19_r3,f19_r3,f19_r3
+ da f19_r4,f19_r4,f19_r4,f19_r4,f19_r4,f19_r4,f19_r4,f19_r4
+ da f19_r5,f19_r5,f19_r5,f19_r5,f19_r5,f19_r5,f19_r5,f19_r5
+ da f19_r6,f19_r6,f19_r6,f19_r6,f19_r6,f19_r6,f19_r6,f19_r6
+ da f19_r7,f19_r7,f19_r7,f19_r7,f19_r7,f19_r7,f19_r7,f19_r7
+f19_r0       ; sbb r, AX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rAX
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f19_r1       ; sbb r, CX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rCX
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f19_r2       ; sbb r, DX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rDX
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f19_r3       ; sbb r, BX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rBX
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f19_r4       ; sbb r, SP
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rSP
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f19_r5       ; sbb r, BP
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rBP
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f19_r6       ; sbb r, SI
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rSI
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f19_r7       ; sbb r, DI
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rDI
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
 op_1B       ; sbb r16, r/m16
  mx %00
- jsr modrm_w
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f1B_r-$180,x)
+:mem
+ jsr (emw_tab,x)
+ lda regw_tab,x
+ tax
  lda [pEA]
- sta tmp0
- ldx vREGOFF
- lda 0,x
- sta tmp1
- lda rFL
+ sta vFS
+ lda vLP
  eor #1
  lsr
- lda tmp1
- sbc tmp0
+ lda 0,x
+ sta vFD
+ sbc vFS
  sta 0,x
- jmp flg_sub16
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f1B_r
+ da f1B_r0,f1B_r0,f1B_r0,f1B_r0,f1B_r0,f1B_r0,f1B_r0,f1B_r0
+ da f1B_r1,f1B_r1,f1B_r1,f1B_r1,f1B_r1,f1B_r1,f1B_r1,f1B_r1
+ da f1B_r2,f1B_r2,f1B_r2,f1B_r2,f1B_r2,f1B_r2,f1B_r2,f1B_r2
+ da f1B_r3,f1B_r3,f1B_r3,f1B_r3,f1B_r3,f1B_r3,f1B_r3,f1B_r3
+ da f1B_r4,f1B_r4,f1B_r4,f1B_r4,f1B_r4,f1B_r4,f1B_r4,f1B_r4
+ da f1B_r5,f1B_r5,f1B_r5,f1B_r5,f1B_r5,f1B_r5,f1B_r5,f1B_r5
+ da f1B_r6,f1B_r6,f1B_r6,f1B_r6,f1B_r6,f1B_r6,f1B_r6,f1B_r6
+ da f1B_r7,f1B_r7,f1B_r7,f1B_r7,f1B_r7,f1B_r7,f1B_r7,f1B_r7
+f1B_r0       ; sbb AX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda rAX
+ sta vFD
+ sbc vFS
+ sta rAX
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f1B_r1       ; sbb CX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda rCX
+ sta vFD
+ sbc vFS
+ sta rCX
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f1B_r2       ; sbb DX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda rDX
+ sta vFD
+ sbc vFS
+ sta rDX
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f1B_r3       ; sbb BX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda rBX
+ sta vFD
+ sbc vFS
+ sta rBX
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f1B_r4       ; sbb SP, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda rSP
+ sta vFD
+ sbc vFS
+ sta rSP
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f1B_r5       ; sbb BP, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda rBP
+ sta vFD
+ sbc vFS
+ sta rBP
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f1B_r6       ; sbb SI, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda rSI
+ sta vFD
+ sbc vFS
+ sta rSI
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f1B_r7       ; sbb DI, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda rDI
+ sta vFD
+ sbc vFS
+ sta rDI
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
 op_1C       ; sbb AL, imm8
  mx %00
  lda [bCS],y
  iny
  sep #$20
  mx %10
- sta tmp0
- lda rAX
- sta tmp1
- lda rFL
+ sta vFS
+ lda vLP
  eor #1
  lsr
- lda tmp1
- sbc tmp0
+ lda rAX
+ sta vFD
+ sbc vFS
  sta rAX
- jmp flg_sub8
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
 op_1D       ; sbb AX, imm16
  mx %00
  lda [bCS],y
  iny
  iny
- sta tmp0
- lda rAX
- sta tmp1
- lda rFL
+ sta vFS
+ lda vLP
  eor #1
  lsr
- lda tmp1
- sbc tmp0
+ lda rAX
+ sta vFD
+ sbc vFS
  sta rAX
- jmp flg_sub16
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
 op_20       ; and r/m8, r8
  mx %00
- jsr modrm_b
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f20_r-$180,x)
+:mem
+ jsr (emb_tab,x)
+ lda regb_tab,x
+ tax
  sep #$20
  mx %10
- ldx vREGOFF
- lda 0,x
- sta tmp0
  lda [pEA]
- sta tmp1
- and tmp0
+ and 0,x
  sta [pEA]
- jmp flg_log8
-op_21       ; and r/m16, r16
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
  mx %00
- jsr modrm_w
- ldx vREGOFF
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f20_r
+ da f20_r0,f20_r0,f20_r0,f20_r0,f20_r0,f20_r0,f20_r0,f20_r0
+ da f20_r1,f20_r1,f20_r1,f20_r1,f20_r1,f20_r1,f20_r1,f20_r1
+ da f20_r2,f20_r2,f20_r2,f20_r2,f20_r2,f20_r2,f20_r2,f20_r2
+ da f20_r3,f20_r3,f20_r3,f20_r3,f20_r3,f20_r3,f20_r3,f20_r3
+ da f20_r4,f20_r4,f20_r4,f20_r4,f20_r4,f20_r4,f20_r4,f20_r4
+ da f20_r5,f20_r5,f20_r5,f20_r5,f20_r5,f20_r5,f20_r5,f20_r5
+ da f20_r6,f20_r6,f20_r6,f20_r6,f20_r6,f20_r6,f20_r6,f20_r6
+ da f20_r7,f20_r7,f20_r7,f20_r7,f20_r7,f20_r7,f20_r7,f20_r7
+f20_r0       ; and r, AL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
  lda 0,x
- sta tmp0
- lda [pEA]
- sta tmp1
- and tmp0
- sta [pEA]
- jmp flg_log16
+ and rAX
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f20_r1       ; and r, CL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ and rCX
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f20_r2       ; and r, DL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ and rDX
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f20_r3       ; and r, BL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ and rBX
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f20_r4       ; and r, AH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ and rAX+1
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f20_r5       ; and r, CH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ and rCX+1
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f20_r6       ; and r, DH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ and rDX+1
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f20_r7       ; and r, BH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ and rBX+1
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
 op_22       ; and r8, r/m8
  mx %00
- jsr modrm_b
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f22_r-$180,x)
+:mem
+ jsr (emb_tab,x)
+ lda regb_tab,x
+ tax
  sep #$20
  mx %10
- lda [pEA]
- sta tmp0
- ldx vREGOFF
  lda 0,x
- sta tmp1
- and tmp0
+ and [pEA]
  sta 0,x
- jmp flg_log8
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f22_r
+ da f22_r0,f22_r0,f22_r0,f22_r0,f22_r0,f22_r0,f22_r0,f22_r0
+ da f22_r1,f22_r1,f22_r1,f22_r1,f22_r1,f22_r1,f22_r1,f22_r1
+ da f22_r2,f22_r2,f22_r2,f22_r2,f22_r2,f22_r2,f22_r2,f22_r2
+ da f22_r3,f22_r3,f22_r3,f22_r3,f22_r3,f22_r3,f22_r3,f22_r3
+ da f22_r4,f22_r4,f22_r4,f22_r4,f22_r4,f22_r4,f22_r4,f22_r4
+ da f22_r5,f22_r5,f22_r5,f22_r5,f22_r5,f22_r5,f22_r5,f22_r5
+ da f22_r6,f22_r6,f22_r6,f22_r6,f22_r6,f22_r6,f22_r6,f22_r6
+ da f22_r7,f22_r7,f22_r7,f22_r7,f22_r7,f22_r7,f22_r7,f22_r7
+f22_r0       ; and AL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rAX
+ and 0,x
+ sta rAX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f22_r1       ; and CL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rCX
+ and 0,x
+ sta rCX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f22_r2       ; and DL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rDX
+ and 0,x
+ sta rDX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f22_r3       ; and BL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rBX
+ and 0,x
+ sta rBX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f22_r4       ; and AH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rAX+1
+ and 0,x
+ sta rAX+1
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f22_r5       ; and CH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rCX+1
+ and 0,x
+ sta rCX+1
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f22_r6       ; and DH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rDX+1
+ and 0,x
+ sta rDX+1
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f22_r7       ; and BH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rBX+1
+ and 0,x
+ sta rBX+1
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+op_21       ; and r/m16, r16
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f21_r-$180,x)
+:mem
+ jsr (emw_tab,x)
+ lda regw_tab,x
+ tax
+ lda [pEA]
+ and 0,x
+ sta [pEA]
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f21_r
+ da f21_r0,f21_r0,f21_r0,f21_r0,f21_r0,f21_r0,f21_r0,f21_r0
+ da f21_r1,f21_r1,f21_r1,f21_r1,f21_r1,f21_r1,f21_r1,f21_r1
+ da f21_r2,f21_r2,f21_r2,f21_r2,f21_r2,f21_r2,f21_r2,f21_r2
+ da f21_r3,f21_r3,f21_r3,f21_r3,f21_r3,f21_r3,f21_r3,f21_r3
+ da f21_r4,f21_r4,f21_r4,f21_r4,f21_r4,f21_r4,f21_r4,f21_r4
+ da f21_r5,f21_r5,f21_r5,f21_r5,f21_r5,f21_r5,f21_r5,f21_r5
+ da f21_r6,f21_r6,f21_r6,f21_r6,f21_r6,f21_r6,f21_r6,f21_r6
+ da f21_r7,f21_r7,f21_r7,f21_r7,f21_r7,f21_r7,f21_r7,f21_r7
+f21_r0       ; and r, AX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ and rAX
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f21_r1       ; and r, CX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ and rCX
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f21_r2       ; and r, DX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ and rDX
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f21_r3       ; and r, BX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ and rBX
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f21_r4       ; and r, SP
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ and rSP
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f21_r5       ; and r, BP
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ and rBP
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f21_r6       ; and r, SI
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ and rSI
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f21_r7       ; and r, DI
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ and rDI
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
 op_23       ; and r16, r/m16
  mx %00
- jsr modrm_w
- lda [pEA]
- sta tmp0
- ldx vREGOFF
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f23_r-$180,x)
+:mem
+ jsr (emw_tab,x)
+ lda regw_tab,x
+ tax
  lda 0,x
- sta tmp1
- and tmp0
+ and [pEA]
  sta 0,x
- jmp flg_log16
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f23_r
+ da f23_r0,f23_r0,f23_r0,f23_r0,f23_r0,f23_r0,f23_r0,f23_r0
+ da f23_r1,f23_r1,f23_r1,f23_r1,f23_r1,f23_r1,f23_r1,f23_r1
+ da f23_r2,f23_r2,f23_r2,f23_r2,f23_r2,f23_r2,f23_r2,f23_r2
+ da f23_r3,f23_r3,f23_r3,f23_r3,f23_r3,f23_r3,f23_r3,f23_r3
+ da f23_r4,f23_r4,f23_r4,f23_r4,f23_r4,f23_r4,f23_r4,f23_r4
+ da f23_r5,f23_r5,f23_r5,f23_r5,f23_r5,f23_r5,f23_r5,f23_r5
+ da f23_r6,f23_r6,f23_r6,f23_r6,f23_r6,f23_r6,f23_r6,f23_r6
+ da f23_r7,f23_r7,f23_r7,f23_r7,f23_r7,f23_r7,f23_r7,f23_r7
+f23_r0       ; and AX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rAX
+ and 0,x
+ sta rAX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f23_r1       ; and CX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rCX
+ and 0,x
+ sta rCX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f23_r2       ; and DX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rDX
+ and 0,x
+ sta rDX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f23_r3       ; and BX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rBX
+ and 0,x
+ sta rBX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f23_r4       ; and SP, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rSP
+ and 0,x
+ sta rSP
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f23_r5       ; and BP, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rBP
+ and 0,x
+ sta rBP
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f23_r6       ; and SI, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rSI
+ and 0,x
+ sta rSI
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f23_r7       ; and DI, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rDI
+ and 0,x
+ sta rDI
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
 op_24       ; and AL, imm8
  mx %00
  lda [bCS],y
  iny
  sep #$20
  mx %10
- sta tmp0
- lda rAX
- sta tmp1
- and tmp0
+ and rAX
  sta rAX
- jmp flg_log8
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
 op_25       ; and AX, imm16
  mx %00
  lda [bCS],y
  iny
  iny
- sta tmp0
- lda rAX
- sta tmp1
- and tmp0
+ and rAX
  sta rAX
- jmp flg_log16
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
 op_28       ; sub r/m8, r8
  mx %00
- jsr modrm_b
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f28_r-$180,x)
+:mem
+ jsr (emb_tab,x)
+ lda regb_tab,x
+ tax
  sep #$20
  mx %10
- ldx vREGOFF
  lda 0,x
- sta tmp0
- lda [pEA]
- sta tmp1
+ sta vFS
  sec
- sbc tmp0
+ lda [pEA]
+ sta vFD
+ sbc vFS
  sta [pEA]
- jmp flg_sub8
-op_29       ; sub r/m16, r16
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
  mx %00
- jsr modrm_w
- ldx vREGOFF
- lda 0,x
- sta tmp0
- lda [pEA]
- sta tmp1
+ jmp (NEXTVEC)
+f28_r
+ da f28_r0,f28_r0,f28_r0,f28_r0,f28_r0,f28_r0,f28_r0,f28_r0
+ da f28_r1,f28_r1,f28_r1,f28_r1,f28_r1,f28_r1,f28_r1,f28_r1
+ da f28_r2,f28_r2,f28_r2,f28_r2,f28_r2,f28_r2,f28_r2,f28_r2
+ da f28_r3,f28_r3,f28_r3,f28_r3,f28_r3,f28_r3,f28_r3,f28_r3
+ da f28_r4,f28_r4,f28_r4,f28_r4,f28_r4,f28_r4,f28_r4,f28_r4
+ da f28_r5,f28_r5,f28_r5,f28_r5,f28_r5,f28_r5,f28_r5,f28_r5
+ da f28_r6,f28_r6,f28_r6,f28_r6,f28_r6,f28_r6,f28_r6,f28_r6
+ da f28_r7,f28_r7,f28_r7,f28_r7,f28_r7,f28_r7,f28_r7,f28_r7
+f28_r0       ; sub r, AL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rAX
+ sta vFS
  sec
- sbc tmp0
- sta [pEA]
- jmp flg_sub16
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f28_r1       ; sub r, CL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rCX
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f28_r2       ; sub r, DL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rDX
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f28_r3       ; sub r, BL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rBX
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f28_r4       ; sub r, AH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rAX+1
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f28_r5       ; sub r, CH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rCX+1
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f28_r6       ; sub r, DH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rDX+1
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f28_r7       ; sub r, BH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rBX+1
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
 op_2A       ; sub r8, r/m8
  mx %00
- jsr modrm_b
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f2A_r-$180,x)
+:mem
+ jsr (emb_tab,x)
+ lda regb_tab,x
+ tax
  sep #$20
  mx %10
  lda [pEA]
- sta tmp0
- ldx vREGOFF
- lda 0,x
- sta tmp1
+ sta vFS
  sec
- sbc tmp0
+ lda 0,x
+ sta vFD
+ sbc vFS
  sta 0,x
- jmp flg_sub8
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f2A_r
+ da f2A_r0,f2A_r0,f2A_r0,f2A_r0,f2A_r0,f2A_r0,f2A_r0,f2A_r0
+ da f2A_r1,f2A_r1,f2A_r1,f2A_r1,f2A_r1,f2A_r1,f2A_r1,f2A_r1
+ da f2A_r2,f2A_r2,f2A_r2,f2A_r2,f2A_r2,f2A_r2,f2A_r2,f2A_r2
+ da f2A_r3,f2A_r3,f2A_r3,f2A_r3,f2A_r3,f2A_r3,f2A_r3,f2A_r3
+ da f2A_r4,f2A_r4,f2A_r4,f2A_r4,f2A_r4,f2A_r4,f2A_r4,f2A_r4
+ da f2A_r5,f2A_r5,f2A_r5,f2A_r5,f2A_r5,f2A_r5,f2A_r5,f2A_r5
+ da f2A_r6,f2A_r6,f2A_r6,f2A_r6,f2A_r6,f2A_r6,f2A_r6,f2A_r6
+ da f2A_r7,f2A_r7,f2A_r7,f2A_r7,f2A_r7,f2A_r7,f2A_r7,f2A_r7
+f2A_r0       ; sub AL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ sec
+ lda rAX
+ sta vFD
+ sbc vFS
+ sta rAX
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f2A_r1       ; sub CL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ sec
+ lda rCX
+ sta vFD
+ sbc vFS
+ sta rCX
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f2A_r2       ; sub DL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ sec
+ lda rDX
+ sta vFD
+ sbc vFS
+ sta rDX
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f2A_r3       ; sub BL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ sec
+ lda rBX
+ sta vFD
+ sbc vFS
+ sta rBX
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f2A_r4       ; sub AH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ sec
+ lda rAX+1
+ sta vFD
+ sbc vFS
+ sta rAX+1
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f2A_r5       ; sub CH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ sec
+ lda rCX+1
+ sta vFD
+ sbc vFS
+ sta rCX+1
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f2A_r6       ; sub DH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ sec
+ lda rDX+1
+ sta vFD
+ sbc vFS
+ sta rDX+1
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f2A_r7       ; sub BH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ sec
+ lda rBX+1
+ sta vFD
+ sbc vFS
+ sta rBX+1
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+op_29       ; sub r/m16, r16
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f29_r-$180,x)
+:mem
+ jsr (emw_tab,x)
+ lda regw_tab,x
+ tax
+ lda 0,x
+ sta vFS
+ sec
+ lda [pEA]
+ sta vFD
+ sbc vFS
+ sta [pEA]
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f29_r
+ da f29_r0,f29_r0,f29_r0,f29_r0,f29_r0,f29_r0,f29_r0,f29_r0
+ da f29_r1,f29_r1,f29_r1,f29_r1,f29_r1,f29_r1,f29_r1,f29_r1
+ da f29_r2,f29_r2,f29_r2,f29_r2,f29_r2,f29_r2,f29_r2,f29_r2
+ da f29_r3,f29_r3,f29_r3,f29_r3,f29_r3,f29_r3,f29_r3,f29_r3
+ da f29_r4,f29_r4,f29_r4,f29_r4,f29_r4,f29_r4,f29_r4,f29_r4
+ da f29_r5,f29_r5,f29_r5,f29_r5,f29_r5,f29_r5,f29_r5,f29_r5
+ da f29_r6,f29_r6,f29_r6,f29_r6,f29_r6,f29_r6,f29_r6,f29_r6
+ da f29_r7,f29_r7,f29_r7,f29_r7,f29_r7,f29_r7,f29_r7,f29_r7
+f29_r0       ; sub r, AX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rAX
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f29_r1       ; sub r, CX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rCX
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f29_r2       ; sub r, DX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rDX
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f29_r3       ; sub r, BX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rBX
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f29_r4       ; sub r, SP
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rSP
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f29_r5       ; sub r, BP
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rBP
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f29_r6       ; sub r, SI
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rSI
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f29_r7       ; sub r, DI
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rDI
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
 op_2B       ; sub r16, r/m16
  mx %00
- jsr modrm_w
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f2B_r-$180,x)
+:mem
+ jsr (emw_tab,x)
+ lda regw_tab,x
+ tax
  lda [pEA]
- sta tmp0
- ldx vREGOFF
- lda 0,x
- sta tmp1
+ sta vFS
  sec
- sbc tmp0
+ lda 0,x
+ sta vFD
+ sbc vFS
  sta 0,x
- jmp flg_sub16
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f2B_r
+ da f2B_r0,f2B_r0,f2B_r0,f2B_r0,f2B_r0,f2B_r0,f2B_r0,f2B_r0
+ da f2B_r1,f2B_r1,f2B_r1,f2B_r1,f2B_r1,f2B_r1,f2B_r1,f2B_r1
+ da f2B_r2,f2B_r2,f2B_r2,f2B_r2,f2B_r2,f2B_r2,f2B_r2,f2B_r2
+ da f2B_r3,f2B_r3,f2B_r3,f2B_r3,f2B_r3,f2B_r3,f2B_r3,f2B_r3
+ da f2B_r4,f2B_r4,f2B_r4,f2B_r4,f2B_r4,f2B_r4,f2B_r4,f2B_r4
+ da f2B_r5,f2B_r5,f2B_r5,f2B_r5,f2B_r5,f2B_r5,f2B_r5,f2B_r5
+ da f2B_r6,f2B_r6,f2B_r6,f2B_r6,f2B_r6,f2B_r6,f2B_r6,f2B_r6
+ da f2B_r7,f2B_r7,f2B_r7,f2B_r7,f2B_r7,f2B_r7,f2B_r7,f2B_r7
+f2B_r0       ; sub AX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ sec
+ lda rAX
+ sta vFD
+ sbc vFS
+ sta rAX
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f2B_r1       ; sub CX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ sec
+ lda rCX
+ sta vFD
+ sbc vFS
+ sta rCX
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f2B_r2       ; sub DX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ sec
+ lda rDX
+ sta vFD
+ sbc vFS
+ sta rDX
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f2B_r3       ; sub BX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ sec
+ lda rBX
+ sta vFD
+ sbc vFS
+ sta rBX
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f2B_r4       ; sub SP, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ sec
+ lda rSP
+ sta vFD
+ sbc vFS
+ sta rSP
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f2B_r5       ; sub BP, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ sec
+ lda rBP
+ sta vFD
+ sbc vFS
+ sta rBP
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f2B_r6       ; sub SI, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ sec
+ lda rSI
+ sta vFD
+ sbc vFS
+ sta rSI
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f2B_r7       ; sub DI, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ sec
+ lda rDI
+ sta vFD
+ sbc vFS
+ sta rDI
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
 op_2C       ; sub AL, imm8
  mx %00
  lda [bCS],y
  iny
  sep #$20
  mx %10
- sta tmp0
- lda rAX
- sta tmp1
+ sta vFS
  sec
- sbc tmp0
+ lda rAX
+ sta vFD
+ sbc vFS
  sta rAX
- jmp flg_sub8
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
 op_2D       ; sub AX, imm16
  mx %00
  lda [bCS],y
  iny
  iny
- sta tmp0
- lda rAX
- sta tmp1
+ sta vFS
  sec
- sbc tmp0
+ lda rAX
+ sta vFD
+ sbc vFS
  sta rAX
- jmp flg_sub16
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
 op_30       ; xor r/m8, r8
  mx %00
- jsr modrm_b
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f30_r-$180,x)
+:mem
+ jsr (emb_tab,x)
+ lda regb_tab,x
+ tax
  sep #$20
  mx %10
- ldx vREGOFF
- lda 0,x
- sta tmp0
  lda [pEA]
- sta tmp1
- eor tmp0
+ eor 0,x
  sta [pEA]
- jmp flg_log8
-op_31       ; xor r/m16, r16
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
  mx %00
- jsr modrm_w
- ldx vREGOFF
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f30_r
+ da f30_r0,f30_r0,f30_r0,f30_r0,f30_r0,f30_r0,f30_r0,f30_r0
+ da f30_r1,f30_r1,f30_r1,f30_r1,f30_r1,f30_r1,f30_r1,f30_r1
+ da f30_r2,f30_r2,f30_r2,f30_r2,f30_r2,f30_r2,f30_r2,f30_r2
+ da f30_r3,f30_r3,f30_r3,f30_r3,f30_r3,f30_r3,f30_r3,f30_r3
+ da f30_r4,f30_r4,f30_r4,f30_r4,f30_r4,f30_r4,f30_r4,f30_r4
+ da f30_r5,f30_r5,f30_r5,f30_r5,f30_r5,f30_r5,f30_r5,f30_r5
+ da f30_r6,f30_r6,f30_r6,f30_r6,f30_r6,f30_r6,f30_r6,f30_r6
+ da f30_r7,f30_r7,f30_r7,f30_r7,f30_r7,f30_r7,f30_r7,f30_r7
+f30_r0       ; xor r, AL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
  lda 0,x
- sta tmp0
- lda [pEA]
- sta tmp1
- eor tmp0
- sta [pEA]
- jmp flg_log16
+ eor rAX
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f30_r1       ; xor r, CL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ eor rCX
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f30_r2       ; xor r, DL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ eor rDX
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f30_r3       ; xor r, BL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ eor rBX
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f30_r4       ; xor r, AH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ eor rAX+1
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f30_r5       ; xor r, CH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ eor rCX+1
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f30_r6       ; xor r, DH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ eor rDX+1
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f30_r7       ; xor r, BH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ eor rBX+1
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
 op_32       ; xor r8, r/m8
  mx %00
- jsr modrm_b
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f32_r-$180,x)
+:mem
+ jsr (emb_tab,x)
+ lda regb_tab,x
+ tax
  sep #$20
  mx %10
- lda [pEA]
- sta tmp0
- ldx vREGOFF
  lda 0,x
- sta tmp1
- eor tmp0
+ eor [pEA]
  sta 0,x
- jmp flg_log8
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f32_r
+ da f32_r0,f32_r0,f32_r0,f32_r0,f32_r0,f32_r0,f32_r0,f32_r0
+ da f32_r1,f32_r1,f32_r1,f32_r1,f32_r1,f32_r1,f32_r1,f32_r1
+ da f32_r2,f32_r2,f32_r2,f32_r2,f32_r2,f32_r2,f32_r2,f32_r2
+ da f32_r3,f32_r3,f32_r3,f32_r3,f32_r3,f32_r3,f32_r3,f32_r3
+ da f32_r4,f32_r4,f32_r4,f32_r4,f32_r4,f32_r4,f32_r4,f32_r4
+ da f32_r5,f32_r5,f32_r5,f32_r5,f32_r5,f32_r5,f32_r5,f32_r5
+ da f32_r6,f32_r6,f32_r6,f32_r6,f32_r6,f32_r6,f32_r6,f32_r6
+ da f32_r7,f32_r7,f32_r7,f32_r7,f32_r7,f32_r7,f32_r7,f32_r7
+f32_r0       ; xor AL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rAX
+ eor 0,x
+ sta rAX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f32_r1       ; xor CL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rCX
+ eor 0,x
+ sta rCX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f32_r2       ; xor DL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rDX
+ eor 0,x
+ sta rDX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f32_r3       ; xor BL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rBX
+ eor 0,x
+ sta rBX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f32_r4       ; xor AH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rAX+1
+ eor 0,x
+ sta rAX+1
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f32_r5       ; xor CH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rCX+1
+ eor 0,x
+ sta rCX+1
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f32_r6       ; xor DH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rDX+1
+ eor 0,x
+ sta rDX+1
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f32_r7       ; xor BH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rBX+1
+ eor 0,x
+ sta rBX+1
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+op_31       ; xor r/m16, r16
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f31_r-$180,x)
+:mem
+ jsr (emw_tab,x)
+ lda regw_tab,x
+ tax
+ lda [pEA]
+ eor 0,x
+ sta [pEA]
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f31_r
+ da f31_r0,f31_r0,f31_r0,f31_r0,f31_r0,f31_r0,f31_r0,f31_r0
+ da f31_r1,f31_r1,f31_r1,f31_r1,f31_r1,f31_r1,f31_r1,f31_r1
+ da f31_r2,f31_r2,f31_r2,f31_r2,f31_r2,f31_r2,f31_r2,f31_r2
+ da f31_r3,f31_r3,f31_r3,f31_r3,f31_r3,f31_r3,f31_r3,f31_r3
+ da f31_r4,f31_r4,f31_r4,f31_r4,f31_r4,f31_r4,f31_r4,f31_r4
+ da f31_r5,f31_r5,f31_r5,f31_r5,f31_r5,f31_r5,f31_r5,f31_r5
+ da f31_r6,f31_r6,f31_r6,f31_r6,f31_r6,f31_r6,f31_r6,f31_r6
+ da f31_r7,f31_r7,f31_r7,f31_r7,f31_r7,f31_r7,f31_r7,f31_r7
+f31_r0       ; xor r, AX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ eor rAX
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f31_r1       ; xor r, CX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ eor rCX
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f31_r2       ; xor r, DX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ eor rDX
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f31_r3       ; xor r, BX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ eor rBX
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f31_r4       ; xor r, SP
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ eor rSP
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f31_r5       ; xor r, BP
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ eor rBP
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f31_r6       ; xor r, SI
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ eor rSI
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f31_r7       ; xor r, DI
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ eor rDI
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
 op_33       ; xor r16, r/m16
  mx %00
- jsr modrm_w
- lda [pEA]
- sta tmp0
- ldx vREGOFF
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f33_r-$180,x)
+:mem
+ jsr (emw_tab,x)
+ lda regw_tab,x
+ tax
  lda 0,x
- sta tmp1
- eor tmp0
+ eor [pEA]
  sta 0,x
- jmp flg_log16
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f33_r
+ da f33_r0,f33_r0,f33_r0,f33_r0,f33_r0,f33_r0,f33_r0,f33_r0
+ da f33_r1,f33_r1,f33_r1,f33_r1,f33_r1,f33_r1,f33_r1,f33_r1
+ da f33_r2,f33_r2,f33_r2,f33_r2,f33_r2,f33_r2,f33_r2,f33_r2
+ da f33_r3,f33_r3,f33_r3,f33_r3,f33_r3,f33_r3,f33_r3,f33_r3
+ da f33_r4,f33_r4,f33_r4,f33_r4,f33_r4,f33_r4,f33_r4,f33_r4
+ da f33_r5,f33_r5,f33_r5,f33_r5,f33_r5,f33_r5,f33_r5,f33_r5
+ da f33_r6,f33_r6,f33_r6,f33_r6,f33_r6,f33_r6,f33_r6,f33_r6
+ da f33_r7,f33_r7,f33_r7,f33_r7,f33_r7,f33_r7,f33_r7,f33_r7
+f33_r0       ; xor AX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rAX
+ eor 0,x
+ sta rAX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f33_r1       ; xor CX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rCX
+ eor 0,x
+ sta rCX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f33_r2       ; xor DX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rDX
+ eor 0,x
+ sta rDX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f33_r3       ; xor BX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rBX
+ eor 0,x
+ sta rBX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f33_r4       ; xor SP, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rSP
+ eor 0,x
+ sta rSP
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f33_r5       ; xor BP, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rBP
+ eor 0,x
+ sta rBP
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f33_r6       ; xor SI, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rSI
+ eor 0,x
+ sta rSI
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f33_r7       ; xor DI, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rDI
+ eor 0,x
+ sta rDI
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
 op_34       ; xor AL, imm8
  mx %00
  lda [bCS],y
  iny
  sep #$20
  mx %10
- sta tmp0
- lda rAX
- sta tmp1
- eor tmp0
+ eor rAX
  sta rAX
- jmp flg_log8
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
 op_35       ; xor AX, imm16
  mx %00
  lda [bCS],y
  iny
  iny
- sta tmp0
- lda rAX
- sta tmp1
- eor tmp0
+ eor rAX
  sta rAX
- jmp flg_log16
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
 op_38       ; cmp r/m8, r8
  mx %00
- jsr modrm_b
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f38_r-$180,x)
+:mem
+ jsr (emb_tab,x)
+ lda regb_tab,x
+ tax
  sep #$20
  mx %10
- ldx vREGOFF
  lda 0,x
- sta tmp0
- lda [pEA]
- sta tmp1
+ sta vFS
  sec
- sbc tmp0
- jmp flg_sub8
-op_39       ; cmp r/m16, r16
+ lda [pEA]
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
  mx %00
- jsr modrm_w
- ldx vREGOFF
- lda 0,x
- sta tmp0
- lda [pEA]
- sta tmp1
+ jmp (NEXTVEC)
+f38_r
+ da f38_r0,f38_r0,f38_r0,f38_r0,f38_r0,f38_r0,f38_r0,f38_r0
+ da f38_r1,f38_r1,f38_r1,f38_r1,f38_r1,f38_r1,f38_r1,f38_r1
+ da f38_r2,f38_r2,f38_r2,f38_r2,f38_r2,f38_r2,f38_r2,f38_r2
+ da f38_r3,f38_r3,f38_r3,f38_r3,f38_r3,f38_r3,f38_r3,f38_r3
+ da f38_r4,f38_r4,f38_r4,f38_r4,f38_r4,f38_r4,f38_r4,f38_r4
+ da f38_r5,f38_r5,f38_r5,f38_r5,f38_r5,f38_r5,f38_r5,f38_r5
+ da f38_r6,f38_r6,f38_r6,f38_r6,f38_r6,f38_r6,f38_r6,f38_r6
+ da f38_r7,f38_r7,f38_r7,f38_r7,f38_r7,f38_r7,f38_r7,f38_r7
+f38_r0       ; cmp r, AL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rAX
+ sta vFS
  sec
- sbc tmp0
- jmp flg_sub16
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f38_r1       ; cmp r, CL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rCX
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f38_r2       ; cmp r, DL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rDX
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f38_r3       ; cmp r, BL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rBX
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f38_r4       ; cmp r, AH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rAX+1
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f38_r5       ; cmp r, CH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rCX+1
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f38_r6       ; cmp r, DH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rDX+1
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f38_r7       ; cmp r, BH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda rBX+1
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
 op_3A       ; cmp r8, r/m8
  mx %00
- jsr modrm_b
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f3A_r-$180,x)
+:mem
+ jsr (emb_tab,x)
+ lda regb_tab,x
+ tax
  sep #$20
  mx %10
  lda [pEA]
- sta tmp0
- ldx vREGOFF
- lda 0,x
- sta tmp1
+ sta vFS
  sec
- sbc tmp0
- jmp flg_sub8
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f3A_r
+ da f3A_r0,f3A_r0,f3A_r0,f3A_r0,f3A_r0,f3A_r0,f3A_r0,f3A_r0
+ da f3A_r1,f3A_r1,f3A_r1,f3A_r1,f3A_r1,f3A_r1,f3A_r1,f3A_r1
+ da f3A_r2,f3A_r2,f3A_r2,f3A_r2,f3A_r2,f3A_r2,f3A_r2,f3A_r2
+ da f3A_r3,f3A_r3,f3A_r3,f3A_r3,f3A_r3,f3A_r3,f3A_r3,f3A_r3
+ da f3A_r4,f3A_r4,f3A_r4,f3A_r4,f3A_r4,f3A_r4,f3A_r4,f3A_r4
+ da f3A_r5,f3A_r5,f3A_r5,f3A_r5,f3A_r5,f3A_r5,f3A_r5,f3A_r5
+ da f3A_r6,f3A_r6,f3A_r6,f3A_r6,f3A_r6,f3A_r6,f3A_r6,f3A_r6
+ da f3A_r7,f3A_r7,f3A_r7,f3A_r7,f3A_r7,f3A_r7,f3A_r7,f3A_r7
+f3A_r0       ; cmp AL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ sec
+ lda rAX
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f3A_r1       ; cmp CL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ sec
+ lda rCX
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f3A_r2       ; cmp DL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ sec
+ lda rDX
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f3A_r3       ; cmp BL, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ sec
+ lda rBX
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f3A_r4       ; cmp AH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ sec
+ lda rAX+1
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f3A_r5       ; cmp CH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ sec
+ lda rCX+1
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f3A_r6       ; cmp DH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ sec
+ lda rDX+1
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f3A_r7       ; cmp BH, r
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ sta vFS
+ sec
+ lda rBX+1
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+op_39       ; cmp r/m16, r16
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f39_r-$180,x)
+:mem
+ jsr (emw_tab,x)
+ lda regw_tab,x
+ tax
+ lda 0,x
+ sta vFS
+ sec
+ lda [pEA]
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f39_r
+ da f39_r0,f39_r0,f39_r0,f39_r0,f39_r0,f39_r0,f39_r0,f39_r0
+ da f39_r1,f39_r1,f39_r1,f39_r1,f39_r1,f39_r1,f39_r1,f39_r1
+ da f39_r2,f39_r2,f39_r2,f39_r2,f39_r2,f39_r2,f39_r2,f39_r2
+ da f39_r3,f39_r3,f39_r3,f39_r3,f39_r3,f39_r3,f39_r3,f39_r3
+ da f39_r4,f39_r4,f39_r4,f39_r4,f39_r4,f39_r4,f39_r4,f39_r4
+ da f39_r5,f39_r5,f39_r5,f39_r5,f39_r5,f39_r5,f39_r5,f39_r5
+ da f39_r6,f39_r6,f39_r6,f39_r6,f39_r6,f39_r6,f39_r6,f39_r6
+ da f39_r7,f39_r7,f39_r7,f39_r7,f39_r7,f39_r7,f39_r7,f39_r7
+f39_r0       ; cmp r, AX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rAX
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f39_r1       ; cmp r, CX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rCX
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f39_r2       ; cmp r, DX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rDX
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f39_r3       ; cmp r, BX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rBX
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f39_r4       ; cmp r, SP
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rSP
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f39_r5       ; cmp r, BP
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rBP
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f39_r6       ; cmp r, SI
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rSI
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f39_r7       ; cmp r, DI
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda rDI
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
 op_3B       ; cmp r16, r/m16
  mx %00
- jsr modrm_w
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f3B_r-$180,x)
+:mem
+ jsr (emw_tab,x)
+ lda regw_tab,x
+ tax
  lda [pEA]
- sta tmp0
- ldx vREGOFF
- lda 0,x
- sta tmp1
+ sta vFS
  sec
- sbc tmp0
- jmp flg_sub16
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f3B_r
+ da f3B_r0,f3B_r0,f3B_r0,f3B_r0,f3B_r0,f3B_r0,f3B_r0,f3B_r0
+ da f3B_r1,f3B_r1,f3B_r1,f3B_r1,f3B_r1,f3B_r1,f3B_r1,f3B_r1
+ da f3B_r2,f3B_r2,f3B_r2,f3B_r2,f3B_r2,f3B_r2,f3B_r2,f3B_r2
+ da f3B_r3,f3B_r3,f3B_r3,f3B_r3,f3B_r3,f3B_r3,f3B_r3,f3B_r3
+ da f3B_r4,f3B_r4,f3B_r4,f3B_r4,f3B_r4,f3B_r4,f3B_r4,f3B_r4
+ da f3B_r5,f3B_r5,f3B_r5,f3B_r5,f3B_r5,f3B_r5,f3B_r5,f3B_r5
+ da f3B_r6,f3B_r6,f3B_r6,f3B_r6,f3B_r6,f3B_r6,f3B_r6,f3B_r6
+ da f3B_r7,f3B_r7,f3B_r7,f3B_r7,f3B_r7,f3B_r7,f3B_r7,f3B_r7
+f3B_r0       ; cmp AX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ sec
+ lda rAX
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f3B_r1       ; cmp CX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ sec
+ lda rCX
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f3B_r2       ; cmp DX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ sec
+ lda rDX
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f3B_r3       ; cmp BX, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ sec
+ lda rBX
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f3B_r4       ; cmp SP, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ sec
+ lda rSP
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f3B_r5       ; cmp BP, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ sec
+ lda rBP
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f3B_r6       ; cmp SI, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ sec
+ lda rSI
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+f3B_r7       ; cmp DI, r
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ sta vFS
+ sec
+ lda rDI
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
 op_3C       ; cmp AL, imm8
  mx %00
  lda [bCS],y
  iny
  sep #$20
  mx %10
- sta tmp0
- lda rAX
- sta tmp1
+ sta vFS
  sec
- sbc tmp0
- jmp flg_sub8
+ lda rAX
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
 op_3D       ; cmp AX, imm16
  mx %00
  lda [bCS],y
  iny
  iny
- sta tmp0
- lda rAX
- sta tmp1
+ sta vFS
  sec
- sbc tmp0
- jmp flg_sub16
+ lda rAX
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
 op_80       ; group 1 r/m8, imm
  mx %00
- jsr modrm_b
- lda vMODRM
- and #$0038
- lsr
- lsr
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
  tax
- jmp (g80_tab,x)
-g80_tab
- da g80_0,g80_1,g80_2,g80_3,g80_4,g80_5,g80_6,g80_7
-g80_0       ; add
+ jmp (g80_t,x)
+g80_t
+ da g80_m0,g80_m0,g80_m0,g80_m0,g80_m0,g80_m0,g80_m0,g80_m0
+ da g80_m1,g80_m1,g80_m1,g80_m1,g80_m1,g80_m1,g80_m1,g80_m1
+ da g80_m2,g80_m2,g80_m2,g80_m2,g80_m2,g80_m2,g80_m2,g80_m2
+ da g80_m3,g80_m3,g80_m3,g80_m3,g80_m3,g80_m3,g80_m3,g80_m3
+ da g80_m4,g80_m4,g80_m4,g80_m4,g80_m4,g80_m4,g80_m4,g80_m4
+ da g80_m5,g80_m5,g80_m5,g80_m5,g80_m5,g80_m5,g80_m5,g80_m5
+ da g80_m6,g80_m6,g80_m6,g80_m6,g80_m6,g80_m6,g80_m6,g80_m6
+ da g80_m7,g80_m7,g80_m7,g80_m7,g80_m7,g80_m7,g80_m7,g80_m7
+ da g80_m0,g80_m0,g80_m0,g80_m0,g80_m0,g80_m0,g80_m0,g80_m0
+ da g80_m1,g80_m1,g80_m1,g80_m1,g80_m1,g80_m1,g80_m1,g80_m1
+ da g80_m2,g80_m2,g80_m2,g80_m2,g80_m2,g80_m2,g80_m2,g80_m2
+ da g80_m3,g80_m3,g80_m3,g80_m3,g80_m3,g80_m3,g80_m3,g80_m3
+ da g80_m4,g80_m4,g80_m4,g80_m4,g80_m4,g80_m4,g80_m4,g80_m4
+ da g80_m5,g80_m5,g80_m5,g80_m5,g80_m5,g80_m5,g80_m5,g80_m5
+ da g80_m6,g80_m6,g80_m6,g80_m6,g80_m6,g80_m6,g80_m6,g80_m6
+ da g80_m7,g80_m7,g80_m7,g80_m7,g80_m7,g80_m7,g80_m7,g80_m7
+ da g80_m0,g80_m0,g80_m0,g80_m0,g80_m0,g80_m0,g80_m0,g80_m0
+ da g80_m1,g80_m1,g80_m1,g80_m1,g80_m1,g80_m1,g80_m1,g80_m1
+ da g80_m2,g80_m2,g80_m2,g80_m2,g80_m2,g80_m2,g80_m2,g80_m2
+ da g80_m3,g80_m3,g80_m3,g80_m3,g80_m3,g80_m3,g80_m3,g80_m3
+ da g80_m4,g80_m4,g80_m4,g80_m4,g80_m4,g80_m4,g80_m4,g80_m4
+ da g80_m5,g80_m5,g80_m5,g80_m5,g80_m5,g80_m5,g80_m5,g80_m5
+ da g80_m6,g80_m6,g80_m6,g80_m6,g80_m6,g80_m6,g80_m6,g80_m6
+ da g80_m7,g80_m7,g80_m7,g80_m7,g80_m7,g80_m7,g80_m7,g80_m7
+ da g80_r0,g80_r0,g80_r0,g80_r0,g80_r0,g80_r0,g80_r0,g80_r0
+ da g80_r1,g80_r1,g80_r1,g80_r1,g80_r1,g80_r1,g80_r1,g80_r1
+ da g80_r2,g80_r2,g80_r2,g80_r2,g80_r2,g80_r2,g80_r2,g80_r2
+ da g80_r3,g80_r3,g80_r3,g80_r3,g80_r3,g80_r3,g80_r3,g80_r3
+ da g80_r4,g80_r4,g80_r4,g80_r4,g80_r4,g80_r4,g80_r4,g80_r4
+ da g80_r5,g80_r5,g80_r5,g80_r5,g80_r5,g80_r5,g80_r5,g80_r5
+ da g80_r6,g80_r6,g80_r6,g80_r6,g80_r6,g80_r6,g80_r6,g80_r6
+ da g80_r7,g80_r7,g80_r7,g80_r7,g80_r7,g80_r7,g80_r7,g80_r7
+g80_m0       ; add
  mx %00
+ jsr (emb_tab,x)
  lda [bCS],y
  iny
  sep #$20
  mx %10
- sta tmp0
- lda [pEA]
- sta tmp1
+ sta vFS
  clc
- adc tmp0
+ lda [pEA]
+ sta vFD
+ adc vFS
  sta [pEA]
- jmp flg_add8
-g80_1       ; or
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
  mx %00
+ jmp (NEXTVEC)
+g80_m1       ; or
+ mx %00
+ jsr (emb_tab,x)
  lda [bCS],y
  iny
  sep #$20
  mx %10
- sta tmp0
- lda [pEA]
- sta tmp1
- ora tmp0
+ ora [pEA]
  sta [pEA]
- jmp flg_log8
-g80_2       ; adc
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
  mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+g80_m2       ; adc
+ mx %00
+ jsr (emb_tab,x)
  lda [bCS],y
  iny
  sep #$20
  mx %10
- sta tmp0
- lda [pEA]
- sta tmp1
- lda rFL
+ sta vFS
+ lda vLP
  lsr
- lda tmp1
- adc tmp0
+ lda [pEA]
+ sta vFD
+ adc vFS
  sta [pEA]
- jmp flg_add8
-g80_3       ; sbb
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
  mx %00
+ jmp (NEXTVEC)
+g80_m3       ; sbb
+ mx %00
+ jsr (emb_tab,x)
  lda [bCS],y
  iny
  sep #$20
  mx %10
- sta tmp0
- lda [pEA]
- sta tmp1
- lda rFL
+ sta vFS
+ lda vLP
  eor #1
  lsr
- lda tmp1
- sbc tmp0
+ lda [pEA]
+ sta vFD
+ sbc vFS
  sta [pEA]
- jmp flg_sub8
-g80_4       ; and
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
  mx %00
+ jmp (NEXTVEC)
+g80_m4       ; and
+ mx %00
+ jsr (emb_tab,x)
  lda [bCS],y
  iny
  sep #$20
  mx %10
- sta tmp0
- lda [pEA]
- sta tmp1
- and tmp0
+ and [pEA]
  sta [pEA]
- jmp flg_log8
-g80_5       ; sub
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
  mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+g80_m5       ; sub
+ mx %00
+ jsr (emb_tab,x)
  lda [bCS],y
  iny
  sep #$20
  mx %10
- sta tmp0
- lda [pEA]
- sta tmp1
+ sta vFS
  sec
- sbc tmp0
+ lda [pEA]
+ sta vFD
+ sbc vFS
  sta [pEA]
- jmp flg_sub8
-g80_6       ; xor
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
  mx %00
+ jmp (NEXTVEC)
+g80_m6       ; xor
+ mx %00
+ jsr (emb_tab,x)
  lda [bCS],y
  iny
  sep #$20
  mx %10
- sta tmp0
- lda [pEA]
- sta tmp1
- eor tmp0
+ eor [pEA]
  sta [pEA]
- jmp flg_log8
-g80_7       ; cmp
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
  mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+g80_m7       ; cmp
+ mx %00
+ jsr (emb_tab,x)
  lda [bCS],y
  iny
  sep #$20
  mx %10
- sta tmp0
- lda [pEA]
- sta tmp1
+ sta vFS
  sec
- sbc tmp0
- jmp flg_sub8
+ lda [pEA]
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+g80_r0       ; add
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ lda [bCS],y
+ iny
+ sep #$20
+ mx %10
+ sta vFS
+ clc
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+g80_r1       ; or
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ lda [bCS],y
+ iny
+ sep #$20
+ mx %10
+ ora 0,x
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+g80_r2       ; adc
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ lda [bCS],y
+ iny
+ sep #$20
+ mx %10
+ sta vFS
+ lda vLP
+ lsr
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+g80_r3       ; sbb
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ lda [bCS],y
+ iny
+ sep #$20
+ mx %10
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+g80_r4       ; and
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ lda [bCS],y
+ iny
+ sep #$20
+ mx %10
+ and 0,x
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+g80_r5       ; sub
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ lda [bCS],y
+ iny
+ sep #$20
+ mx %10
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+g80_r6       ; xor
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ lda [bCS],y
+ iny
+ sep #$20
+ mx %10
+ eor 0,x
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+g80_r7       ; cmp
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ lda [bCS],y
+ iny
+ sep #$20
+ mx %10
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
 op_81       ; group 1 r/m16, imm
  mx %00
- jsr modrm_w
- lda vMODRM
- and #$0038
- lsr
- lsr
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
  tax
- jmp (g81_tab,x)
-g81_tab
- da g81_0,g81_1,g81_2,g81_3,g81_4,g81_5,g81_6,g81_7
-g81_0       ; add
+ jmp (g81_t,x)
+g81_t
+ da g81_m0,g81_m0,g81_m0,g81_m0,g81_m0,g81_m0,g81_m0,g81_m0
+ da g81_m1,g81_m1,g81_m1,g81_m1,g81_m1,g81_m1,g81_m1,g81_m1
+ da g81_m2,g81_m2,g81_m2,g81_m2,g81_m2,g81_m2,g81_m2,g81_m2
+ da g81_m3,g81_m3,g81_m3,g81_m3,g81_m3,g81_m3,g81_m3,g81_m3
+ da g81_m4,g81_m4,g81_m4,g81_m4,g81_m4,g81_m4,g81_m4,g81_m4
+ da g81_m5,g81_m5,g81_m5,g81_m5,g81_m5,g81_m5,g81_m5,g81_m5
+ da g81_m6,g81_m6,g81_m6,g81_m6,g81_m6,g81_m6,g81_m6,g81_m6
+ da g81_m7,g81_m7,g81_m7,g81_m7,g81_m7,g81_m7,g81_m7,g81_m7
+ da g81_m0,g81_m0,g81_m0,g81_m0,g81_m0,g81_m0,g81_m0,g81_m0
+ da g81_m1,g81_m1,g81_m1,g81_m1,g81_m1,g81_m1,g81_m1,g81_m1
+ da g81_m2,g81_m2,g81_m2,g81_m2,g81_m2,g81_m2,g81_m2,g81_m2
+ da g81_m3,g81_m3,g81_m3,g81_m3,g81_m3,g81_m3,g81_m3,g81_m3
+ da g81_m4,g81_m4,g81_m4,g81_m4,g81_m4,g81_m4,g81_m4,g81_m4
+ da g81_m5,g81_m5,g81_m5,g81_m5,g81_m5,g81_m5,g81_m5,g81_m5
+ da g81_m6,g81_m6,g81_m6,g81_m6,g81_m6,g81_m6,g81_m6,g81_m6
+ da g81_m7,g81_m7,g81_m7,g81_m7,g81_m7,g81_m7,g81_m7,g81_m7
+ da g81_m0,g81_m0,g81_m0,g81_m0,g81_m0,g81_m0,g81_m0,g81_m0
+ da g81_m1,g81_m1,g81_m1,g81_m1,g81_m1,g81_m1,g81_m1,g81_m1
+ da g81_m2,g81_m2,g81_m2,g81_m2,g81_m2,g81_m2,g81_m2,g81_m2
+ da g81_m3,g81_m3,g81_m3,g81_m3,g81_m3,g81_m3,g81_m3,g81_m3
+ da g81_m4,g81_m4,g81_m4,g81_m4,g81_m4,g81_m4,g81_m4,g81_m4
+ da g81_m5,g81_m5,g81_m5,g81_m5,g81_m5,g81_m5,g81_m5,g81_m5
+ da g81_m6,g81_m6,g81_m6,g81_m6,g81_m6,g81_m6,g81_m6,g81_m6
+ da g81_m7,g81_m7,g81_m7,g81_m7,g81_m7,g81_m7,g81_m7,g81_m7
+ da g81_r0,g81_r0,g81_r0,g81_r0,g81_r0,g81_r0,g81_r0,g81_r0
+ da g81_r1,g81_r1,g81_r1,g81_r1,g81_r1,g81_r1,g81_r1,g81_r1
+ da g81_r2,g81_r2,g81_r2,g81_r2,g81_r2,g81_r2,g81_r2,g81_r2
+ da g81_r3,g81_r3,g81_r3,g81_r3,g81_r3,g81_r3,g81_r3,g81_r3
+ da g81_r4,g81_r4,g81_r4,g81_r4,g81_r4,g81_r4,g81_r4,g81_r4
+ da g81_r5,g81_r5,g81_r5,g81_r5,g81_r5,g81_r5,g81_r5,g81_r5
+ da g81_r6,g81_r6,g81_r6,g81_r6,g81_r6,g81_r6,g81_r6,g81_r6
+ da g81_r7,g81_r7,g81_r7,g81_r7,g81_r7,g81_r7,g81_r7,g81_r7
+g81_m0       ; add
  mx %00
+ jsr (emw_tab,x)
  lda [bCS],y
  iny
  iny
- sta tmp0
- lda [pEA]
- sta tmp1
+ sta vFS
  clc
- adc tmp0
+ lda [pEA]
+ sta vFD
+ adc vFS
  sta [pEA]
- jmp flg_add16
-g81_1       ; or
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+g81_m1       ; or
  mx %00
+ jsr (emw_tab,x)
  lda [bCS],y
  iny
  iny
- sta tmp0
- lda [pEA]
- sta tmp1
- ora tmp0
+ ora [pEA]
  sta [pEA]
- jmp flg_log16
-g81_2       ; adc
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+g81_m2       ; adc
  mx %00
+ jsr (emw_tab,x)
  lda [bCS],y
  iny
  iny
- sta tmp0
- lda [pEA]
- sta tmp1
- lda rFL
+ sta vFS
+ lda vLP
  lsr
- lda tmp1
- adc tmp0
+ lda [pEA]
+ sta vFD
+ adc vFS
  sta [pEA]
- jmp flg_add16
-g81_3       ; sbb
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+g81_m3       ; sbb
  mx %00
+ jsr (emw_tab,x)
  lda [bCS],y
  iny
  iny
- sta tmp0
- lda [pEA]
- sta tmp1
- lda rFL
+ sta vFS
+ lda vLP
  eor #1
  lsr
- lda tmp1
- sbc tmp0
+ lda [pEA]
+ sta vFD
+ sbc vFS
  sta [pEA]
- jmp flg_sub16
-g81_4       ; and
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+g81_m4       ; and
  mx %00
+ jsr (emw_tab,x)
  lda [bCS],y
  iny
  iny
- sta tmp0
- lda [pEA]
- sta tmp1
- and tmp0
+ and [pEA]
  sta [pEA]
- jmp flg_log16
-g81_5       ; sub
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+g81_m5       ; sub
  mx %00
+ jsr (emw_tab,x)
  lda [bCS],y
  iny
  iny
- sta tmp0
- lda [pEA]
- sta tmp1
+ sta vFS
  sec
- sbc tmp0
+ lda [pEA]
+ sta vFD
+ sbc vFS
  sta [pEA]
- jmp flg_sub16
-g81_6       ; xor
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+g81_m6       ; xor
  mx %00
+ jsr (emw_tab,x)
  lda [bCS],y
  iny
  iny
- sta tmp0
- lda [pEA]
- sta tmp1
- eor tmp0
+ eor [pEA]
  sta [pEA]
- jmp flg_log16
-g81_7       ; cmp
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+g81_m7       ; cmp
  mx %00
+ jsr (emw_tab,x)
  lda [bCS],y
  iny
  iny
- sta tmp0
- lda [pEA]
- sta tmp1
+ sta vFS
  sec
- sbc tmp0
- jmp flg_sub16
+ lda [pEA]
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+g81_r0       ; add
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda [bCS],y
+ iny
+ iny
+ sta vFS
+ clc
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+g81_r1       ; or
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda [bCS],y
+ iny
+ iny
+ ora 0,x
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+g81_r2       ; adc
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda [bCS],y
+ iny
+ iny
+ sta vFS
+ lda vLP
+ lsr
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+g81_r3       ; sbb
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda [bCS],y
+ iny
+ iny
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+g81_r4       ; and
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda [bCS],y
+ iny
+ iny
+ and 0,x
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+g81_r5       ; sub
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda [bCS],y
+ iny
+ iny
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+g81_r6       ; xor
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda [bCS],y
+ iny
+ iny
+ eor 0,x
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+g81_r7       ; cmp
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda [bCS],y
+ iny
+ iny
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
 op_83       ; group 1 r/m16, imm
  mx %00
- jsr modrm_w
- lda vMODRM
- and #$0038
- lsr
- lsr
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
  tax
- jmp (g83_tab,x)
-g83_tab
- da g83_0,g83_1,g83_2,g83_3,g83_4,g83_5,g83_6,g83_7
-g83_0       ; add
+ jmp (g83_t,x)
+g83_t
+ da g83_m0,g83_m0,g83_m0,g83_m0,g83_m0,g83_m0,g83_m0,g83_m0
+ da g83_m1,g83_m1,g83_m1,g83_m1,g83_m1,g83_m1,g83_m1,g83_m1
+ da g83_m2,g83_m2,g83_m2,g83_m2,g83_m2,g83_m2,g83_m2,g83_m2
+ da g83_m3,g83_m3,g83_m3,g83_m3,g83_m3,g83_m3,g83_m3,g83_m3
+ da g83_m4,g83_m4,g83_m4,g83_m4,g83_m4,g83_m4,g83_m4,g83_m4
+ da g83_m5,g83_m5,g83_m5,g83_m5,g83_m5,g83_m5,g83_m5,g83_m5
+ da g83_m6,g83_m6,g83_m6,g83_m6,g83_m6,g83_m6,g83_m6,g83_m6
+ da g83_m7,g83_m7,g83_m7,g83_m7,g83_m7,g83_m7,g83_m7,g83_m7
+ da g83_m0,g83_m0,g83_m0,g83_m0,g83_m0,g83_m0,g83_m0,g83_m0
+ da g83_m1,g83_m1,g83_m1,g83_m1,g83_m1,g83_m1,g83_m1,g83_m1
+ da g83_m2,g83_m2,g83_m2,g83_m2,g83_m2,g83_m2,g83_m2,g83_m2
+ da g83_m3,g83_m3,g83_m3,g83_m3,g83_m3,g83_m3,g83_m3,g83_m3
+ da g83_m4,g83_m4,g83_m4,g83_m4,g83_m4,g83_m4,g83_m4,g83_m4
+ da g83_m5,g83_m5,g83_m5,g83_m5,g83_m5,g83_m5,g83_m5,g83_m5
+ da g83_m6,g83_m6,g83_m6,g83_m6,g83_m6,g83_m6,g83_m6,g83_m6
+ da g83_m7,g83_m7,g83_m7,g83_m7,g83_m7,g83_m7,g83_m7,g83_m7
+ da g83_m0,g83_m0,g83_m0,g83_m0,g83_m0,g83_m0,g83_m0,g83_m0
+ da g83_m1,g83_m1,g83_m1,g83_m1,g83_m1,g83_m1,g83_m1,g83_m1
+ da g83_m2,g83_m2,g83_m2,g83_m2,g83_m2,g83_m2,g83_m2,g83_m2
+ da g83_m3,g83_m3,g83_m3,g83_m3,g83_m3,g83_m3,g83_m3,g83_m3
+ da g83_m4,g83_m4,g83_m4,g83_m4,g83_m4,g83_m4,g83_m4,g83_m4
+ da g83_m5,g83_m5,g83_m5,g83_m5,g83_m5,g83_m5,g83_m5,g83_m5
+ da g83_m6,g83_m6,g83_m6,g83_m6,g83_m6,g83_m6,g83_m6,g83_m6
+ da g83_m7,g83_m7,g83_m7,g83_m7,g83_m7,g83_m7,g83_m7,g83_m7
+ da g83_r0,g83_r0,g83_r0,g83_r0,g83_r0,g83_r0,g83_r0,g83_r0
+ da g83_r1,g83_r1,g83_r1,g83_r1,g83_r1,g83_r1,g83_r1,g83_r1
+ da g83_r2,g83_r2,g83_r2,g83_r2,g83_r2,g83_r2,g83_r2,g83_r2
+ da g83_r3,g83_r3,g83_r3,g83_r3,g83_r3,g83_r3,g83_r3,g83_r3
+ da g83_r4,g83_r4,g83_r4,g83_r4,g83_r4,g83_r4,g83_r4,g83_r4
+ da g83_r5,g83_r5,g83_r5,g83_r5,g83_r5,g83_r5,g83_r5,g83_r5
+ da g83_r6,g83_r6,g83_r6,g83_r6,g83_r6,g83_r6,g83_r6,g83_r6
+ da g83_r7,g83_r7,g83_r7,g83_r7,g83_r7,g83_r7,g83_r7,g83_r7
+g83_m0       ; add
  mx %00
+ jsr (emw_tab,x)
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- sta tmp0
- lda [pEA]
- sta tmp1
+ cmp #$0080
+ bcc :p
+ ora #$FF00
+:p
+ sta vFS
  clc
- adc tmp0
+ lda [pEA]
+ sta vFD
+ adc vFS
  sta [pEA]
- jmp flg_add16
-g83_1       ; or
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+g83_m1       ; or
  mx %00
+ jsr (emw_tab,x)
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- sta tmp0
- lda [pEA]
- sta tmp1
- ora tmp0
+ cmp #$0080
+ bcc :p
+ ora #$FF00
+:p
+ ora [pEA]
  sta [pEA]
- jmp flg_log16
-g83_2       ; adc
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+g83_m2       ; adc
  mx %00
+ jsr (emw_tab,x)
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- sta tmp0
- lda [pEA]
- sta tmp1
- lda rFL
+ cmp #$0080
+ bcc :p
+ ora #$FF00
+:p
+ sta vFS
+ lda vLP
  lsr
- lda tmp1
- adc tmp0
+ lda [pEA]
+ sta vFD
+ adc vFS
  sta [pEA]
- jmp flg_add16
-g83_3       ; sbb
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+g83_m3       ; sbb
  mx %00
+ jsr (emw_tab,x)
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- sta tmp0
- lda [pEA]
- sta tmp1
- lda rFL
+ cmp #$0080
+ bcc :p
+ ora #$FF00
+:p
+ sta vFS
+ lda vLP
  eor #1
  lsr
- lda tmp1
- sbc tmp0
+ lda [pEA]
+ sta vFD
+ sbc vFS
  sta [pEA]
- jmp flg_sub16
-g83_4       ; and
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+g83_m4       ; and
+ mx %00
+ jsr (emw_tab,x)
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ ora #$FF00
+:p
+ and [pEA]
+ sta [pEA]
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+g83_m5       ; sub
+ mx %00
+ jsr (emw_tab,x)
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ ora #$FF00
+:p
+ sta vFS
+ sec
+ lda [pEA]
+ sta vFD
+ sbc vFS
+ sta [pEA]
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+g83_m6       ; xor
+ mx %00
+ jsr (emw_tab,x)
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ ora #$FF00
+:p
+ eor [pEA]
+ sta [pEA]
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+g83_m7       ; cmp
+ mx %00
+ jsr (emw_tab,x)
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ ora #$FF00
+:p
+ sta vFS
+ sec
+ lda [pEA]
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+g83_r0       ; add
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ ora #$FF00
+:p
+ sta vFS
+ clc
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+g83_r1       ; or
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ ora #$FF00
+:p
+ ora 0,x
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+g83_r2       ; adc
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ ora #$FF00
+:p
+ sta vFS
+ lda vLP
+ lsr
+ lda 0,x
+ sta vFD
+ adc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ sta vLP
+ jmp (NEXTVEC)
+g83_r3       ; sbb
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ ora #$FF00
+:p
+ sta vFS
+ lda vLP
+ eor #1
+ lsr
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+g83_r4       ; and
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ ora #$FF00
+:p
+ and 0,x
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+g83_r5       ; sub
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ ora #$FF00
+:p
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta 0,x
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+g83_r6       ; xor
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ ora #$FF00
+:p
+ eor 0,x
+ sta 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+g83_r7       ; cmp
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda [bCS],y
+ iny
+ and #$00FF
+ cmp #$0080
+ bcc :p
+ ora #$FF00
+:p
+ sta vFS
+ sec
+ lda 0,x
+ sta vFD
+ sbc vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor #LP_CF
+ sta vLP
+ jmp (NEXTVEC)
+op_84       ; test r/m8, r8
  mx %00
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- sta tmp0
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f84_r-$180,x)
+:mem
+ jsr (emb_tab,x)
+ lda regb_tab,x
+ tax
+ sep #$20
+ mx %10
  lda [pEA]
- sta tmp1
- and tmp0
- sta [pEA]
- jmp flg_log16
-g83_5       ; sub
+ and 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f84_r
+ da f84_r0,f84_r0,f84_r0,f84_r0,f84_r0,f84_r0,f84_r0,f84_r0
+ da f84_r1,f84_r1,f84_r1,f84_r1,f84_r1,f84_r1,f84_r1,f84_r1
+ da f84_r2,f84_r2,f84_r2,f84_r2,f84_r2,f84_r2,f84_r2,f84_r2
+ da f84_r3,f84_r3,f84_r3,f84_r3,f84_r3,f84_r3,f84_r3,f84_r3
+ da f84_r4,f84_r4,f84_r4,f84_r4,f84_r4,f84_r4,f84_r4,f84_r4
+ da f84_r5,f84_r5,f84_r5,f84_r5,f84_r5,f84_r5,f84_r5,f84_r5
+ da f84_r6,f84_r6,f84_r6,f84_r6,f84_r6,f84_r6,f84_r6,f84_r6
+ da f84_r7,f84_r7,f84_r7,f84_r7,f84_r7,f84_r7,f84_r7,f84_r7
+f84_r0       ; test r, AL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ and rAX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f84_r1       ; test r, CL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ and rCX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f84_r2       ; test r, DL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ and rDX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f84_r3       ; test r, BL
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ and rBX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f84_r4       ; test r, AH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ and rAX+1
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f84_r5       ; test r, CH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ and rCX+1
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f84_r6       ; test r, DH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ and rDX+1
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f84_r7       ; test r, BH
+ mx %00
+ lda rm8_tab-$180,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
+ and rBX+1
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:n
+ mx %10
+ lda #LP_AFD+LP_SF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+:z
+ mx %10
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+op_88       ; mov r/m8, r8
  mx %00
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- sta tmp0
- lda [pEA]
- sta tmp1
- sec
- sbc tmp0
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f88_r-$180,x)
+:mem
+ jsr (emb_tab,x)
+ lda regb_tab,x
+ tax
+ sep #$20
+ mx %10
+ lda 0,x
  sta [pEA]
- jmp flg_sub16
-g83_6       ; xor
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f88_r
+ da x88_nop,x88_10,x88_20,x88_30,x88_40,x88_50,x88_60,x88_70
+ da x88_01,x88_nop,x88_21,x88_31,x88_41,x88_51,x88_61,x88_71
+ da x88_02,x88_12,x88_nop,x88_32,x88_42,x88_52,x88_62,x88_72
+ da x88_03,x88_13,x88_23,x88_nop,x88_43,x88_53,x88_63,x88_73
+ da x88_04,x88_14,x88_24,x88_34,x88_nop,x88_54,x88_64,x88_74
+ da x88_05,x88_15,x88_25,x88_35,x88_45,x88_nop,x88_65,x88_75
+ da x88_06,x88_16,x88_26,x88_36,x88_46,x88_56,x88_nop,x88_76
+ da x88_07,x88_17,x88_27,x88_37,x88_47,x88_57,x88_67,x88_nop
+x88_nop
+ mx %00
+ jmp (NEXTVEC)
+x88_01       ; mov AL, CL
+ mx %00
+ sep #$20
+ mx %10
+ lda rCX
+ sta rAX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_02       ; mov AL, DL
+ mx %00
+ sep #$20
+ mx %10
+ lda rDX
+ sta rAX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_03       ; mov AL, BL
+ mx %00
+ sep #$20
+ mx %10
+ lda rBX
+ sta rAX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_04       ; mov AL, AH
+ mx %00
+ sep #$20
+ mx %10
+ lda rAX+1
+ sta rAX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_05       ; mov AL, CH
+ mx %00
+ sep #$20
+ mx %10
+ lda rCX+1
+ sta rAX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_06       ; mov AL, DH
+ mx %00
+ sep #$20
+ mx %10
+ lda rDX+1
+ sta rAX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_07       ; mov AL, BH
+ mx %00
+ sep #$20
+ mx %10
+ lda rBX+1
+ sta rAX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_10       ; mov CL, AL
+ mx %00
+ sep #$20
+ mx %10
+ lda rAX
+ sta rCX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_12       ; mov CL, DL
+ mx %00
+ sep #$20
+ mx %10
+ lda rDX
+ sta rCX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_13       ; mov CL, BL
+ mx %00
+ sep #$20
+ mx %10
+ lda rBX
+ sta rCX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_14       ; mov CL, AH
+ mx %00
+ sep #$20
+ mx %10
+ lda rAX+1
+ sta rCX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_15       ; mov CL, CH
+ mx %00
+ sep #$20
+ mx %10
+ lda rCX+1
+ sta rCX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_16       ; mov CL, DH
+ mx %00
+ sep #$20
+ mx %10
+ lda rDX+1
+ sta rCX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_17       ; mov CL, BH
+ mx %00
+ sep #$20
+ mx %10
+ lda rBX+1
+ sta rCX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_20       ; mov DL, AL
+ mx %00
+ sep #$20
+ mx %10
+ lda rAX
+ sta rDX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_21       ; mov DL, CL
+ mx %00
+ sep #$20
+ mx %10
+ lda rCX
+ sta rDX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_23       ; mov DL, BL
+ mx %00
+ sep #$20
+ mx %10
+ lda rBX
+ sta rDX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_24       ; mov DL, AH
+ mx %00
+ sep #$20
+ mx %10
+ lda rAX+1
+ sta rDX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_25       ; mov DL, CH
+ mx %00
+ sep #$20
+ mx %10
+ lda rCX+1
+ sta rDX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_26       ; mov DL, DH
+ mx %00
+ sep #$20
+ mx %10
+ lda rDX+1
+ sta rDX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_27       ; mov DL, BH
+ mx %00
+ sep #$20
+ mx %10
+ lda rBX+1
+ sta rDX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_30       ; mov BL, AL
+ mx %00
+ sep #$20
+ mx %10
+ lda rAX
+ sta rBX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_31       ; mov BL, CL
+ mx %00
+ sep #$20
+ mx %10
+ lda rCX
+ sta rBX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_32       ; mov BL, DL
+ mx %00
+ sep #$20
+ mx %10
+ lda rDX
+ sta rBX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_34       ; mov BL, AH
+ mx %00
+ sep #$20
+ mx %10
+ lda rAX+1
+ sta rBX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_35       ; mov BL, CH
+ mx %00
+ sep #$20
+ mx %10
+ lda rCX+1
+ sta rBX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_36       ; mov BL, DH
+ mx %00
+ sep #$20
+ mx %10
+ lda rDX+1
+ sta rBX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_37       ; mov BL, BH
+ mx %00
+ sep #$20
+ mx %10
+ lda rBX+1
+ sta rBX
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_40       ; mov AH, AL
+ mx %00
+ sep #$20
+ mx %10
+ lda rAX
+ sta rAX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_41       ; mov AH, CL
+ mx %00
+ sep #$20
+ mx %10
+ lda rCX
+ sta rAX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_42       ; mov AH, DL
+ mx %00
+ sep #$20
+ mx %10
+ lda rDX
+ sta rAX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_43       ; mov AH, BL
+ mx %00
+ sep #$20
+ mx %10
+ lda rBX
+ sta rAX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_45       ; mov AH, CH
+ mx %00
+ sep #$20
+ mx %10
+ lda rCX+1
+ sta rAX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_46       ; mov AH, DH
+ mx %00
+ sep #$20
+ mx %10
+ lda rDX+1
+ sta rAX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_47       ; mov AH, BH
+ mx %00
+ sep #$20
+ mx %10
+ lda rBX+1
+ sta rAX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_50       ; mov CH, AL
+ mx %00
+ sep #$20
+ mx %10
+ lda rAX
+ sta rCX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_51       ; mov CH, CL
+ mx %00
+ sep #$20
+ mx %10
+ lda rCX
+ sta rCX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_52       ; mov CH, DL
+ mx %00
+ sep #$20
+ mx %10
+ lda rDX
+ sta rCX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_53       ; mov CH, BL
+ mx %00
+ sep #$20
+ mx %10
+ lda rBX
+ sta rCX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_54       ; mov CH, AH
+ mx %00
+ sep #$20
+ mx %10
+ lda rAX+1
+ sta rCX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_56       ; mov CH, DH
+ mx %00
+ sep #$20
+ mx %10
+ lda rDX+1
+ sta rCX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_57       ; mov CH, BH
+ mx %00
+ sep #$20
+ mx %10
+ lda rBX+1
+ sta rCX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_60       ; mov DH, AL
+ mx %00
+ sep #$20
+ mx %10
+ lda rAX
+ sta rDX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_61       ; mov DH, CL
+ mx %00
+ sep #$20
+ mx %10
+ lda rCX
+ sta rDX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_62       ; mov DH, DL
+ mx %00
+ sep #$20
+ mx %10
+ lda rDX
+ sta rDX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_63       ; mov DH, BL
+ mx %00
+ sep #$20
+ mx %10
+ lda rBX
+ sta rDX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_64       ; mov DH, AH
+ mx %00
+ sep #$20
+ mx %10
+ lda rAX+1
+ sta rDX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_65       ; mov DH, CH
+ mx %00
+ sep #$20
+ mx %10
+ lda rCX+1
+ sta rDX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_67       ; mov DH, BH
+ mx %00
+ sep #$20
+ mx %10
+ lda rBX+1
+ sta rDX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_70       ; mov BH, AL
+ mx %00
+ sep #$20
+ mx %10
+ lda rAX
+ sta rBX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_71       ; mov BH, CL
+ mx %00
+ sep #$20
+ mx %10
+ lda rCX
+ sta rBX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_72       ; mov BH, DL
+ mx %00
+ sep #$20
+ mx %10
+ lda rDX
+ sta rBX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_73       ; mov BH, BL
+ mx %00
+ sep #$20
+ mx %10
+ lda rBX
+ sta rBX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_74       ; mov BH, AH
+ mx %00
+ sep #$20
+ mx %10
+ lda rAX+1
+ sta rBX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_75       ; mov BH, CH
+ mx %00
+ sep #$20
+ mx %10
+ lda rCX+1
+ sta rBX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+x88_76       ; mov BH, DH
+ mx %00
+ sep #$20
+ mx %10
+ lda rDX+1
+ sta rBX+1
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+op_8A       ; mov r8, r/m8
  mx %00
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- sta tmp0
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f8A_r-$180,x)
+:mem
+ jsr (emb_tab,x)
+ lda regb_tab,x
+ tax
+ sep #$20
+ mx %10
  lda [pEA]
- sta tmp1
- eor tmp0
- sta [pEA]
- jmp flg_log16
-g83_7       ; cmp
+ sta 0,x
+ rep #$20
+ mx %00
+ jmp (NEXTVEC)
+f8A_r
+ da x88_nop,x88_01,x88_02,x88_03,x88_04,x88_05,x88_06,x88_07
+ da x88_10,x88_nop,x88_12,x88_13,x88_14,x88_15,x88_16,x88_17
+ da x88_20,x88_21,x88_nop,x88_23,x88_24,x88_25,x88_26,x88_27
+ da x88_30,x88_31,x88_32,x88_nop,x88_34,x88_35,x88_36,x88_37
+ da x88_40,x88_41,x88_42,x88_43,x88_nop,x88_45,x88_46,x88_47
+ da x88_50,x88_51,x88_52,x88_53,x88_54,x88_nop,x88_56,x88_57
+ da x88_60,x88_61,x88_62,x88_63,x88_64,x88_65,x88_nop,x88_67
+ da x88_70,x88_71,x88_72,x88_73,x88_74,x88_75,x88_76,x88_nop
+op_85       ; test r/m16, r16
  mx %00
  lda [bCS],y
  iny
  and #$00FF
- eor #$80
- sec
- sbc #$80
- sta tmp0
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f85_r-$180,x)
+:mem
+ jsr (emw_tab,x)
+ lda regw_tab,x
+ tax
  lda [pEA]
- sta tmp1
- sec
- sbc tmp0
- jmp flg_sub16
+ and 0,x
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f85_r
+ da f85_r0,f85_r0,f85_r0,f85_r0,f85_r0,f85_r0,f85_r0,f85_r0
+ da f85_r1,f85_r1,f85_r1,f85_r1,f85_r1,f85_r1,f85_r1,f85_r1
+ da f85_r2,f85_r2,f85_r2,f85_r2,f85_r2,f85_r2,f85_r2,f85_r2
+ da f85_r3,f85_r3,f85_r3,f85_r3,f85_r3,f85_r3,f85_r3,f85_r3
+ da f85_r4,f85_r4,f85_r4,f85_r4,f85_r4,f85_r4,f85_r4,f85_r4
+ da f85_r5,f85_r5,f85_r5,f85_r5,f85_r5,f85_r5,f85_r5,f85_r5
+ da f85_r6,f85_r6,f85_r6,f85_r6,f85_r6,f85_r6,f85_r6,f85_r6
+ da f85_r7,f85_r7,f85_r7,f85_r7,f85_r7,f85_r7,f85_r7,f85_r7
+f85_r0       ; test r, AX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ and rAX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f85_r1       ; test r, CX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ and rCX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f85_r2       ; test r, DX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ and rDX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f85_r3       ; test r, BX
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ and rBX
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f85_r4       ; test r, SP
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ and rSP
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f85_r5       ; test r, BP
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ and rBP
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f85_r6       ; test r, SI
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ and rSI
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+f85_r7       ; test r, DI
+ mx %00
+ txa
+ and #$000E
+ tax
+ lda 0,x
+ and rDI
+ sta vLRES
+ beq :z
+ bmi :n
+ lda #LP_AFD
+ sta vLP
+ jmp (NEXTVEC)
+:n
+ lda #LP_AFD+LP_SF
+ sta vLP
+ jmp (NEXTVEC)
+:z
+ lda #LP_AFD+LP_ZF
+ sta vLP
+ jmp (NEXTVEC)
+op_89       ; mov r/m16, r16
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f89_r-$180,x)
+:mem
+ jsr (emw_tab,x)
+ lda regw_tab,x
+ tax
+ lda 0,x
+ sta [pEA]
+ jmp (NEXTVEC)
+f89_r
+ da x89_nop,x89_10,x89_20,x89_30,x89_40,x89_50,x89_60,x89_70
+ da x89_01,x89_nop,x89_21,x89_31,x89_41,x89_51,x89_61,x89_71
+ da x89_02,x89_12,x89_nop,x89_32,x89_42,x89_52,x89_62,x89_72
+ da x89_03,x89_13,x89_23,x89_nop,x89_43,x89_53,x89_63,x89_73
+ da x89_04,x89_14,x89_24,x89_34,x89_nop,x89_54,x89_64,x89_74
+ da x89_05,x89_15,x89_25,x89_35,x89_45,x89_nop,x89_65,x89_75
+ da x89_06,x89_16,x89_26,x89_36,x89_46,x89_56,x89_nop,x89_76
+ da x89_07,x89_17,x89_27,x89_37,x89_47,x89_57,x89_67,x89_nop
+x89_nop
+ mx %00
+ jmp (NEXTVEC)
+x89_01       ; mov AX, CX
+ mx %00
+ lda rCX
+ sta rAX
+ jmp (NEXTVEC)
+x89_02       ; mov AX, DX
+ mx %00
+ lda rDX
+ sta rAX
+ jmp (NEXTVEC)
+x89_03       ; mov AX, BX
+ mx %00
+ lda rBX
+ sta rAX
+ jmp (NEXTVEC)
+x89_04       ; mov AX, SP
+ mx %00
+ lda rSP
+ sta rAX
+ jmp (NEXTVEC)
+x89_05       ; mov AX, BP
+ mx %00
+ lda rBP
+ sta rAX
+ jmp (NEXTVEC)
+x89_06       ; mov AX, SI
+ mx %00
+ lda rSI
+ sta rAX
+ jmp (NEXTVEC)
+x89_07       ; mov AX, DI
+ mx %00
+ lda rDI
+ sta rAX
+ jmp (NEXTVEC)
+x89_10       ; mov CX, AX
+ mx %00
+ lda rAX
+ sta rCX
+ jmp (NEXTVEC)
+x89_12       ; mov CX, DX
+ mx %00
+ lda rDX
+ sta rCX
+ jmp (NEXTVEC)
+x89_13       ; mov CX, BX
+ mx %00
+ lda rBX
+ sta rCX
+ jmp (NEXTVEC)
+x89_14       ; mov CX, SP
+ mx %00
+ lda rSP
+ sta rCX
+ jmp (NEXTVEC)
+x89_15       ; mov CX, BP
+ mx %00
+ lda rBP
+ sta rCX
+ jmp (NEXTVEC)
+x89_16       ; mov CX, SI
+ mx %00
+ lda rSI
+ sta rCX
+ jmp (NEXTVEC)
+x89_17       ; mov CX, DI
+ mx %00
+ lda rDI
+ sta rCX
+ jmp (NEXTVEC)
+x89_20       ; mov DX, AX
+ mx %00
+ lda rAX
+ sta rDX
+ jmp (NEXTVEC)
+x89_21       ; mov DX, CX
+ mx %00
+ lda rCX
+ sta rDX
+ jmp (NEXTVEC)
+x89_23       ; mov DX, BX
+ mx %00
+ lda rBX
+ sta rDX
+ jmp (NEXTVEC)
+x89_24       ; mov DX, SP
+ mx %00
+ lda rSP
+ sta rDX
+ jmp (NEXTVEC)
+x89_25       ; mov DX, BP
+ mx %00
+ lda rBP
+ sta rDX
+ jmp (NEXTVEC)
+x89_26       ; mov DX, SI
+ mx %00
+ lda rSI
+ sta rDX
+ jmp (NEXTVEC)
+x89_27       ; mov DX, DI
+ mx %00
+ lda rDI
+ sta rDX
+ jmp (NEXTVEC)
+x89_30       ; mov BX, AX
+ mx %00
+ lda rAX
+ sta rBX
+ jmp (NEXTVEC)
+x89_31       ; mov BX, CX
+ mx %00
+ lda rCX
+ sta rBX
+ jmp (NEXTVEC)
+x89_32       ; mov BX, DX
+ mx %00
+ lda rDX
+ sta rBX
+ jmp (NEXTVEC)
+x89_34       ; mov BX, SP
+ mx %00
+ lda rSP
+ sta rBX
+ jmp (NEXTVEC)
+x89_35       ; mov BX, BP
+ mx %00
+ lda rBP
+ sta rBX
+ jmp (NEXTVEC)
+x89_36       ; mov BX, SI
+ mx %00
+ lda rSI
+ sta rBX
+ jmp (NEXTVEC)
+x89_37       ; mov BX, DI
+ mx %00
+ lda rDI
+ sta rBX
+ jmp (NEXTVEC)
+x89_40       ; mov SP, AX
+ mx %00
+ lda rAX
+ sta rSP
+ jmp (NEXTVEC)
+x89_41       ; mov SP, CX
+ mx %00
+ lda rCX
+ sta rSP
+ jmp (NEXTVEC)
+x89_42       ; mov SP, DX
+ mx %00
+ lda rDX
+ sta rSP
+ jmp (NEXTVEC)
+x89_43       ; mov SP, BX
+ mx %00
+ lda rBX
+ sta rSP
+ jmp (NEXTVEC)
+x89_45       ; mov SP, BP
+ mx %00
+ lda rBP
+ sta rSP
+ jmp (NEXTVEC)
+x89_46       ; mov SP, SI
+ mx %00
+ lda rSI
+ sta rSP
+ jmp (NEXTVEC)
+x89_47       ; mov SP, DI
+ mx %00
+ lda rDI
+ sta rSP
+ jmp (NEXTVEC)
+x89_50       ; mov BP, AX
+ mx %00
+ lda rAX
+ sta rBP
+ jmp (NEXTVEC)
+x89_51       ; mov BP, CX
+ mx %00
+ lda rCX
+ sta rBP
+ jmp (NEXTVEC)
+x89_52       ; mov BP, DX
+ mx %00
+ lda rDX
+ sta rBP
+ jmp (NEXTVEC)
+x89_53       ; mov BP, BX
+ mx %00
+ lda rBX
+ sta rBP
+ jmp (NEXTVEC)
+x89_54       ; mov BP, SP
+ mx %00
+ lda rSP
+ sta rBP
+ jmp (NEXTVEC)
+x89_56       ; mov BP, SI
+ mx %00
+ lda rSI
+ sta rBP
+ jmp (NEXTVEC)
+x89_57       ; mov BP, DI
+ mx %00
+ lda rDI
+ sta rBP
+ jmp (NEXTVEC)
+x89_60       ; mov SI, AX
+ mx %00
+ lda rAX
+ sta rSI
+ jmp (NEXTVEC)
+x89_61       ; mov SI, CX
+ mx %00
+ lda rCX
+ sta rSI
+ jmp (NEXTVEC)
+x89_62       ; mov SI, DX
+ mx %00
+ lda rDX
+ sta rSI
+ jmp (NEXTVEC)
+x89_63       ; mov SI, BX
+ mx %00
+ lda rBX
+ sta rSI
+ jmp (NEXTVEC)
+x89_64       ; mov SI, SP
+ mx %00
+ lda rSP
+ sta rSI
+ jmp (NEXTVEC)
+x89_65       ; mov SI, BP
+ mx %00
+ lda rBP
+ sta rSI
+ jmp (NEXTVEC)
+x89_67       ; mov SI, DI
+ mx %00
+ lda rDI
+ sta rSI
+ jmp (NEXTVEC)
+x89_70       ; mov DI, AX
+ mx %00
+ lda rAX
+ sta rDI
+ jmp (NEXTVEC)
+x89_71       ; mov DI, CX
+ mx %00
+ lda rCX
+ sta rDI
+ jmp (NEXTVEC)
+x89_72       ; mov DI, DX
+ mx %00
+ lda rDX
+ sta rDI
+ jmp (NEXTVEC)
+x89_73       ; mov DI, BX
+ mx %00
+ lda rBX
+ sta rDI
+ jmp (NEXTVEC)
+x89_74       ; mov DI, SP
+ mx %00
+ lda rSP
+ sta rDI
+ jmp (NEXTVEC)
+x89_75       ; mov DI, BP
+ mx %00
+ lda rBP
+ sta rDI
+ jmp (NEXTVEC)
+x89_76       ; mov DI, SI
+ mx %00
+ lda rSI
+ sta rDI
+ jmp (NEXTVEC)
+op_8B       ; mov r16, r/m16
+ mx %00
+ lda [bCS],y
+ iny
+ and #$00FF
+ asl
+ tax
+ cmp #$0180
+ bcc :mem
+ jmp (f8B_r-$180,x)
+:mem
+ jsr (emw_tab,x)
+ lda regw_tab,x
+ tax
+ lda [pEA]
+ sta 0,x
+ jmp (NEXTVEC)
+f8B_r
+ da x89_nop,x89_01,x89_02,x89_03,x89_04,x89_05,x89_06,x89_07
+ da x89_10,x89_nop,x89_12,x89_13,x89_14,x89_15,x89_16,x89_17
+ da x89_20,x89_21,x89_nop,x89_23,x89_24,x89_25,x89_26,x89_27
+ da x89_30,x89_31,x89_32,x89_nop,x89_34,x89_35,x89_36,x89_37
+ da x89_40,x89_41,x89_42,x89_43,x89_nop,x89_45,x89_46,x89_47
+ da x89_50,x89_51,x89_52,x89_53,x89_54,x89_nop,x89_56,x89_57
+ da x89_60,x89_61,x89_62,x89_63,x89_64,x89_65,x89_nop,x89_67
+ da x89_70,x89_71,x89_72,x89_73,x89_74,x89_75,x89_76,x89_nop
 op_40       ; inc AX
  mx %00
  lda rAX
- sta tmp1
- inc
+ sta vFD
+ clc
+ adc #1
  sta rAX
- jmp flg_inc16
+ stz vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor vLP
+ and #$00FE
+ eor vLP
+ sta vLP
+ jmp (NEXTVEC)
 op_48       ; dec AX
  mx %00
  lda rAX
- sta tmp1
- dec
+ sta vFD
+ sec
+ sbc #1
  sta rAX
- jmp flg_dec16
+ stz vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor vLP
+ and #$00FE
+ eor vLP
+ sta vLP
+ jmp (NEXTVEC)
 op_41       ; inc CX
  mx %00
  lda rCX
- sta tmp1
- inc
+ sta vFD
+ clc
+ adc #1
  sta rCX
- jmp flg_inc16
+ stz vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor vLP
+ and #$00FE
+ eor vLP
+ sta vLP
+ jmp (NEXTVEC)
 op_49       ; dec CX
  mx %00
  lda rCX
- sta tmp1
- dec
+ sta vFD
+ sec
+ sbc #1
  sta rCX
- jmp flg_dec16
+ stz vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor vLP
+ and #$00FE
+ eor vLP
+ sta vLP
+ jmp (NEXTVEC)
 op_42       ; inc DX
  mx %00
  lda rDX
- sta tmp1
- inc
+ sta vFD
+ clc
+ adc #1
  sta rDX
- jmp flg_inc16
+ stz vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor vLP
+ and #$00FE
+ eor vLP
+ sta vLP
+ jmp (NEXTVEC)
 op_4A       ; dec DX
  mx %00
  lda rDX
- sta tmp1
- dec
+ sta vFD
+ sec
+ sbc #1
  sta rDX
- jmp flg_dec16
+ stz vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor vLP
+ and #$00FE
+ eor vLP
+ sta vLP
+ jmp (NEXTVEC)
 op_43       ; inc BX
  mx %00
  lda rBX
- sta tmp1
- inc
+ sta vFD
+ clc
+ adc #1
  sta rBX
- jmp flg_inc16
+ stz vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor vLP
+ and #$00FE
+ eor vLP
+ sta vLP
+ jmp (NEXTVEC)
 op_4B       ; dec BX
  mx %00
  lda rBX
- sta tmp1
- dec
+ sta vFD
+ sec
+ sbc #1
  sta rBX
- jmp flg_dec16
+ stz vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor vLP
+ and #$00FE
+ eor vLP
+ sta vLP
+ jmp (NEXTVEC)
 op_44       ; inc SP
  mx %00
  lda rSP
- sta tmp1
- inc
+ sta vFD
+ clc
+ adc #1
  sta rSP
- jmp flg_inc16
+ stz vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor vLP
+ and #$00FE
+ eor vLP
+ sta vLP
+ jmp (NEXTVEC)
 op_4C       ; dec SP
  mx %00
  lda rSP
- sta tmp1
- dec
+ sta vFD
+ sec
+ sbc #1
  sta rSP
- jmp flg_dec16
+ stz vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor vLP
+ and #$00FE
+ eor vLP
+ sta vLP
+ jmp (NEXTVEC)
 op_45       ; inc BP
  mx %00
  lda rBP
- sta tmp1
- inc
+ sta vFD
+ clc
+ adc #1
  sta rBP
- jmp flg_inc16
+ stz vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor vLP
+ and #$00FE
+ eor vLP
+ sta vLP
+ jmp (NEXTVEC)
 op_4D       ; dec BP
  mx %00
  lda rBP
- sta tmp1
- dec
+ sta vFD
+ sec
+ sbc #1
  sta rBP
- jmp flg_dec16
+ stz vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor vLP
+ and #$00FE
+ eor vLP
+ sta vLP
+ jmp (NEXTVEC)
 op_46       ; inc SI
  mx %00
  lda rSI
- sta tmp1
- inc
+ sta vFD
+ clc
+ adc #1
  sta rSI
- jmp flg_inc16
+ stz vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor vLP
+ and #$00FE
+ eor vLP
+ sta vLP
+ jmp (NEXTVEC)
 op_4E       ; dec SI
  mx %00
  lda rSI
- sta tmp1
- dec
+ sta vFD
+ sec
+ sbc #1
  sta rSI
- jmp flg_dec16
+ stz vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor vLP
+ and #$00FE
+ eor vLP
+ sta vLP
+ jmp (NEXTVEC)
 op_47       ; inc DI
  mx %00
  lda rDI
- sta tmp1
- inc
+ sta vFD
+ clc
+ adc #1
  sta rDI
- jmp flg_inc16
+ stz vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor vLP
+ and #$00FE
+ eor vLP
+ sta vLP
+ jmp (NEXTVEC)
 op_4F       ; dec DI
  mx %00
  lda rDI
- sta tmp1
- dec
+ sta vFD
+ sec
+ sbc #1
  sta rDI
- jmp flg_dec16
+ stz vFS
+ sta vLRES
+ php
+ php
+ pla
+ eor vLP
+ and #$00FE
+ eor vLP
+ sta vLP
+ jmp (NEXTVEC)
 op_50       ; push AX
  mx %00
+ lda rSP
+ dec
+ dec
+ cmp #$FFFF
+ beq :split
+ sta rSP
+ clc
+ adc bSS
+ sta pSTK
+ lda bSS+2
+ bcs :carry
+:bank
+ sta pSTK+2
+ lda rAX
+ sta [pSTK]
+ jmp (NEXTVEC)
+:carry
+ jsr stk_carry
+ bra :bank
+:split
  lda rAX
  jsr push16
  jmp (NEXTVEC)
 op_58       ; pop AX
  mx %00
+ lda rSP
+ cmp #$FFFF
+ beq :split
+ tax
+ inx
+ inx
+ stx rSP
+ clc
+ adc bSS
+ sta pSTK
+ lda bSS+2
+ bcs :carry
+:bank
+ sta pSTK+2
+ lda [pSTK]
+ sta rAX
+ jmp (NEXTVEC)
+:carry
+ jsr stk_carry
+ bra :bank
+:split
  jsr pop16
  sta rAX
  jmp (NEXTVEC)
 op_51       ; push CX
  mx %00
+ lda rSP
+ dec
+ dec
+ cmp #$FFFF
+ beq :split
+ sta rSP
+ clc
+ adc bSS
+ sta pSTK
+ lda bSS+2
+ bcs :carry
+:bank
+ sta pSTK+2
+ lda rCX
+ sta [pSTK]
+ jmp (NEXTVEC)
+:carry
+ jsr stk_carry
+ bra :bank
+:split
  lda rCX
  jsr push16
  jmp (NEXTVEC)
 op_59       ; pop CX
  mx %00
+ lda rSP
+ cmp #$FFFF
+ beq :split
+ tax
+ inx
+ inx
+ stx rSP
+ clc
+ adc bSS
+ sta pSTK
+ lda bSS+2
+ bcs :carry
+:bank
+ sta pSTK+2
+ lda [pSTK]
+ sta rCX
+ jmp (NEXTVEC)
+:carry
+ jsr stk_carry
+ bra :bank
+:split
  jsr pop16
  sta rCX
  jmp (NEXTVEC)
 op_52       ; push DX
  mx %00
+ lda rSP
+ dec
+ dec
+ cmp #$FFFF
+ beq :split
+ sta rSP
+ clc
+ adc bSS
+ sta pSTK
+ lda bSS+2
+ bcs :carry
+:bank
+ sta pSTK+2
+ lda rDX
+ sta [pSTK]
+ jmp (NEXTVEC)
+:carry
+ jsr stk_carry
+ bra :bank
+:split
  lda rDX
  jsr push16
  jmp (NEXTVEC)
 op_5A       ; pop DX
  mx %00
+ lda rSP
+ cmp #$FFFF
+ beq :split
+ tax
+ inx
+ inx
+ stx rSP
+ clc
+ adc bSS
+ sta pSTK
+ lda bSS+2
+ bcs :carry
+:bank
+ sta pSTK+2
+ lda [pSTK]
+ sta rDX
+ jmp (NEXTVEC)
+:carry
+ jsr stk_carry
+ bra :bank
+:split
  jsr pop16
  sta rDX
  jmp (NEXTVEC)
 op_53       ; push BX
  mx %00
+ lda rSP
+ dec
+ dec
+ cmp #$FFFF
+ beq :split
+ sta rSP
+ clc
+ adc bSS
+ sta pSTK
+ lda bSS+2
+ bcs :carry
+:bank
+ sta pSTK+2
+ lda rBX
+ sta [pSTK]
+ jmp (NEXTVEC)
+:carry
+ jsr stk_carry
+ bra :bank
+:split
  lda rBX
  jsr push16
  jmp (NEXTVEC)
 op_5B       ; pop BX
  mx %00
+ lda rSP
+ cmp #$FFFF
+ beq :split
+ tax
+ inx
+ inx
+ stx rSP
+ clc
+ adc bSS
+ sta pSTK
+ lda bSS+2
+ bcs :carry
+:bank
+ sta pSTK+2
+ lda [pSTK]
+ sta rBX
+ jmp (NEXTVEC)
+:carry
+ jsr stk_carry
+ bra :bank
+:split
  jsr pop16
  sta rBX
  jmp (NEXTVEC)
@@ -1140,36 +10548,180 @@ op_54       ; push sp (the new value)
  jmp (NEXTVEC)
 op_5C       ; pop SP
  mx %00
+ lda rSP
+ cmp #$FFFF
+ beq :split
+ tax
+ inx
+ inx
+ stx rSP
+ clc
+ adc bSS
+ sta pSTK
+ lda bSS+2
+ bcs :carry
+:bank
+ sta pSTK+2
+ lda [pSTK]
+ sta rSP
+ jmp (NEXTVEC)
+:carry
+ jsr stk_carry
+ bra :bank
+:split
  jsr pop16
  sta rSP
  jmp (NEXTVEC)
 op_55       ; push BP
  mx %00
+ lda rSP
+ dec
+ dec
+ cmp #$FFFF
+ beq :split
+ sta rSP
+ clc
+ adc bSS
+ sta pSTK
+ lda bSS+2
+ bcs :carry
+:bank
+ sta pSTK+2
+ lda rBP
+ sta [pSTK]
+ jmp (NEXTVEC)
+:carry
+ jsr stk_carry
+ bra :bank
+:split
  lda rBP
  jsr push16
  jmp (NEXTVEC)
 op_5D       ; pop BP
  mx %00
+ lda rSP
+ cmp #$FFFF
+ beq :split
+ tax
+ inx
+ inx
+ stx rSP
+ clc
+ adc bSS
+ sta pSTK
+ lda bSS+2
+ bcs :carry
+:bank
+ sta pSTK+2
+ lda [pSTK]
+ sta rBP
+ jmp (NEXTVEC)
+:carry
+ jsr stk_carry
+ bra :bank
+:split
  jsr pop16
  sta rBP
  jmp (NEXTVEC)
 op_56       ; push SI
  mx %00
+ lda rSP
+ dec
+ dec
+ cmp #$FFFF
+ beq :split
+ sta rSP
+ clc
+ adc bSS
+ sta pSTK
+ lda bSS+2
+ bcs :carry
+:bank
+ sta pSTK+2
+ lda rSI
+ sta [pSTK]
+ jmp (NEXTVEC)
+:carry
+ jsr stk_carry
+ bra :bank
+:split
  lda rSI
  jsr push16
  jmp (NEXTVEC)
 op_5E       ; pop SI
  mx %00
+ lda rSP
+ cmp #$FFFF
+ beq :split
+ tax
+ inx
+ inx
+ stx rSP
+ clc
+ adc bSS
+ sta pSTK
+ lda bSS+2
+ bcs :carry
+:bank
+ sta pSTK+2
+ lda [pSTK]
+ sta rSI
+ jmp (NEXTVEC)
+:carry
+ jsr stk_carry
+ bra :bank
+:split
  jsr pop16
  sta rSI
  jmp (NEXTVEC)
 op_57       ; push DI
  mx %00
+ lda rSP
+ dec
+ dec
+ cmp #$FFFF
+ beq :split
+ sta rSP
+ clc
+ adc bSS
+ sta pSTK
+ lda bSS+2
+ bcs :carry
+:bank
+ sta pSTK+2
+ lda rDI
+ sta [pSTK]
+ jmp (NEXTVEC)
+:carry
+ jsr stk_carry
+ bra :bank
+:split
  lda rDI
  jsr push16
  jmp (NEXTVEC)
 op_5F       ; pop DI
  mx %00
+ lda rSP
+ cmp #$FFFF
+ beq :split
+ tax
+ inx
+ inx
+ stx rSP
+ clc
+ adc bSS
+ sta pSTK
+ lda bSS+2
+ bcs :carry
+:bank
+ sta pSTK+2
+ lda [pSTK]
+ sta rDI
+ jmp (NEXTVEC)
+:carry
+ jsr stk_carry
+ bra :bank
+:split
  jsr pop16
  sta rDI
  jmp (NEXTVEC)
@@ -1360,123 +10912,146 @@ op_97       ; xchg AX, DI
  jmp (NEXTVEC)
 op_70       ; jo rel8
  mx %00
- lda vOF
+ lda vLP
+ and #LP_OF
  bne jcc_taken
- bra jcc_not
+ iny
+ jmp (NEXTVEC)
 op_71       ; jno rel8
  mx %00
- lda vOF
+ lda vLP
+ and #LP_OF
  beq jcc_taken
- bra jcc_not
+ iny
+ jmp (NEXTVEC)
 op_72       ; jb rel8
  mx %00
- lda rFL
- and #F_CF
+ lda vLP
+ and #LP_CF
  bne jcc_taken
- bra jcc_not
+ iny
+ jmp (NEXTVEC)
 op_73       ; jae rel8
  mx %00
- lda rFL
- and #F_CF
+ lda vLP
+ and #LP_CF
  beq jcc_taken
- bra jcc_not
+ iny
+ jmp (NEXTVEC)
 op_74       ; je rel8
  mx %00
- lda rFL
- and #F_ZF
+ lda vLP
+ and #LP_ZF
  bne jcc_taken
- bra jcc_not
+ iny
+ jmp (NEXTVEC)
 op_75       ; jne rel8
  mx %00
- lda rFL
- and #F_ZF
+ lda vLP
+ and #LP_ZF
  beq jcc_taken
- bra jcc_not
+ iny
+ jmp (NEXTVEC)
 op_76       ; jbe rel8
  mx %00
- lda rFL
- and #F_CF+F_ZF
+ lda vLP
+ and #LP_CF+LP_ZF
  bne jcc_taken
- bra jcc_not
+ iny
+ jmp (NEXTVEC)
 op_77       ; ja rel8
  mx %00
- lda rFL
- and #F_CF+F_ZF
+ lda vLP
+ and #LP_CF+LP_ZF
  beq jcc_taken
- bra jcc_not
-jcc_taken                  ; IP += sign-extended rel8
- mx %00
- lda [bCS],y
- iny
- and #$00FF
- eor #$80
- sec
- sbc #$80
- sta tmp0
- tya
- clc
- adc tmp0
- tay
- jmp (NEXTVEC)
-jcc_not
- mx %00
  iny
  jmp (NEXTVEC)
 op_78       ; js rel8
  mx %00
- lda rFL
- and #F_SF
+ lda vLP
+ and #LP_SF
  bne jcc_taken
- bra jcc_not
+ iny
+ jmp (NEXTVEC)
 op_79       ; jns rel8
  mx %00
- lda rFL
- and #F_SF
+ lda vLP
+ and #LP_SF
  beq jcc_taken
- bra jcc_not
+ iny
+ jmp (NEXTVEC)
+jcc_taken                  ; IP += sign-extended rel8
+ mx %00
+ lda [bCS],y
+ and #$00FF
+ eor #$0080
+ sty tmp0
+ clc
+ adc tmp0
+ sec
+ sbc #$007F
+ tay
+ jmp (NEXTVEC)
 op_7A       ; jp rel8
  mx %00
- lda rFL
+ lda vLRES
+ and #$00FF
+ tax
+ lda parity,x
  and #F_PF
  bne jcc_taken
- bra jcc_not
+ iny
+ jmp (NEXTVEC)
 op_7B       ; jnp rel8
  mx %00
- lda rFL
+ lda vLRES
+ and #$00FF
+ tax
+ lda parity,x
  and #F_PF
  beq jcc_taken
- bra jcc_not
+ iny
+ jmp (NEXTVEC)
 op_7C       ; jl rel8
  mx %00
- lda rFL
- eor vOF
- and #$0080
+ lda vLP
+ asl
+ eor vLP
+ and #LP_SF
  bne jcc_taken
- bra jcc_not
+ iny
+ jmp (NEXTVEC)
 op_7D       ; jge rel8
  mx %00
- lda rFL
- eor vOF
- and #$0080
+ lda vLP
+ asl
+ eor vLP
+ and #LP_SF
  beq jcc_taken
- bra jcc_not
+ iny
+ jmp (NEXTVEC)
 op_7E       ; jle rel8
  mx %00
- lda rFL
- eor vOF
- and #$0080
+ lda vLP
+ asl
+ eor vLP
+ and #LP_SF
  bne jcc_taken
- lda rFL
- and #F_ZF
+ lda vLP
+ and #LP_ZF
  bne jcc_taken
- bra jcc_not
+ iny
+ jmp (NEXTVEC)
 op_7F       ; jg rel8
  mx %00
- lda rFL
- eor vOF
- and #$0080
- bne jcc_not
- lda rFL
- and #F_ZF
- bne jcc_not
- bra jcc_taken
+ lda vLP
+ asl
+ eor vLP
+ and #LP_SF
+ bne :not
+ lda vLP
+ and #LP_ZF
+ beq jcc_taken
+:not
+ iny
+ jmp (NEXTVEC)

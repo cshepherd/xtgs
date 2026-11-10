@@ -4,21 +4,21 @@
 
 op_F5                      ; cmc
  mx %00
- lda rFL
- eor #F_CF
- sta rFL
+ lda vLP
+ eor #LP_CF
+ sta vLP
  jmp (NEXTVEC)
 op_F8                      ; clc
  mx %00
- lda rFL
- and #$FFFF-F_CF
- sta rFL
+ lda vLP
+ and #$FFFF-LP_CF
+ sta vLP
  jmp (NEXTVEC)
 op_F9                      ; stc
  mx %00
- lda rFL
- ora #F_CF
- sta rFL
+ lda vLP
+ ora #LP_CF
+ sta vLP
  jmp (NEXTVEC)
 op_FA                      ; cli
  mx %00
@@ -51,8 +51,8 @@ op_D6                      ; salc (undocumented): AL = CF ? $FF : 0
  mx %00
  sep #$20
  mx %10
- lda rFL
- and #F_CF
+ lda vLP
+ and #LP_CF
  beq :z
  lda #$FF
 :z

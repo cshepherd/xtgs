@@ -528,14 +528,20 @@ jit_step_one
  mx %00
  lda vNEXT
  pha
+ lda vnext0
+ pha
  lda #:ret
  sta vNEXT
+ sta vnext0
  ldy rIP
  jmp fetch
 :ret
  sty rIP
  stz vSEGOVR
+ stz vOVR
  stz vREP
+ pla
+ sta vnext0
  pla
  sta vNEXT
  rts

@@ -145,13 +145,13 @@ str_run
  lda vREP
  cmp #$F3
  beq :repe
- lda rFL                   ; REPNE: stop once equal
- and #F_ZF
+ lda vLP                   ; REPNE: stop once equal
+ and #LP_ZF
  bne :done
  bra :loop
 :repe
- lda rFL                   ; REPE: stop once not equal
- and #F_ZF
+ lda vLP                   ; REPE: stop once not equal
+ and #LP_ZF
  beq :done
  bra :loop
 :done
