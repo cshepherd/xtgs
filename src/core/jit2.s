@@ -20,7 +20,7 @@
 * It is therefore correct for those loops; a boot-general
 * version must materialize rFL at block exits (see docs/jit.md).
 *----------------------------------------------------------
-JIT_CODE_BANK = $0006
+JIT_CODE_BANK = JIT_BANK
 JIT_MAP       = $8000       ; block map base within bank $06
 JIT_MAPMASK   = $00FF       ; 256 slots, 8 bytes each
 

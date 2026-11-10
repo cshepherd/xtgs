@@ -19,7 +19,8 @@
 *----------------------------------------------------------
  typ $06
  dsk core
- org $030000
+ put ../include/layout.s
+ org CORE_BASE
  mx %00
 
  put ../include/hw.s
@@ -33,7 +34,7 @@ core_entry
  phk
  plb                       ; DBR = $03
  lda #GUEST_DP
- tcd                       ; D = $1000
+ tcd                       ; D = the guest state page
  ldx #0
 :zero
  stz 0,x

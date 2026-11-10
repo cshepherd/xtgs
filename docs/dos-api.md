@@ -46,7 +46,7 @@ but not yet detected for rendering: M3.
 
 | AH | Function | Notes |
 | --- | --- | --- |
-| INT 20h, 00, 4C | terminate | exit code to the loader |
+| INT 20h, 00, 4C | terminate | exit code to the loader, which closes any file left open |
 | 01, 07, 08 | character input (echo / none) | |
 | 02, 06, 09, 40 | character, direct, `$`-string, write handle 1/2 | TAB expands to 8 |
 | 0A | buffered line input | Backspace, Enter echoes CR |
@@ -60,10 +60,18 @@ but not yet detected for rendering: M3.
 | 33 | Ctrl-Break flag | off |
 | 36 | disk free space | a fixed plausible disk |
 | 44/00 | IOCTL device info | handles 0-2: console |
-| 47 | current directory | root |
 | 48, 49, 4A | allocate, free, resize memory | bump allocator above the program, up to A000h |
 | 4D, 51, 62, 54 | return code, PSP (x2), verify flag | |
-| 3C, 3D, 3E, 41, 42, 43, 4B, 56 | file and process functions | fail with CF (M3) |
+| 3C, 5B, 3D, 3E, 3F, 40, 42 | create, create new, open, close, read, write, seek | files on the ProDOS volume (`src/svc/files.s`), through the front end's file call; handles 5-19, eight files open at once under ProDOS 8 |
+| 45, 46 | duplicate handle, force duplicate | |
+| 41, 56, 43, 57 | delete, rename, get/set attributes, file date and time | read-only is ProDOS's write-enable bit |
+| 39, 3A, 3B, 47 | make, remove, change, get directory | `\` is `/`; the DOS root is the folder XT/GS was started from |
+| 4E, 4F | find first, find next | `?` and `*` in the last path component; ProDOS directory entries as 8.3 names |
+| 0F, 10, 13, 14, 15, 16, 17, 21, 22, 27, 28 | FCB open, close, delete, sequential and random read/write, create, rename, block read/write | on the handle layer |
+| 4B | exec | fails with CF |
+
+`tests/com/fileops.asm` runs the handle functions end to end on files it
+makes itself, and `tests/com/leaveopen.asm` exits with a file open.
 
 ## The PSP and environment
 

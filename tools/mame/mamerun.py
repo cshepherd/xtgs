@@ -47,7 +47,11 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import layout  # noqa: E402  (tools/layout.py: the bank layout, XTGS_LAYOUT)
+
 REL = 0x1000000                           # run(find=...): bank-relative addresses
+GSOS_BOOT = 40                            # XTGS_FRONT=s16: emulated seconds GS/OS takes to start
 AMPLE = os.path.expanduser("~/Library/Application Support/Ample")
 ROMPATH = os.path.join(AMPLE, "roms")
 
@@ -70,12 +74,16 @@ local profile, prof = %(profile)s, {}
 local window = {%(window)s}            -- profile and taps only in [from, to) frames
 local taps, tapped = {%(taps)s}, false
 local function in_window(f) return #window == 0 or (f >= window[1] and f < window[2]) end
+local at                                -- (below)
 local function taps_on()
     local sp = manager.machine.devices[":maincpu"].spaces["program"]
+    for _, t in ipairs(taps) do             -- every range must have a place by now
+        if at(t[2]) == nil or at(t[3]) == nil then return end
+    end
     for _, t in ipairs(taps) do
         t.r, t.w = t.r or 0, t.w or 0
-        t.hr = sp:install_read_tap(t[2], t[3], t[1] .. "_r", function(o, d, m) t.r = t.r + 1 end)
-        t.hw = sp:install_write_tap(t[2], t[3], t[1] .. "_w", function(o, d, m)
+        t.hr = sp:install_read_tap(at(t[2]), at(t[3]), t[1] .. "_r", function(o, d, m) t.r = t.r + 1 end)
+        t.hw = sp:install_write_tap(at(t[2]), at(t[3]), t[1] .. "_w", function(o, d, m)
             t.w = t.w + 1
             if t[4] and t.w <= t[4] then        -- log the first writes: frame, PB:PC, address, data
                 local cpu = manager.machine.devices[":maincpu"]
@@ -95,15 +103,44 @@ local traces = {%(traces)s}
 local garbage = %(garbage)s
 local garbage_top = %(garbage_top)d
 local find, base = %(find)s, nil
+local function mem() return manager.machine.devices[":maincpu"].spaces["program"] end
 local REL = 0x1000000
-local function at(a)
-    if a < REL then return a end
-    if base == nil then return nil end
-    return base + a - REL
+-- XTGS_FRONT=s16: the front end's layout is whatever the Memory Manager
+-- gave it. Its front page says "XTGS" at +0 with a JML at +4; MB_LAYOUT in
+-- it has each region's bank and each area's page (0: not claimed yet).
+-- auto: {RG_ index, assembled bank or page, banks or pages, is a page}.
+local auto, lay_off, lay_n, mbx, lay = {%(auto)s}, %(lay_off)d, %(lay_n)d, nil, nil
+local function find_layout()
+    local m = mem()
+    if mbx and m:read_u32(mbx << 8) ~= 0x53475458 then mbx, lay = nil, nil end
+    if not mbx then
+        for p = 0x08, 0xBF do
+            if m:read_u32(p << 8) == 0x53475458 and m:read_u8((p << 8) + 4) == 0x5C then mbx = p; break end
+        end
+    end
+    if mbx then
+        lay = {}
+        for i = 0, lay_n - 1 do lay[i] = m:read_u16((mbx << 8) + lay_off + 2 * i) end
+    end
+end
+at = function(a)
+    if a >= REL then
+        if base == nil then return nil end
+        return base + a - REL
+    end
+    if #auto == 0 then return a end
+    local page = a < 0x10000
+    local v = page and (a >> 8) or (a >> 16)
+    for _, r in ipairs(auto) do
+        if r[4] == page and v >= r[2] and v < r[2] + r[3] then
+            if lay == nil or lay[r[1]] == 0 then return nil end
+            return a + ((lay[r[1]] - r[2]) << (page and 8 or 16))
+        end
+    end
+    return a
 end
 local smx, smy = 128, 128               -- the mouse fields' values (seek)
 local function field(port, name) return manager.machine.ioport.ports[port].fields[name] end
-local function mem() return manager.machine.devices[":maincpu"].spaces["program"] end
 local function hex(a, n)
     local m, t = mem(), {}
     for i = 0, n - 1 do t[#t + 1] = string.format("%%02x", m:read_u8(a + i)) end
@@ -119,7 +156,7 @@ local function apply(i)
     elseif kind == "seek" then
         local x, y, ax, ay = a:match("^(%%d+)|(%%d+)|(%%d+)|(%%d+)$")
         if frame %% 6 ~= 0 then return end  -- let the program read each step
-        local cx, cy = mem():read_u16(tonumber(ax)), mem():read_u16(tonumber(ay))
+        local cx, cy = mem():read_u16(at(tonumber(ax))), mem():read_u16(at(tonumber(ay)))
         local dx, dy = tonumber(x) - cx, tonumber(y) - cy
         if dx ~= 0 then smx = (smx + (dx > 0 and 1 or -1)) %% 256; field(":macadb:MOUSE1", "Mouse X"):set_value(smx) end
         if dy ~= 0 then smy = (smy + (dy > 0 and 1 or -1)) %% 256; field(":macadb:MOUSE2", "Mouse Y"):set_value(smy) end
@@ -130,7 +167,8 @@ local function apply(i)
         manager.machine:save(a)
     elseif kind == "poke" then
         local addr, v = a:match("^(%%d+)|(%%d+)$")
-        mem():write_u16(tonumber(addr), tonumber(v))
+        addr = at(tonumber(addr))
+        if addr ~= nil then mem():write_u16(addr, tonumber(v)) end
     elseif kind == "snap" then
         print("MAMERUN-DUMP shr_" .. a .. " e12000 " .. hex(0xE12000, 0x8000))
     end
@@ -152,6 +190,11 @@ end
 local function report(status)
     local cpu = manager.machine.devices[":maincpu"]
     print("MAMERUN-STATUS " .. status .. " " .. frame .. " " .. tostring(hit))
+    if lay ~= nil then
+        local t = {}
+        for i = 0, lay_n - 1 do t[#t + 1] = lay[i] end
+        print("MAMERUN-LAYOUT " .. table.concat(t, " "))
+    end
     for _, d in ipairs(dumps) do
         local a = at(d[2])
         if a ~= nil then
@@ -179,6 +222,7 @@ emu.register_frame_done(function()
         return
     end
     frame = frame + 1
+    if #auto > 0 then find_layout() end
     if find and base == nil and frame %% 30 == 0 then
         local m = mem()
         for b = 2, (garbage_top >> 16) - 1 do
@@ -190,7 +234,8 @@ emu.register_frame_done(function()
         end
     end
     for _, t in ipairs(traces) do
-        local v = mem():read_u16(t[2])
+        local a = at(t[2])
+        local v = a and mem():read_u16(a) or 0
         if v ~= t.last then
             t.last = v
             print("MAMERUN-TRACE " .. t[1] .. " " .. frame .. " " .. v)
@@ -223,7 +268,8 @@ emu.register_frame_done(function()
         field(":macadb:MOUSE2", "Mouse Y"):set_value(128)
     end
     for name, t in pairs(triggers) do
-        local now = mem():read_u16(t[1]) == t[2]
+        local a = at(t[1])
+        local now = a ~= nil and mem():read_u16(a) == t[2]
         if now and not t.was then
             t.frames = t.frames or {}
             t.frames[#t.frames + 1] = frame
@@ -326,6 +372,28 @@ def run(image, waits, dumps, seconds, settle, ramsize="8M", timeout=None,
     trig = dict(triggers or {})
     if ready is not None:
         trig["ready"] = ready
+    # XT/GS: callers speak assembled addresses; XTGS_LAYOUT=alt moves the
+    # regions and the bank-$00 areas, the mailbox's page among them
+    # (tools/layout.py). The banks and pages the loader recorded are dumped
+    # with every run and checked below, so a region that is not where the
+    # caller's addresses assume fails loudly instead of misreading memory.
+    # XTGS_FRONT=s16 (the GS/OS front end): nobody knows the layout before
+    # the run. The script finds the front page and translates as it goes;
+    # result["layout"] is what it found, and addresses come back assembled.
+    auto = layout.front() == "s16"
+    act = (lambda a: a) if auto else layout.to_actual
+    regs = layout.regions()
+    if auto:
+        seconds += GSOS_BOOT
+        if card == "scsi":
+            card = "cffa2"                # GS/OS does not start from MAME's SCSI card
+    waits = [(act(a), v) for a, v in waits]
+    dumps = [(n, act(a), l) for n, a, l in dumps]
+    traces = [(n, act(a)) for n, a in traces]
+    taps = [(t[0], act(t[1]), act(t[2]), *t[3:]) for t in taps]
+    trig = {n: (act(a), v) for n, (a, v) in trig.items()}
+    if not find and not auto:
+        dumps = dumps + [("__layout", act(layout.mailbox()["MB_LAYOUT"]), 2 * len(layout.regions()))]
     lua = LUA % {
         "waits": ",".join(f"{{{a},{v}}}" for a, v in waits),
         "dumps": ",".join(f'{{"{n}",{a},{l}}}' for n, a, l in dumps),
@@ -339,6 +407,12 @@ def run(image, waits, dumps, seconds, settle, ramsize="8M", timeout=None,
         "garbage": str(garbage) if garbage else "nil",
         "garbage_top": int(ramsize.rstrip("M")) << 20,
         "find": f"{{{find[0]},{find[1]}}}" if find else "nil",
+        "auto": ",".join(f"{{{rid},{asm},{layout.PAGES.get(n) or layout.BANKS[n]},"
+                         f"{'true' if n in layout.PAGES else 'false'}}}"
+                         for n, (rid, asm) in regs.items()
+                         if n in layout.PAGES or n in layout.BANKS) if auto else "",
+        "lay_off": layout.mailbox()["MB_LAYOUT"] - layout.mailbox()["MB_BASE"],
+        "lay_n": len(regs),
         "occurrence": occurrence,
         "triggers": ",".join(f'["{n}"]={{{a},{v}}}' for n, (a, v) in trig.items()),
         "inputs": ",".join(f'{{{f},"{k}",{lua_value(v)},"{t}",{n}}}'
@@ -399,6 +473,8 @@ def run(image, waits, dumps, seconds, settle, ramsize="8M", timeout=None,
         elif line.startswith("MAMERUN-REG "):
             _, reg, val = line.split(" ")
             result["regs"][reg] = int(val, 16)
+        elif line.startswith("MAMERUN-LAYOUT "):
+            result["layout"] = [int(w) for w in line.split()[1:]]
         elif line.startswith("MAMERUN-BANK "):
             _, b, f = line.split()
             result["bank"], result["bank_frame"] = int(b), int(f)
@@ -413,6 +489,28 @@ def run(image, waits, dumps, seconds, settle, ramsize="8M", timeout=None,
         elif line.startswith("MAMERUN-PROF "):
             _, addr, n = line.split()
             result.setdefault("profile", {})[addr] = int(n)
+    asm = layout.to_assembled
+    if auto:
+        asm = layout.mover(layout.from_words(result.get("layout")), {n: a for n, (_, a) in regs.items()})
+    for d in result["dumps"].values():
+        d["addr"] = asm(d["addr"])
+    if "profile" in result:
+        prof = {}
+        for a, n in result["profile"].items():
+            a = "%06x" % asm(int(a, 16))
+            prof[a] = prof.get(a, 0) + n
+        result["profile"] = prof
+    for w in result.get("wlog", []):
+        w[2], w[3] = "%06x" % asm(int(w[2], 16)), "%06x" % asm(int(w[3], 16))
+    lay = result["dumps"].pop("__layout", None)
+    if lay:
+        raw = bytes.fromhex(lay["hex"])
+        result["layout"] = [raw[i] | raw[i + 1] << 8 for i in range(0, len(raw), 2)]
+    if result.get("layout"):
+        problems = layout.check(result["layout"])
+        if problems:
+            sys.exit("mamerun: the loader's layout is not the one the harness "
+                     f"translates for (XTGS_LAYOUT={layout.active() or ''}):\n  " + "\n  ".join(problems))
     # MAME's own messages (Lua errors among them), for diagnosis
     result["mame_errors"] = "\n".join(l for l in (out + proc.stderr).splitlines()
                                        if not l.startswith("MAMERUN-"))[-2000:]

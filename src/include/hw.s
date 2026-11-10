@@ -4,6 +4,7 @@
 *----------------------------------------------------------
 MLI       = $BF00            ; ProDOS 8 MLI entry
 DEVNUM    = $BF30            ; last-used slot/drive
+SYSPATH   = $0280            ; ProDOS 8: the launched system file's pathname (length byte first)
 COUT      = $FDED
 CROUT     = $FD8E
 PRBYTE    = $FDDA
@@ -11,6 +12,7 @@ HOME      = $FC58
 IDROUT    = $FE1F            ; SEC; JSR: carry clear on a IIGS
 TOOLS     = $E10000          ; Toolbox dispatcher
 OS_BOOT   = $E100BD          ; 0 = ProDOS 8 booted directly
+GSOS      = $E100A8          ; GS/OS, inline call: JSL, dw command, adrl parameters
 
 KBD       = $E0C000          ; keyboard data, bit 7 = strobe
 KBDSTRB   = $E0C010          ; clear strobe

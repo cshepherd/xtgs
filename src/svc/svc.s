@@ -10,7 +10,8 @@
 *----------------------------------------------------------
  typ $06
  dsk svc
- org $040000
+ put ../include/layout.s
+ org SVC_BASE
  mx %00
 
  put ../include/hw.s

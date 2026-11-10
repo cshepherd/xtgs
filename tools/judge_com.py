@@ -7,7 +7,8 @@ screen rows, against tests/com/NAME.json:
      "stdout": "hello.out",                       # tests/expected/, exact bytes
      "screen": {"10": {"col": 20, "text": "..."}},  # row 10 from column 20
                                                   # (and the SHR pixels must show the text buffer)
-     "keys": [{"at": 90, "key": "xtgs"}, {"at": 150, "coded": "{ENTER}"}]}
+     "keys": [{"at": 90, "key": "xtgs"}, {"at": 150, "coded": "{ENTER}"}],
+     "disk": {"LEFT.TMP": 5}}                     # a file's length on the volume afterwards
     {"bin": "third_party/msdos2/DEBUG.COM", "name": "DEBUG.COM",  # a real program
      "files": ["hello.txt"],                      # tests/data/ copied onto the volume
      "stdout_contains": ["AX=0000"], "show_output": true, "no_unhandled": false}
@@ -113,6 +114,11 @@ def run_test(path, syms, workdir, seconds):
         problems.append(f"exit code {exit_v:#x}, expected {t.get('exit', 0):#x}")
     if stage_v != 10:
         problems.append(f"loader stopped at stage {stage_v:#x} (error {err:#x})")
+    for fn, want_len in t.get("disk", {}).items():      # a file the program left on the volume
+        cat = subprocess.run(["cadius", "CATALOG", image], capture_output=True).stdout.decode("latin-1")
+        got = [int(w[3]) for w in (line.split() for line in cat.splitlines()) if len(w) > 3 and w[0] == fn]
+        if got != [want_len]:
+            problems.append(f"{fn} on the volume is {got[0] if got else 'missing'}, expected {want_len} bytes")
     for row, spec in t.get("screen", {}).items():
         got = rows[int(row)][spec.get("col", 0):spec.get("col", 0) + len(spec["text"])]
         if got != spec["text"]:

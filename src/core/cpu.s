@@ -2,7 +2,7 @@
 * cpu.s - the interpreter loop and its helpers.
 *
 * Conventions (BOOTSTRAP.md section 5): native mode, M=0
-* X=0 at fetch and at retire, D = GUEST_DP, DBR = K = $03,
+* X=0 at fetch and at retire, D = GUEST_DP, DBR = K = CORE,
 * Y = IP. A handler ends with JMP (NEXTVEC): normally
 * `next`, which clears the prefixes, counts the slot and
 * falls into `fetch`; the harness points it at step_done.

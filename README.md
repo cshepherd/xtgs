@@ -73,6 +73,26 @@ rebuild from gitlab.com/tkchia/GW-BASIC is the one that works) at
 `HELLO.BAS` and `CGADEMO.BAS`. The `.po` is an ordinary 4 MB ProDOS volume that
 boots to XT/GS, so it also serves a real IIGS from a hard-disk-class device.
 
+XT/GS can be launched from GS/OS as well, two ways. Copy `XTGS.SYSTEM`,
+`CORE`, `SVC`, `XTGS.CMD` and `DISK` from that volume into one folder on a
+GS/OS disk and open `XTGS.SYSTEM`: GS/OS shuts down into ProDOS 8 to run it
+and comes back when XT/GS quits. Or put the native application in that folder
+instead of `XTGS.SYSTEM` - `build/xtgs16`, as a file `XTGS` of type S16
+(`$B3`) - and open that: it runs the same `CORE` and `SVC` without leaving
+GS/OS. `make finder` builds a volume that boots to the Finder with that
+folder on it, the FreeDOS floppy and GW-BASIC included
+(`build/xtgs-finder.po`; it needs a System 6 volume, `SYSTEM6=path`, and
+the `GWBASIC.EXE` above). `XTGS` has its own icon there (`icon/`), and
+opening it boots FreeDOS; copy the folder from there with the Finder and
+the icon comes along. There is no way back to the Finder from FreeDOS
+short of restarting. `XTGS_FRONT=s16 make` builds the test volume
+instead, which starts XT/GS with no Finder (`build/xtgs-s16.po`). Both
+ways were tested in MAME under System 6.0.1 - `XTGS.SYSTEM` launched by a
+startup program, `XTGS` by that and from the Finder - and neither on a
+real IIGS yet; `docs/relocation.md`.
+
+![The XTGS folder in the Finder](assets/finder-icon.png)
+
 Booting FreeDOS takes a few minutes of emulated time (MAME's throttle can be
 turned off to shorten the wait). The floppy has no `AUTOEXEC.BAT`, so FreeCOM
 asks for the date and the time first: press Return twice. Then:
@@ -170,10 +190,23 @@ Three pieces are loaded from the ProDOS volume:
 
 - **`XTGS.SYSTEM`** (`src/sys/`), the ProDOS 8 loader. It claims memory from
   the Memory Manager, reads `XTGS.CMD`, loads the other two pieces and the
-  disk image, and starts the core.
+  disk image, and starts the core. **`XTGS`** (`src/gs/`) is the same thing
+  as a native GS/OS application.
 - **`CORE`** (`src/core/`, bank `$03`), the CPU.
 - **`SVC`** (`src/svc/`, bank `$04`), the PC around it: video, BIOS, the
   built-in DOS, disk, keyboard, timer and sound.
+
+The bank numbers here and below are the ones the code is assembled for. The
+loader takes each region wherever the Memory Manager has room and fixes the
+bank bytes of `CORE` and `SVC` to match (`docs/relocation.md`), so
+`XTGS.SYSTEM` can also be launched from GS/OS, where those banks are taken:
+keep `CORE`, `SVC`, `XTGS.CMD` and the disk image in the same folder. The
+bank-`$00` addresses the two use (the direct page, the mailbox, the file
+buffers) are relocated the same way, and they reach files only through one
+entry the loader provides, so nothing in them is tied to ProDOS 8. The GS/OS
+application is a second loader for the same two files: it takes its memory
+from the Memory Manager, bank `$00` included, and answers their file calls
+with GS/OS calls.
 
 **The interpreter.** The guest's registers and flags live in a direct page;
 the 65816's Y register is the guest's IP. Fetching an instruction is six
@@ -233,6 +266,14 @@ make test-cpu OP="00 01"
 make test-dos     the Mode A programs in the compatibility table (exits non-zero:
                   the two known failures are part of the set)
 make boot-dos     boot FreeDOS headless and report the screen
+make test-layout  the probe, .COM and sampled CPU tests with every part of
+                  XT/GS in a different bank, and every bank-$00 page it uses
+                  at a different address, than it was assembled for
+make test-gsos    launch XTGS.SYSTEM from GS/OS (needs a System 6 volume:
+                  SYSTEM6=path)
+make test-s16     the probe, .COM and sampled CPU tests under the GS/OS
+                  application, and launching it three times in one boot;
+                  XTGS_FRONT=s16 runs any other test that way
 make bench        guest instructions a second, stock and 16 MHz Zip
 make lint         assemble everything and check register widths
 ```
@@ -277,6 +318,7 @@ suite: all 324 opcode files, 2,883,807 vectors after the exclusions listed in
 | `docs/cpu-compatibility.md` | 8088 behaviour learned from the hardware vectors |
 | `docs/benchmarks.md` | measurements and where the time goes |
 | `docs/jit.md` | the translator experiment |
+| `docs/relocation.md` | how the loader places XT/GS in whatever banks and bank-`$00` pages it is given; launching from GS/OS; the native GS/OS application |
 | `docs/compatibility-matrix.md` | Mode A program results |
 | `BOOTSTRAP.md`, `apple_iigs_xt_emulator_project_plan.md` | toolchain, design and the plan |
 | `CLAUDE.md` | layout, memory map and the Merlin32 rules this tree follows |

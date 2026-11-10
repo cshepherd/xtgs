@@ -8,42 +8,62 @@
 * IIGS loader (../somi-iigs-port/iigs/asm/loader.s).
 *
 *   1. Check for an Apple IIGS; set the prefix to the boot
-*      volume if ProDOS left it empty.
-*   2. Start the Tool Locator and Misc Tools and take
+*      volume if ProDOS left it empty, then to the directory
+*      of our own pathname ($0280) when a launcher gave one.
+*   2. Read XTGS.CMD (optional) into the mailbox: the first
+*      line is the command for the core (P probe, V vectors,
+*      B bench, C NAME: .COM program, D: boot a disk image).
+*      Default: P. A leading '+' is the layout test: nothing
+*      may be where it was assembled for.
+*   3. Decide the bank-$00 pages (set_pages): the ones CORE
+*      and SVC were assembled for (src/include/layout.s),
+*      which this program owns under ProDOS 8; for '+' the
+*      NAME_ALTPG ones, and the loader moves its own front
+*      page (the file-call entry and the mailbox) to match.
+*   4. Start the Tool Locator and Misc Tools and take
 *      ownership of memory (ProDOS 8 TN #27, IIGS TN #17):
 *      on a direct ProDOS 8 boot (OS_BOOT = 0) get a master
 *      user ID from GetNewID($1000) and reserve the ranges
 *      GS/OS would have given ProDOS 8; then claim, with
-*      fixed-address handles, the banks XT/GS lives in:
-*      $03 (CORE), $04 (SVC), $05 (results) and the guest's
-*      1 MiB at $20:0000; then call MMStartUp, which must
+*      fixed-address handles, the regions XT/GS lives in
+*      (claim_region): CORE, SVC and the results bank, the
+*      guest's 1 MiB, and by the command the disk image's
+*      banks (D) or the translator's (K). Each goes to the
+*      bank it was assembled for when that is free, else to
+*      the first place that is. Then MMStartUp, which must
 *      return the master ID.
-*   3. Read XTGS.CMD (optional) into the mailbox: the first
-*      line is the command for the core (P probe, V vectors,
-*      B bench, C NAME: .COM program, D: boot a disk image). Default: P.
-*   4. Read CORE into $03:0000 and SVC into $04:0000 through
-*      the bank-$00 bounce buffer; for a V command, read VEC
-*      into banks from $30 up (claimed first, by its size).
-*   5. JSL to the core entry in native mode, 16-bit M/X,
+*   5. Read CORE and SVC into their banks through the
+*      bank-$00 bounce buffer; for a V command, read VEC
+*      into banks claimed by its size; then add (actual -
+*      assembled) to every bank byte and page byte listed at
+*      the end of CORE and SVC (reloc_image). MB_LAYOUT has
+*      the bank of each region and the page of each area.
+*   6. JSL to the core entry in native mode, 16-bit M/X,
 *      with S = $0BFF; the core RTLs with its exit code in A.
-*   6. Release everything, set MB_DONE and MB_MAGIC, print
+*   7. Release everything, set MB_DONE and MB_MAGIC, print
 *      the exit code, wait for a key, MLI QUIT.
 *
-* Mailbox and entry points: src/include/mailbox.s. The
-* results the host judge reads are final once MB_MAGIC is
-* $5A5A; the loader then waits for a key before quitting so
-* a headless run can dump memory at leisure.
+* The front page (src/include/mailbox.s) is this image's
+* first: JMP start, the file-call entry CORE and SVC JSL to
+* (MB_FILECALL -> mli_glue) and the mailbox. The results the
+* host judge reads are final once MB_MAGIC is $5A5A; the
+* loader then waits for a key before quitting so a headless
+* run can dump memory at leisure.
 *
-*   $2004  mli_glue  JSL target for native code: MLI command
-*                    MB_MLI_CMD with parameters MB_MLI_PARMS,
-*                    result in MB_MLI_RES and A (0 = ok).
-*
-* Bank-$00 layout owned by the loader:
-*   $0800-$0BFF  core native stack (S = $0BFF)
-*   $0C00-$0FFF  ProDOS 8 I/O buffer
-*   $1000-$10FF  guest CPU state direct page (the core's)
+* Bank $00 while the core runs. The first three lines are
+* this program's own business; the rest are layout.s's
+* areas, at their assembled pages unless '+' moved them:
+*   $0800-$0BFF  the native stack (S = $0BFF at the JSL)
 *   $2000-$3FFF  this loader (resident)
-*   $4000-$5FFF  bounce buffer for file reads
+*   page 1       the MLI's stack (mli_glue), and the
+*                firmware's while it services an interrupt
+*   ZP    $1000  guest CPU state: the direct page
+*   MBX   $2000  the front page
+*   PATH  $0C00  pathnames for the MLI
+*   XFER  $4000  file transfer buffer, 8 KB
+*   IOB   $6000  the MLI's I/O buffers, 8 KB
+* While it loads, the loader reads through its own IOBUF and
+* BOUNCE, which lie where PATH and XFER were assembled.
 *----------------------------------------------------------
 
  xc
@@ -54,43 +74,61 @@
  mx %11
 
  put ../include/hw.s
+ put ../include/layout.s
  put ../include/mailbox.s
 
+* The loader's own bank-$00 places (not layout.s's: CORE and SVC
+* never see them). The two buffers are idle once the core runs.
 IOBUF    = $0C00           ; ProDOS 8 I/O buffer (1 KB, page-aligned)
-BOUNCE   = $4000           ; bank-$00 transfer buffer
+BOUNCE   = $4000           ; transfer buffer for the loads
 CHUNK    = $2000           ; bytes per READ
 CORE_S   = $0BFF           ; native stack top while the core runs
-COM_BASE = $210100         ; the .COM program: guest PSP_SEG:0100
-DISK_DST = $500000         ; the raw disk image for Mode B boot
 
-* Fixed entry points and mailbox: the ABI, do not reorder.
- jmp start                 ; $2000
- dfb 1                     ; $2003  interface version
- jmp mli_glue              ; $2004  JSL $002004 from native code
- ds $2010-*,0
-mb_stage   dw 0            ; $2010
-mb_magic   dw 0            ; $2012
-mb_exit    dw 0            ; $2014
-mb_err     dw 0            ; $2016
-mb_osboot  dw 0            ; $2018
-mb_master  dw 0            ; $201A
-mb_mmid    dw 0            ; $201C
-mb_downerr dw 0            ; $201E
-mb_done    dw 0            ; $2020
-mb_filelen adrl 0          ; $2022
-mb_sp      dw 0            ; $2026
-mb_perrs   dw 0            ; $2028
-mb_pfirst  adrl 0          ; $202A
-mb_runidx  dw 0            ; $202E
-mb_cmd     ds 32,0         ; $2030
-mb_dbg_owner dw 0          ; $2050
-mb_dbg_addr adrl 0         ; $2052
-mb_dbg_size adrl 0         ; $2056
-mb_mli_cmd dw 0            ; $205A
-mb_mli_res dw 0            ; $205C
-mb_mli_parms ds 32,0       ; $205E
-mb_icount  adrl 0          ; $207E
- err mb_stage-MB_STAGE
+* The front page (mailbox.s): the ABI, do not reorder. The mailbox
+* is the DUM block: it is this page from +$10 up as loaded, and the
+* same offsets of the '+' layout's page once set_pages has moved it,
+* so the mb_ labels follow MBX_PAGE and tools/gen_reloc.py lists
+* every byte of this file that holds one's high byte. `image` and the
+* labels on it are the file as ProDOS loaded it and do not move.
+image
+ jmp start                 ; +$00
+ dfb 1                     ; +$03  interface version
+filecall
+ jmp mli_glue              ; +$04  MB_FILECALL: JSL from native code
+ dfb 0
+self_len dw 0              ; +$08  this file's length (tools/gen_reloc.py)
+ ds MB_END-MB_BASE-10,0    ; the mailbox
+ err filecall-image+MB_BASE-MB_FILECALL
+ err self_len-image+MB_BASE-MB_SELFLEN
+ err *-image+MB_BASE-MB_END
+
+ dum MB_STAGE
+mb_stage   ds 2
+mb_magic   ds 2
+mb_exit    ds 2
+mb_err     ds 2
+mb_osboot  ds 2
+mb_master  ds 2
+mb_mmid    ds 2
+mb_downerr ds 2
+mb_done    ds 2
+mb_filelen ds 4
+mb_sp      ds 2
+mb_perrs   ds 2
+mb_pfirst  ds 4
+mb_runidx  ds 2
+mb_cmd     ds 32
+mb_dbg_owner ds 2
+mb_dbg_addr ds 4
+mb_dbg_size ds 4
+mb_mli_cmd ds 2
+mb_mli_res ds 2
+mb_mli_parms ds 32
+mb_icount  ds 4
+mb_layout  ds RG_COUNT*2   ; a word a region or area, in RG_ order
+mb_layalt  ds 2
+mb_end
+ dend
  err mb_magic-MB_MAGIC
  err mb_exit-MB_EXIT
  err mb_err-MB_ERR
@@ -112,7 +150,9 @@ mb_icount  adrl 0          ; $207E
  err mb_mli_res-MB_MLI_RES
  err mb_mli_parms-MB_MLI_PARMS
  err mb_icount-MB_ICOUNT
- err *-MB_END
+ err mb_layout-MB_LAYOUT
+ err mb_layalt-MB_LAYALT
+ err mb_end-MB_END
 
 *----------------------------------------------------------
 * start - emulation mode, 8-bit M/X throughout the main
@@ -165,9 +205,48 @@ start
  jmp fail8
 :have_prefix
 
+* A launcher (GS/OS, a program selector) leaves our pathname at
+* $0280 and its own idea of the prefix; CORE, SVC and the rest
+* are beside us, so the pathname's directory becomes the prefix.
+* A direct boot leaves the bare name there: nothing to do. Not
+* fatal: the files may still be in the prefix we were given.
+ ldx SYSPATH
+ beq :pfx_done
+ cpx #65
+ bcs :pfx_done
+:pfx_scan
+ lda SYSPATH,x
+ and #$7F
+ cmp #'/'
+ beq :pfx_cut
+ dex
+ bne :pfx_scan
+ beq :pfx_done
+:pfx_cut
+ dex                       ; without the slash; "/NAME" has no directory
+ beq :pfx_done
+ stx pathbuf
+:pfx_copy
+ lda SYSPATH,x
+ and #$7F
+ sta pathbuf,x
+ dex
+ bne :pfx_copy
+ jsr MLI
+ dfb $C6                   ; SET_PREFIX
+ da gp_parms
+:pfx_done
+
 * The command first, so tools_up can claim the Mode B disk region
 * only when it is needed (D); it would otherwise block a large VEC load.
+* Then the pages, which '+' decides; the mailbox may move here.
  jsr read_cmd
+ jsr set_pages
+ bcc :pages_ok
+ stz fail_err
+ stz fail_err+1
+ jmp fail8
+:pages_ok
 
 * Toolbox and memory ownership.
  lda #3
@@ -180,37 +259,42 @@ start
  bcc :mm_ok
  jmp fail8
 :mm_ok
+ jsr show_banks
 
-* The images.
+* The images, each at offset 0 of its bank.
  lda #4
  sta mb_stage
  lda #<path_core
  sta ld_path
  lda #>path_core
  sta ld_path+1
- lda #<CORE_BASE
- sta ld_dst
- lda #>CORE_BASE
- sta ld_dst+1
- lda #^CORE_BASE
+ stz ld_dst
+ stz ld_dst+1
+ lda mb_layout+RG_CORE+RG_CORE
  sta ld_dst+2
  stz ld_alloc
  ldx #$10
  jsr load_file
+ lda mb_filelen            ; (the relocation list is at its end)
+ sta img_len
+ lda mb_filelen+1
+ sta img_len+1
  lda #5
  sta mb_stage
  lda #<path_svc
  sta ld_path
  lda #>path_svc
  sta ld_path+1
- lda #<SVC_BASE
- sta ld_dst
- lda #>SVC_BASE
- sta ld_dst+1
- lda #^SVC_BASE
+ stz ld_dst
+ stz ld_dst+1
+ lda mb_layout+RG_SVC+RG_SVC
  sta ld_dst+2
  ldx #$20
  jsr load_file
+ lda mb_filelen
+ sta img_len+2
+ lda mb_filelen+1
+ sta img_len+3
 
 * A data file, by the command letter.
  lda mb_cmd+1
@@ -222,13 +306,7 @@ start
  sta ld_path
  lda #>path_vec
  sta ld_path+1
- lda #<DATA_BASE
- sta ld_dst
- lda #>DATA_BASE
- sta ld_dst+1
- lda #^DATA_BASE
- sta ld_dst+2
- lda #1
+ lda #1                    ; alloc_data claims the banks and sets ld_dst
  sta ld_alloc
  ldx #$30
  jsr load_file
@@ -251,7 +329,9 @@ start
  sta ld_dst
  lda #>COM_BASE
  sta ld_dst+1
- lda #^COM_BASE
+ lda mb_layout+RG_GUEST+RG_GUEST
+ clc
+ adc #COM_BASE-GUEST_BASE/$10000
  sta ld_dst+2
  stz ld_alloc
  ldx #$50
@@ -268,17 +348,15 @@ start
  lda mb_cmd+1
  cmp #'D'
  bne :nodisk
- lda #7                    ; D: the raw disk image into host banks from $50
+ lda #7                    ; D: the raw disk image into its banks
  sta mb_stage
  lda #<path_disk
  sta ld_path
  lda #>path_disk
  sta ld_path+1
- lda #<DISK_DST
- sta ld_dst
- lda #>DISK_DST
- sta ld_dst+1
- lda #^DISK_DST
+ stz ld_dst
+ stz ld_dst+1
+ lda mb_layout+RG_DISK+RG_DISK
  sta ld_dst+2
  stz ld_alloc
  ldx #$30
@@ -301,12 +379,22 @@ start
  sta ld_dst
  lda #>BENCH_BASE
  sta ld_dst+1
- lda #^BENCH_BASE
+ lda mb_layout+RG_GUEST+RG_GUEST
  sta ld_dst+2
  stz ld_alloc
  ldx #$40
  jsr load_file
 :loaded
+
+* Every region has its bank now: fix the images' bank and page bytes.
+ lda #$0B
+ sta mb_stage
+ jsr reloc_all
+ bcc :reloc_ok
+ stz fail_err
+ stz fail_err+1
+ jmp fail8
+:reloc_ok
 
 * Run the core: native mode, 16-bit M/X, its own stack.
  lda #<msg_run
@@ -314,6 +402,8 @@ start
  jsr puts
  lda #8
  sta mb_stage
+ lda mb_layout+RG_CORE+RG_CORE
+ sta :core+3               ; the JSL's bank
  clc
  xce
  rep #$30
@@ -322,6 +412,7 @@ start
  sta mb_sp
  lda #CORE_S
  tcs
+:core
  jsl CORE_BASE
  rep #$30                  ; whatever the core left
  pea $0000
@@ -337,6 +428,10 @@ start
  mx %11
  lda #9
  sta mb_stage
+ stz close_ref             ; reference 0: whatever the guest left open
+ jsr MLI                   ; (its data is not on the disk until then)
+ dfb $CC                   ; CLOSE
+ da close_parms
  jsr tools_down
  lda #$A5
  sta mb_done
@@ -358,9 +453,10 @@ start
 
 *----------------------------------------------------------
 * tools_up - TLStartUp, MTStartUp; the master user ID; the
-* TN #27 reservations on a direct boot; then the fixed
-* blocks XT/GS lives in. Emulation in/out. Carry set on
-* error with X = stage and fail_err = tool error.
+* TN #27 reservations on a direct boot; then the regions
+* XT/GS lives in. Emulation in/out. Carry set on error
+* with X = stage ($43-$46 a TN #27 range, $47 + RG_ index
+* a region) and fail_err = tool error.
 *----------------------------------------------------------
 tools_up
  clc
@@ -393,23 +489,25 @@ tools_up
  jmp :id_err
 :id_ok
  sta mb_master
- ldx #0                    ; every entry: TN #27 ranges first
+ ldx #0                    ; the TN #27 ranges first
  bra :reserve
 
 * Launched from GS/OS: MMStartUp names our memory; TN #27
-* says the low 128K is already ours. Only the fixed blocks.
+* says the low 128K is already ours. Only the regions.
 :from_gsos
  pha
  ldx #$0202                ; MMStartUp
  jsl TOOLS
  sta fail_err
  pla
- bcs :id_err
+ bcc :gs_ok
+ jmp :id_err
+:gs_ok
  sta mb_master
  sta mb_mmid
  lda #1
  sta mm_started
- ldx #tn27_end-resv_tab
+ bra :regions
 
 :reserve
  lda resv_tab+6,x          ; size high
@@ -436,14 +534,41 @@ tools_up
  clc
  adc #8
  tax
- cpx #disk_resv-resv_tab   ; still among the always-claimed entries?
- bcc :reserve
- lda mb_cmd+1              ; at the disk region (last entry): claim only for D
- cmp #'D'
- bne :reserve_done
  cpx #resv_end-resv_tab
  bcc :reserve
-:reserve_done
+
+* The regions, the big ones first while the room is whole. The
+* disk image's banks only for D (they would block a large VEC
+* load), the translator's only for K.
+:regions
+ ldx #RG_GUEST+RG_GUEST
+ jsr claim_region
+ bcs :rg_err
+ lda mb_cmd+1
+ and #$00FF
+ cmp #'D'
+ bne :nodisk
+ ldx #RG_DISK+RG_DISK
+ jsr claim_region
+ bcs :rg_err
+:nodisk
+ ldx #RG_CORE+RG_CORE
+ jsr claim_region
+ bcs :rg_err
+ ldx #RG_SVC+RG_SVC
+ jsr claim_region
+ bcs :rg_err
+ ldx #RG_RES+RG_RES
+ jsr claim_region
+ bcs :rg_err
+ lda mb_cmd+1
+ and #$00FF
+ cmp #'K'
+ bne :nojit
+ ldx #RG_JIT+RG_JIT
+ jsr claim_region
+ bcs :rg_err
+:nojit
  sec
  xce
  mx %11
@@ -455,6 +580,14 @@ tools_up
  bra :err
 :id_err
  ldx #$42
+ bra :err
+:rg_err
+ jsr who_owns              ; what holds the first choice (nh_addr)
+ lda cr_x                  ; stage $47 + region
+ lsr
+ clc
+ adc #$47
+ tax
  bra :err
 :resv_err
  phx
@@ -519,7 +652,7 @@ mm_startup
 
 *----------------------------------------------------------
 * tools_down - release memory and shut the tools down:
-*   DisposeHandle  each reservation and fixed block held
+*   DisposeHandle  each reservation and region held
 *   MMShutDown, DeleteID(master), MTShutDown, TLShutDown
 * (direct boot); from GS/OS only the handles, then MT and
 * TL. Emulation in/out. Errors are recorded, not fatal.
@@ -558,19 +691,29 @@ tools_down
  tax
  cpx #resv_end-resv_tab
  bcc :resv_loop
- lda data_h
- ora data_h+2
- beq :nodata
- lda data_h+2
+ ldx #0
+:rg_loop
+ lda rg_h,x
+ ora rg_h+2,x
+ beq :rg_next
+ phx
+ lda rg_h+2,x
  pha
- lda data_h
+ lda rg_h,x
  pha
- ldx #$1002                ; DisposeHandle (the VEC banks)
+ ldx #$1002                ; DisposeHandle (a region)
  jsl TOOLS
  jsr note_err
- stz data_h
- stz data_h+2
-:nodata
+ plx
+ stz rg_h,x
+ stz rg_h+2,x
+:rg_next
+ inx
+ inx
+ inx
+ inx
+ cpx #RG_BANKS*4
+ bcc :rg_loop
  lda mb_osboot
  and #$00FF
  bne :mt
@@ -662,6 +805,297 @@ who_owns
  rts
 
 *----------------------------------------------------------
+* claim_region - X = region * 2. Claim its rg_banks whole
+* banks with a fixed-address handle: at the bank the images
+* were assembled for when that is free, else at the first
+* bank from SCAN_LO up that the Memory Manager will give
+* (a multiple of rg_align + 1). The '+' test layout skips
+* the assembled bank, so every region moves. The bank goes
+* to mb_layout, the handle to rg_h. Native, 16-bit M/X.
+* Carry set when there is no room: fail_err = the last
+* tool error, nh_addr = the assembled address (who_owns).
+*----------------------------------------------------------
+SCAN_LO  = $02             ; banks $00/$01 are ProDOS 8's and the firmware's
+SCAN_HI  = $E0             ; one past the last expansion RAM bank
+claim_region
+ mx %00
+ stx cr_x
+ lda rg_banks,x
+ sta nh_size+2
+ stz nh_size
+ stz nh_addr
+ lda mb_master
+ sta nh_id
+ lda #ATTR_FIXED
+ sta nh_attr
+ lda mb_layalt
+ bne :scan
+ lda rg_asm,x
+ jsr :try
+ bcc :got
+:scan
+ lda #SCAN_LO
+ sta cr_bank
+:next
+ ldx cr_x
+ lda cr_bank
+ and rg_align,x
+ bne :skip
+ lda cr_bank
+ cmp rg_asm,x              ; tried already, or the test forbids it
+ beq :skip
+ clc
+ adc rg_banks,x
+ cmp #SCAN_HI+1            ; the rest would not fit below SCAN_HI
+ bcs :fail
+ lda cr_bank
+ jsr :try
+ bcc :got
+:skip
+ inc cr_bank
+ lda cr_bank
+ cmp #SCAN_HI
+ bcc :next
+:fail
+ ldx cr_x
+ lda rg_asm,x
+ sta nh_addr+2
+ sec
+ rts
+:got
+ lda cr_x
+ tax
+ asl
+ tay
+ lda nh_addr+2
+ sta mb_layout,x
+ tyx
+ lda nh_result             ; kept for tools_down
+ sta rg_h,x
+ lda nh_result+2
+ sta rg_h+2,x
+ clc
+ rts
+:try
+ sta nh_addr+2
+ jmp new_handle
+
+*----------------------------------------------------------
+* show_banks - print the bank of each region and the page
+* of each bank-$00 area, in RG_ order (00 = not claimed).
+* Emulation in/out.
+*----------------------------------------------------------
+show_banks
+ mx %11
+ lda #<msg_banks
+ ldy #>msg_banks
+ jsr puts
+ ldx #0
+ lda #RG_BANKS*2
+ jsr :row
+ lda #<msg_pages
+ ldy #>msg_pages
+ jsr puts
+ ldx #RG_BANKS*2
+ lda #RG_COUNT*2
+:row
+ sta sb_end
+:loop
+ phx
+ lda #' '+$80
+ jsr COUT
+ plx
+ phx
+ lda mb_layout,x
+ jsr PRBYTE
+ plx
+ inx
+ inx
+ cpx sb_end
+ bcc :loop
+ jmp CROUT
+
+*----------------------------------------------------------
+* set_pages - the page of each bank-$00 area into mb_layout:
+* the assembled ones, which are this program's to give under
+* ProDOS 8 (the TN #27 reservation covers them); for the '+'
+* test layout the NAME_ALTPG ones. CORE and SVC are fixed up
+* from mb_layout with everything else (reloc_all).
+*
+* The front page is this program's own, so for '+' it moves
+* itself: the page as loaded is copied to its new place and
+* every byte of the loader that holds its page -- the list
+* at the end of this file, like CORE's -- gets the
+* difference. From there on the mb_ labels mean the copy,
+* reloc_image's among them: both pages hold the same until
+* it returns. Emulation in/out; carry set with X = $70 when
+* the file has no list (a plain assembly, a short load).
+*----------------------------------------------------------
+set_pages
+ mx %11
+ clc
+ xce
+ rep #$30
+ mx %00
+ ldx #RG_COUNT-RG_BANKS*2-2
+:fill
+ lda pg_asm,x
+ ldy mb_layalt
+ beq :asm
+ lda pg_alt,x
+:asm
+ sta mb_layout+RG_BANKS+RG_BANKS,x
+ dex
+ dex
+ bpl :fill
+ lda mb_layalt
+ beq :ok
+ lda mb_layout+RG_MBX+RG_MBX
+ xba                       ; page -> its address
+ sta $F0
+ stz $F2
+ ldy #$00FE
+:copy
+ lda image,y
+ sta [$F0],y
+ dey
+ dey
+ bpl :copy
+ lda #image
+ sta $F0                   ; [$F0] = this file in memory
+ lda self_len
+ jsr reloc_image
+ bcc :ok
+ sec
+ xce
+ mx %11
+ ldx #$70
+ sec
+ rts
+ mx %00
+:ok
+ sec
+ xce
+ mx %11
+ clc
+ rts
+
+*----------------------------------------------------------
+* reloc_all - fix the bank and page bytes of CORE and SVC,
+* once every region has its bank. Emulation in/out; carry
+* set on a bad list with X = stage ($71 CORE, $72 SVC).
+*----------------------------------------------------------
+reloc_all
+ mx %11
+ clc
+ xce
+ rep #$30
+ mx %00
+ stz $F0
+ lda mb_layout+RG_CORE+RG_CORE
+ sta $F2
+ lda img_len
+ jsr reloc_image
+ ldx #$71
+ bcs :out
+ lda mb_layout+RG_SVC+RG_SVC
+ sta $F2                   ; ($F0 is still 0)
+ lda img_len+2
+ jsr reloc_image
+ ldx #$72
+:out
+ php
+ sec
+ xce
+ mx %11
+ plp
+ rts
+
+*----------------------------------------------------------
+* reloc_image - [$F0] = an image in memory, A = its file's
+* length. The file ends with the list tools/gen_reloc.py
+* appended:
+*
+*     groups   dfb RG_ index, assembled bank or page
+*              dw  count, then count offsets
+*     dw       bytes of groups
+*     dw       RELOC_MAGIC
+*
+* Each offset is a byte of the image holding that region's
+* bank, or the high byte of an address in that bank-$00
+* area, as assembled: add (mb_layout's bank or page now -
+* the assembled one). A region nobody claimed is left alone
+* (its code does not run). Native, 16-bit M/X; carry set
+* when the list is not there or makes no sense.
+*----------------------------------------------------------
+reloc_image
+ mx %00
+ sec
+ sbc #4
+ bcc :bad
+ sta rl_end                ; offset of the two closing words
+ ldy rl_end
+ iny
+ iny
+ lda [$F0],y
+ cmp #RELOC_MAGIC
+ bne :bad
+ ldy rl_end
+ lda rl_end
+ sec
+ sbc [$F0],y
+ bcc :bad
+ tay                       ; the first group
+:group
+ cpy rl_end
+ beq :done
+ bcs :bad
+ lda [$F0],y               ; RG_ index (low), assembled bank or page (high)
+ iny
+ iny
+ sta rl_delta
+ and #$00FF
+ cmp #RG_COUNT
+ bcs :bad
+ asl
+ tax
+ lda mb_layout,x
+ beq :unclaimed
+ sec
+ sbc rl_delta+1            ; now - assembled: the low byte counts
+:unclaimed
+ sta rl_add
+ lda [$F0],y
+ iny
+ iny
+ sta rl_count
+:fix
+ lda rl_count
+ beq :group
+ dec rl_count
+ lda [$F0],y
+ iny
+ iny
+ phy
+ tay
+ sep #$20
+ mx %10
+ lda [$F0],y
+ clc
+ adc rl_add
+ sta [$F0],y
+ rep #$20
+ mx %00
+ ply
+ bra :fix
+:done
+ clc
+ rts
+:bad
+ sec
+ rts
+
+*----------------------------------------------------------
 * new_handle - NewHandle(nh_size, nh_id, nh_attr, nh_addr).
 * Native, 16-bit M/X. Carry set on error, fail_err = code.
 *----------------------------------------------------------
@@ -694,7 +1128,8 @@ new_handle
 
 *----------------------------------------------------------
 * read_cmd - XTGS.CMD's first line into mb_cmd as a Pascal
-* string; "P" when the file is missing. Emulation in/out.
+* string; "P" when the file is missing. A leading '+' is
+* taken off and noted in mb_layalt. Emulation in/out.
 *----------------------------------------------------------
 read_cmd
  mx %11
@@ -749,6 +1184,25 @@ read_cmd
  dfb $CC                   ; CLOSE
  da close_parms
 :none
+ lda mb_cmd+1              ; '+': the layout test; the command follows
+ cmp #'+'
+ bne :plain
+ lda #1
+ sta mb_layalt
+ ldx #0
+:shift
+ lda mb_cmd+2,x
+ sta mb_cmd+1,x
+ inx
+ cpx #30
+ bcc :shift
+ dec mb_cmd
+ bne :plain
+ lda #1                    ; nothing after it: the default
+ sta mb_cmd
+ lda #'P'
+ sta mb_cmd+1
+:plain
  rts
 
 *----------------------------------------------------------
@@ -908,9 +1362,9 @@ com_name
  rts
 
 *----------------------------------------------------------
-* alloc_data - claim (filelen rounded up to banks) at ld_dst
-* for the master ID; the handle is kept in data_h. Emulation
-* in/out; carry set on error (fail_err = tool error).
+* alloc_data - claim the data region, (filelen rounded up
+* to banks), and point ld_dst at it. Emulation in/out;
+* carry set on error (fail_err = tool error).
 *----------------------------------------------------------
 alloc_data
  mx %11
@@ -926,23 +1380,13 @@ alloc_data
  bne :some
  inc                       ; an empty file still gets a bank
 :some
- sta nh_size+2
- stz nh_size
- lda ld_dst
- sta nh_addr
- lda ld_dst+2
- and #$00FF
- sta nh_addr+2
- lda mb_master
- sta nh_id
- lda #ATTR_FIXED
- sta nh_attr
- jsr new_handle
+ sta rg_banks+RG_DATA+RG_DATA
+ ldx #RG_DATA+RG_DATA
+ jsr claim_region
  bcs :err
- lda nh_result
- sta data_h
- lda nh_result+2
- sta data_h+2
+ stz ld_dst
+ lda mb_layout+RG_DATA+RG_DATA
+ sta ld_dst+2
  clc
  bra :out
 :err
@@ -993,7 +1437,7 @@ copy_chunk
  rts
 
 *----------------------------------------------------------
-* mli_glue - native entry (JSL $002004), any M/X. Calls MLI
+* mli_glue - native entry (JSL MB_FILECALL), any M/X. Calls MLI
 * command mb_mli_cmd with parameters at mb_mli_parms on the
 * loader's page-1 stack in emulation mode. Preserves D, DBR
 * and P; returns A = error code (0 = ok), also in
@@ -1110,22 +1554,34 @@ msg_exit   asc 'CORE EXIT $',00
 msg_fail   asc 'LOADER ERROR ',00
 msg_notgs  asc 'THIS PROGRAM REQUIRES AN APPLE IIGS.',8D,00
 msg_key    asc 'PRESS A KEY TO QUIT.',00
+msg_banks  asc 'BANKS',00
+msg_pages  asc 'PAGES',00
 
-* Fixed blocks: address (u32), size (u32). The first four
-* are the TN #27 reservations for a directly booted ProDOS 8
-* program; the rest are XT/GS's own and are claimed under
-* GS/OS too.
+* Fixed blocks: address (u32), size (u32). The TN #27
+* reservations for a directly booted ProDOS 8 program.
 resv_tab   adrl $000800,$B800
            adrl $010800,$B800
            adrl $E02000,$4000
            adrl $E12000,$8000
-tn27_end
-           adrl CORE_BASE,$10000
-           adrl SVC_BASE,$10000
-           adrl RES_BASE,$10000
-           adrl GUEST_BASE,$100000
-disk_resv  adrl DISK_DST,$170000     ; the Mode B disk image: 23 banks ($50-$66)
 resv_end
+
+* The regions, in RG_ order: the bank each was assembled
+* for, its size in banks (the data region's is set from the
+* file), and the mask its first bank must be clear of.
+rg_asm     dw CORE_BANK,SVC_BANK,RES_BANK,JIT_BANK,GUEST_BANK,DATA_BANK,DISK_BANK
+rg_banks   dw 1,1,1,1,16,0,DISK_BANKS
+rg_align   dw 0,0,0,0,$000F,0,0
+ err rg_banks-rg_asm-RG_BANKS-RG_BANKS
+ err rg_align-rg_banks-RG_BANKS-RG_BANKS
+ err *-rg_align-RG_BANKS-RG_BANKS
+ err GUEST_BANK&$0F         ; the 20-bit wrap needs a 1 MiB-aligned guest
+
+* The bank-$00 areas, in RG_ order from RG_BANKS: the page each
+* was assembled for, and its page in the '+' test layout.
+pg_asm     dw ZP_PAGE,MBX_PAGE,PATH_PAGE,XFER_PAGE,IOB_PAGE
+pg_alt     dw ZP_ALTPG,MBX_ALTPG,PATH_ALTPG,XFER_ALTPG,IOB_ALTPG
+ err pg_alt-pg_asm/2+RG_BANKS-RG_COUNT
+ err *-pg_alt/2+RG_BANKS-RG_COUNT
 
 gp_parms   dfb 1
            da pathbuf
@@ -1167,7 +1623,15 @@ nh_id      dw 0
 nh_attr    dw 0
 nh_result  adrl 0
 resv_h     ds resv_end-resv_tab   ; one 4-byte handle per 8-byte entry
-data_h     adrl 0
+rg_h       ds RG_BANKS*4          ; a handle a region
+sb_end     dfb 0
+cr_x       dw 0
+cr_bank    dw 0
+img_len    dw 0,0                 ; CORE's and SVC's file lengths
+rl_end     dw 0
+rl_delta   dw 0
+rl_add     dw 0
+rl_count   dw 0
 ld_path    da 0
 ld_dst     ds 4
 ld_alloc   dfb 0
@@ -1176,4 +1640,5 @@ rem        ds 3
 cmdbuf     ds 32
 pathbuf    ds 64
 
- err *-1/$4000             ; the loader must end below the bounce buffer
+ err *-1/$4000             ; the loader ends below the bounce buffer (and
+                           ; gen_reloc.py checks it does with its list)

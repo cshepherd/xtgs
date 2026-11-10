@@ -1,11 +1,13 @@
 *----------------------------------------------------------
-* guest.s - the emulated 8086's state, in the direct page at
-* D = $1000 (bank $00). Registers are in the 8086's own
+* guest.s - the emulated 8086's state, in the direct page:
+* D = GUEST_DP, the page ZP_PAGE of bank $00 (layout.s; a
+* whole page, so D's low byte is 0 and direct-page access
+* costs no extra cycle). Registers are in the 8086's own
 * encoding order so ModR/M fields index them: AX CX DX BX
 * SP BP SI DI, and ES CS SS DS. $00-$7F is the core's,
 * $80-$FF the services bank's scratch.
 *----------------------------------------------------------
-GUEST_DP   = $1000
+GUEST_DP   = ZP_PAGE*$100
 
            DUM 0
 rAX        DS 2              ; $00  AL, AH
@@ -115,9 +117,10 @@ vTICK      DS 2              ; $FE  IRQ0s owed: the DOC timer's interrupts not y
            DEND
 
 * JMP (abs) takes a bank-$00 address: the retire vector's.
-* (A numeric equate: Merlin32 evaluates equates before labels.)
-NEXTVEC    = $103A
-HALTVEC    = $10AA
+* (Numeric offsets: Merlin32 evaluates equates before labels.
+* cpu.s asserts them against vNEXT and vHALTVEC.)
+NEXTVEC    = GUEST_DP+$3A
+HALTVEC    = GUEST_DP+$AA
 SLOT_N     = 16              ; instructions between slot checks (VBL polling)
 
 * FLAGS bits

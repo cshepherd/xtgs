@@ -19,7 +19,7 @@
 * a mask is the 2-bit level replicated eight times.
 *----------------------------------------------------------
 
-TXT_BASE  = $2B8000          ; B800:0000 in host memory
+TXT_BASE  = H_TXT            ; B800:0000 in host memory
 TXT_LEN   = 4000
 ROW_BYTES = 1280             ; 8 scan lines x 160 bytes
 
@@ -880,7 +880,7 @@ vid_scroll_all
  ldx #$80A0
  ldy #$8000
  lda #TXT_LEN-160-1
- mvn $2B,$2B
+ mvn H_TXTBANK,H_TXTBANK
  plb
  ldx #$8000+TXT_LEN-160
  lda #BLANK
@@ -1070,8 +1070,8 @@ blank_row                  ; row sv8, columns sv3..sv5 <- sv1
 * 2 pixels a byte, 160 bytes a line, linear at $E1:2000) via
 * a 256-entry expand table. vid_setmode switches in and out.
 *==========================================================
-CGA_SRC    = $2B8000          ; B800:0000, the even field
-CGA_ODD    = $2BA000          ; B800:2000, the odd field
+CGA_SRC    = H_TXT            ; B800:0000, the even field
+CGA_ODD    = H_TXT+$2000         ; B800:2000, the odd field
 
 * vid_setmode - A = BIOS video mode (low 7 bits). Modes 4 and
 * 5 select CGA 320 graphics; everything else is text. DBR=$04.

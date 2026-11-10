@@ -50,7 +50,7 @@ def main():
     traces = []
     if args.trace:
         traces = [("int13", RES + 0x80C), ("ip", 0x001018), ("cs", 0x001012),
-                  ("ticks", 0x20406C)]
+                  ("ticks", 0x20046C)]
     r = mamerun.run(po, waits=[(syms["mb_magic"], 0x5A5A)],
                     dumps=[("gregs", 0x001000, 0x20), ("mb", syms["mb_stage"], 0x80),
                            ("res", RES + 0x800, 0x20), ("txt", TXT, 4000), ("shr", shr.SHR_BASE, shr.SHR_LEN)],

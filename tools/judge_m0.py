@@ -38,6 +38,7 @@ def main():
     ap.add_argument("--listing", required=True, help="XTGS.SYSTEM listing, for the mailbox labels")
     ap.add_argument("--png")
     ap.add_argument("--seconds", type=float, default=120)
+    ap.add_argument("--card", default="scsi", help="slot 7 disk card (MAME's name; cffa2 for a GS/OS volume)")
     args = ap.parse_args()
 
     syms = symbols.read(args.listing)
@@ -45,7 +46,7 @@ def main():
     r = mamerun.run(args.image, waits=[(syms["mb_magic"], 0x5A5A)],
                     dumps=[("mb", mb, 0x70), ("shr", shr.SHR_BASE, shr.SHR_LEN),
                            ("txt", TXT_BASE, 4000)],
-                    seconds=args.seconds, settle=30)
+                    seconds=args.seconds, settle=30, card=args.card)
     if r["status"] == "no-output":
         print(r.get("mame_output", ""))
         sys.exit("judge_m0: MAME produced no result")

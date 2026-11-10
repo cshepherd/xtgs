@@ -14,8 +14,8 @@ H_ENV      = GUEST_BASE+$FE00    ; $20FE00
 H_MCB      = GUEST_BASE+$FFF0    ; the one memory control block, below the PSP
 H_PSP      = GUEST_BASE+$10000   ; $210000
 H_COM      = GUEST_BASE+$10100   ; $210100  (the loader puts the .COM here)
-H_TXTBANK  = $2B0000             ; text buffer bank; cells at $8000 + row*160 + col*2
-H_TXT      = $2B8000
+H_TXTBANK  = GUEST_BASE+$B0000            ; text buffer bank; cells at $8000 + row*160 + col*2
+H_TXT      = GUEST_BASE+$B8000
 H_BIOS     = GUEST_BASE+$F0000   ; $2F0000
 STUB_LEN   = 5                   ; FE 38 lo hi CF
 CALL5_OFF  = $0500               ; PSP:0005's far target: mov ah,cl / int 21h / retf
@@ -31,8 +31,6 @@ VID_DIRTY  = RES_BASE+$900       ; 64 bytes: a 256-byte page of the B800 bank wa
 * Mode B (disk boot): the disk image is loaded into host banks from
 * DISK_BASE; INT 13h serves sectors from there. A 1.44 MB floppy is 23
 * banks ($50-$66).
-DISK_BASE  = $500000             ; host address of the image's sector 0
-DISK_BANK  = $50
 BOOT_LIN   = $7C00               ; the boot sector loads to 0000:7C00
 DISK_SPT   = 18                  ; 1.44 MB floppy geometry
 DISK_HEADS = 2

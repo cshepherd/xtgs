@@ -1,14 +1,17 @@
 *----------------------------------------------------------
 * files.s - the DOS file system on ProDOS 8, through the
-* loader's MLI glue (JSL $002004 with the command byte in
-* MB_MLI_CMD and the parameter list at MB_MLI_PARMS).
+* front end's file call (JSL MB_FILECALL with the command
+* byte in MB_MLI_CMD and the parameter list at
+* MB_MLI_PARMS; mailbox.s).
 *
 * DOS handles 0-4 are the devices (CON CON CON AUX PRN);
 * 5-19 are files: a ProDOS ref number with a 1 KB I/O buffer
-* in bank $00 ($6000-$7FFF, eight of them: ProDOS 8's limit)
+* in bank $00 (IOBUFS, eight of them: ProDOS 8's limit)
 * and the ProDOS pathname (for attribute and date calls).
-* Reads and writes move through the 8 KB bounce buffer at
-* $00:4000. DOS paths map onto the boot volume: the DOS
+* Reads and writes move through the 8 KB bounce buffer
+* (BOUNCEBUF). The MLI takes bank-$00 addresses, so these
+* are the bank-$00 areas of layout.s, wherever the front
+* end put them. DOS paths map onto the boot volume: the DOS
 * root is the ProDOS prefix the loader set, "\" is "/",
 * a drive letter is ignored, CON and NUL are devices.
 *
@@ -16,11 +19,11 @@
 * sit on the handle layer: the handle lives in the FCB's
 * reserved bytes.
 *----------------------------------------------------------
-PATHBUF0   = $000C00         ; two 64-byte ProDOS pathnames (bank $00)
-PATHBUF1   = $000C40
-PREFIXBUF  = $000C80         ; the volume prefix (GET_PREFIX result)
-IOBUFS     = $006000         ; 8 x 1 KB ProDOS I/O buffers
-BOUNCEBUF  = $004000         ; 8 KB transfer buffer
+PATHBUF0   = PATH_PAGE*$100  ; two 64-byte ProDOS pathnames (bank $00)
+PATHBUF1   = PATHBUF0+$40
+PREFIXBUF  = PATHBUF0+$80    ; the volume prefix (GET_PREFIX result)
+IOBUFS     = IOB_PAGE*$100   ; 8 x 1 KB ProDOS I/O buffers
+BOUNCEBUF  = XFER_PAGE*$100  ; 8 KB transfer buffer
 BOUNCE_LEN = $2000
 NHANDLES   = 20
 H_FREE     = 0
@@ -48,7 +51,7 @@ tmpname    ds 16
 mli
  mx %00
  sta >MB_MLI_CMD
- jsl $002004
+ jsl MB_FILECALL
  cmp #1                    ; C = (error != 0)
  rts
 
@@ -208,6 +211,10 @@ dos_path
  and #$5F
 :nolow
  cmp #'.'
+ beq :ok
+ cmp #'?'                  ; wildcards stay: find first takes the last component
+ beq :ok                   ; as its pattern, and ProDOS refuses them anywhere else
+ cmp #'*'
  beq :ok
  cmp #'0'
  bcc :bad
@@ -812,15 +819,17 @@ p_write
  clc
  rts
 
-* bounce_to_guest - sv3 bytes BOUNCEBUF -> [pGST]; pGST += sv3
+* bounce_to_guest - sv3 bytes BOUNCEBUF -> [pGST]; pGST += sv3.
+* X is preserved (the caller's handle entry, across chunks).
 bounce_to_guest
  mx %00
+ phx
  ldy #0
+ ldx #0
  lda sv3
  lsr
  beq :odd
  sta sv9
- ldx #0
 :w
  lda >BOUNCEBUF,x
  sta [pGST],y
@@ -848,17 +857,20 @@ bounce_to_guest
  bcc :done
  inc pGST+2
 :done
+ plx
  rts
 
-* guest_to_bounce - sv3 bytes [pGST] -> BOUNCEBUF; pGST += sv3
+* guest_to_bounce - sv3 bytes [pGST] -> BOUNCEBUF; pGST += sv3.
+* X is preserved.
 guest_to_bounce
  mx %00
+ phx
  ldy #0
+ ldx #0
  lda sv3
  lsr
  beq :odd
  sta sv9
- ldx #0
 :w
  lda [pGST],y
  sta >BOUNCEBUF,x
@@ -886,6 +898,7 @@ guest_to_bounce
  bcc :done
  inc pGST+2
 :done
+ plx
  rts
 
 * p_getmark / p_geteof - X = entry*8 -> sv8 (lo16), sv9 (hi byte)
@@ -1996,21 +2009,7 @@ find_next
  bcc :lj21
  jmp :nextblock
 :lj21
- sta sv3                   ; entry index
- asl
- asl
- asl
- asl
- asl
- sec
- sbc sv3
- sec
- sbc sv3
- sec
- sbc sv3
- sec
- sbc sv3                   ; *32 - *4 = *28... 39 = 32 + 8 - 1: use *39 = *32 + *4 + *2 + *1
- lda sv3
+ sta sv3                   ; entry index; *39 = *32 + *4 + *2 + *1
  asl
  asl
  asl
@@ -2077,8 +2076,8 @@ find_next
  ; the name -> tmpname (Pascal), then match
  phx
  jsr entry_name
+ jsr name_match            ; (X is its index)
  plx
- jsr name_match
  bcs :lj25
  jmp :entry
 :lj25
@@ -2149,10 +2148,12 @@ dta_putw                   ; A -> [pDTA],y (word)
  rep #$20
  mx %00
  rts
-entry_name                 ; the ProDOS name at BOUNCEBUF+x (sv4 chars) -> tmpname
+entry_name                 ; the ProDOS name at BOUNCEBUF+x (sv4 chars) -> tmpname; X kept
  mx %00
  ldy #0
  stx sv9
+ sep #$20
+ mx %10
 :c
  cpy sv4
  bcs :done
@@ -2162,7 +2163,6 @@ entry_name                 ; the ProDOS name at BOUNCEBUF+x (sv4 chars) -> tmpna
  iny
  bra :c
 :done
- sep #$20
  mx %10
  tya
  sta tmpname
@@ -2179,15 +2179,15 @@ name_match
  ldy #1
  ldx #0
 :cmp
+ lda name83,x
+ and #$00FF
+ sta sv9
  lda [pDTA],y
  and #$00FF
  cmp #'?'
  beq :next
- cmp name83,x
+ cmp sv9
  beq :next
- lda name83,x
- and #$00FF
- cmp 1,s                   ; (never equal: placeholder to keep the flow simple)
  clc
  rts
 :next
@@ -2211,9 +2211,8 @@ split83                    ; tmpname -> name83: 8 chars name, 3 chars ext, space
  lda tmpname
  and #$00FF
  sta sv9                   ; length
- ; find the last '.'
- ldx sv9
- stz sv8                   ; ext start (0 = none)
+ tax                       ; the last '.': sv8 = index of the first extension
+ stz sv8                   ; character (0 = no extension)
 :f
  txa
  beq :split
@@ -2224,10 +2223,8 @@ split83                    ; tmpname -> name83: 8 chars name, 3 chars ext, space
  bne :f
  inx
  stx sv8
- dex
 :split
- ; name part: tmpname[0 .. (sv8 ? sv8-1 : len)) up to 8
- lda sv8
+ lda sv8                   ; the name: up to the '.', or all of it; 8 at most
  beq :nlen
  dec
  bra :nl
@@ -2238,42 +2235,40 @@ split83                    ; tmpname -> name83: 8 chars name, 3 chars ext, space
  bcc :n
  lda #8
 :n
- sta sv7                   ; name chars
+ sta sv7
  ldx #0
+ sep #$20
+ mx %10
 :cn
  cpx sv7
  bcs :ext
  lda tmpname+1,x
- sta sv7+1-1               ; (no-op placeholder)
- lda tmpname+1,x
- sep #$20
- mx %10
  sta name83,x
- rep #$20
- mx %00
  inx
  bra :cn
 :ext
- lda sv8
- beq :done
- tax                       ; first ext char index
- ldy #8
-:ce
- cpx sv9
- bcs :done
- cpy #11
- bcs :done
- lda tmpname+1,x
- sta sv9+1-1
- lda tmpname+1,x
- sep #$20
  mx %10
- sta name83,y
  rep #$20
  mx %00
+ ldx sv8
+ beq :done
+ ldy #8
+ sep #$20
+ mx %10
+:ce
+ cpx sv9
+ bcs :edone
+ cpy #11
+ bcs :edone
+ lda tmpname+1,x
+ sta name83,y
  inx
  iny
  bra :ce
+:edone
+ mx %10
+ rep #$20
+ mx %00
 :done
  rts
 dta_name                   ; name83 -> "NAME.EXT",0 at DTA+30
