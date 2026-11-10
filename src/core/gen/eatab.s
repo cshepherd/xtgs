@@ -5755,8 +5755,8 @@ emb_00
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efb_ovr
@@ -5777,8 +5777,8 @@ emb_01
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efb_ovr
@@ -5799,8 +5799,8 @@ emb_02
  lda bSS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efb_ovr
@@ -5821,8 +5821,8 @@ emb_03
  lda bSS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efb_ovr
@@ -5841,8 +5841,8 @@ emb_04
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efb_ovr
@@ -5861,8 +5861,8 @@ emb_05
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efb_ovr
@@ -5883,8 +5883,8 @@ emb_06
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efb_ovr
@@ -5903,8 +5903,8 @@ emb_07
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efb_ovr
@@ -5932,8 +5932,8 @@ emb_10
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efb_ovr
@@ -5961,8 +5961,8 @@ emb_11
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efb_ovr
@@ -5990,8 +5990,8 @@ emb_12
  lda bSS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efb_ovr
@@ -6019,8 +6019,8 @@ emb_13
  lda bSS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efb_ovr
@@ -6046,8 +6046,8 @@ emb_14
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efb_ovr
@@ -6073,8 +6073,8 @@ emb_15
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efb_ovr
@@ -6100,8 +6100,8 @@ emb_16
  lda bSS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efb_ovr
@@ -6127,8 +6127,8 @@ emb_17
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efb_ovr
@@ -6153,8 +6153,8 @@ emb_20
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efb_ovr
@@ -6179,8 +6179,8 @@ emb_21
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efb_ovr
@@ -6205,8 +6205,8 @@ emb_22
  lda bSS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efb_ovr
@@ -6231,8 +6231,8 @@ emb_23
  lda bSS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efb_ovr
@@ -6255,8 +6255,8 @@ emb_24
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efb_ovr
@@ -6279,8 +6279,8 @@ emb_25
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efb_ovr
@@ -6303,8 +6303,8 @@ emb_26
  lda bSS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efb_ovr
@@ -6327,8 +6327,8 @@ emb_27
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efb_ovr
@@ -6351,8 +6351,8 @@ emw_00
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efw_ovr
@@ -6377,8 +6377,8 @@ emw_01
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efw_ovr
@@ -6403,8 +6403,8 @@ emw_02
  lda bSS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efw_ovr
@@ -6429,8 +6429,8 @@ emw_03
  lda bSS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efw_ovr
@@ -6453,8 +6453,8 @@ emw_04
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efw_ovr
@@ -6477,8 +6477,8 @@ emw_05
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efw_ovr
@@ -6503,8 +6503,8 @@ emw_06
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efw_ovr
@@ -6527,8 +6527,8 @@ emw_07
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efw_ovr
@@ -6560,8 +6560,8 @@ emw_10
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efw_ovr
@@ -6593,8 +6593,8 @@ emw_11
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efw_ovr
@@ -6626,8 +6626,8 @@ emw_12
  lda bSS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efw_ovr
@@ -6659,8 +6659,8 @@ emw_13
  lda bSS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efw_ovr
@@ -6690,8 +6690,8 @@ emw_14
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efw_ovr
@@ -6721,8 +6721,8 @@ emw_15
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efw_ovr
@@ -6752,8 +6752,8 @@ emw_16
  lda bSS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efw_ovr
@@ -6783,8 +6783,8 @@ emw_17
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efw_ovr
@@ -6813,8 +6813,8 @@ emw_20
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efw_ovr
@@ -6843,8 +6843,8 @@ emw_21
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efw_ovr
@@ -6873,8 +6873,8 @@ emw_22
  lda bSS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efw_ovr
@@ -6903,8 +6903,8 @@ emw_23
  lda bSS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efw_ovr
@@ -6931,8 +6931,8 @@ emw_24
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efw_ovr
@@ -6959,8 +6959,8 @@ emw_25
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efw_ovr
@@ -6987,8 +6987,8 @@ emw_26
  lda bSS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efw_ovr
@@ -7015,8 +7015,8 @@ emw_27
  lda bDS+2
  bcs :carry
  sta pEA+2
- cmp #^H_TXT
- beq :vid
+ cmp #^H_EGA
+ bcs :vid
  rts
 :ovr
  jmp efw_ovr

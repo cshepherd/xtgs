@@ -450,9 +450,9 @@ handle_init                ; devices on 0-4, the rest free
  cpx #5*8
  bcc :dev
  lda #DEV_AUX*256+H_DEVICE
- sta htab+3*8
+ sta 3*8+htab               ; (left to right: htab+3*8 is (htab+3)*8)
  lda #DEV_PRN*256+H_DEVICE
- sta htab+4*8
+ sta 4*8+htab
  ldx #0
  lda #0
 :ib

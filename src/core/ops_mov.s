@@ -45,6 +45,7 @@ op_8F                      ; pop r/m16
 
 op_A0                      ; mov AL, [moffs16]
  mx %00
+ ldx #$0080                ; (the EGA's trap finds the opcode by it: ega.s)
  jsr emb_06                ; [disp16], DS or the override
  sep #$20
  mx %10
@@ -55,12 +56,14 @@ op_A0                      ; mov AL, [moffs16]
  jmp (NEXTVEC)
 op_A1                      ; mov AX, [moffs16]
  mx %00
+ ldx #$0080
  jsr emw_06                ; [disp16], DS or the override
  lda [pEA]
  sta rAX
  jmp (NEXTVEC)
 op_A2                      ; mov [moffs16], AL
  mx %00
+ ldx #$0080                ; (the EGA's trap finds the opcode by it: ega.s)
  jsr emb_06                ; [disp16], DS or the override
  sep #$20
  mx %10
@@ -71,6 +74,7 @@ op_A2                      ; mov [moffs16], AL
  jmp (NEXTVEC)
 op_A3                      ; mov [moffs16], AX
  mx %00
+ ldx #$0080
  jsr emw_06                ; [disp16], DS or the override
  lda rAX
  sta [pEA]
@@ -152,6 +156,8 @@ op_D7                      ; xlat: AL = [DS:BX+AL]
  clc
  adc rBX
  sta vEA
+ ldx #$0100                ; no ModR/M byte (the EGA's trap, ega.s)
+ stx vMODRM
  jsr ea_ds_b
  sep #$20
  mx %10

@@ -18,17 +18,25 @@ Unlisted functions do nothing but are counted: the judge reports them
 
 | AH | Function | Notes |
 | --- | --- | --- |
-| 00 | set mode | text, or CGA graphics 4/5/6 (docs/cga.md); clears unless bit 7 of AL; sets the BDA's columns (40 in modes 4/5) |
+| 00 | set mode | text, CGA graphics 4/5/6 (docs/cga.md) or the EGA's 0Dh (docs/ega.md); clears unless bit 7 of AL; sets the BDA's columns (40 in modes 4/5 and 0Dh) |
 | 01 | cursor shape | stored |
-| 02 / 03 | set / get cursor position | page ignored |
+| 02 / 03 | set / get cursor position | page ignored, except in mode 0Dh: BH is one of eight pages, each with its cursor |
+| 05 | select display page | mode 0Dh: page AL (0-7) is shown, and is the one the teletype and the scrolls work on; other modes have one page |
 | 06 / 07 | scroll window up / down | AL lines (0 clears), BH attribute (in graphics: the byte the freed lines are filled with) |
-| 08 | read char/attr at cursor | in graphics: the cell's pixels matched against the font, 0 for none |
-| 09 / 0A | write char (+attr) CX times | cursor stays; in graphics BL is the colour, bit 7 XOR |
-| 0B | background / palette | CGA colour select (docs/cga.md) |
-| 0C / 0D | write / read pixel | graphics modes: CX, DX, AL (bit 7 XOR) |
+| 08 | read char/attr at cursor | in graphics: the cell's pixels matched against the font, 0 for none (mode 0Dh: on page BH) |
+| 09 / 0A | write char (+attr) CX times | cursor stays; in graphics BL is the colour, bit 7 XOR (mode 0Dh: on page BH) |
+| 0B | background / palette | CGA colour select (docs/cga.md); in mode 0Dh the same through the palette registers |
+| 0C / 0D | write / read pixel | graphics modes: CX, DX, AL (bit 7 XOR); mode 0Dh: BH the page |
 | 0E | teletype | BEL BS CR LF, wrap, scroll; attribute kept (in graphics BL is the colour) |
 | 0F | get mode | AL mode, AH columns, BH 0 |
-| 13 | write string | ES:BP, CX, DH/DL; AL bit 0 moves the cursor, bit 1 inline attributes |
+| 10 | palette registers | mode 0Dh: AL=00 register BL <- BH, 01 the overscan (kept, not shown), 02 all 16 and the overscan from ES:DX |
+| 11 | character generator | AL=30h only: ES:BP -> the 8x8 font (BH picks `INT 1Fh`'s, `INT 43h`'s or the ROM's halves), CX=8, DL=24 |
+| 12 | alternate select | BL=10h only: an EGA, colour, 256K, switches 7 (a 200-line monitor) |
+| 13 | write string | ES:BP, CX, DH/DL; AL bit 0 moves the cursor, bit 1 inline attributes (mode 0Dh: on page BH) |
+
+05h in other modes, and 10h, 11h and 12h with other subfunctions, return
+with nothing changed; so do 0Dh as a mode, 11h and 12h on a PC started with
+`VIDEO=CGA` (Mode B only, docs/ega.md).
 
 Direct writes to `B800:0000` are stored (the buffer is real guest memory)
 but not yet detected for rendering: M3.

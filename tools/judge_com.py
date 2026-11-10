@@ -9,7 +9,10 @@ screen rows, against tests/com/NAME.json:
                                                   # (and the SHR pixels must show the text buffer)
      "video": "t160",                             # the screen it ends on: "text", or "t160"
                                                   # (160x100: the pixels must show all of B800),
-                                                  # or "cga4"/"cga6" (CGA graphics, the same)
+                                                  # or "cga4"/"cga6" (CGA graphics, the same),
+                                                  # or "ega" (mode 0Dh: the four planes)
+     "ega_ac": "00141503...",                     # with "ega": the attribute controller's
+                                                  # sixteen palette registers at the end
      "keys": [{"at": 90, "key": "xtgs"}, {"at": 150, "coded": "{ENTER}"}],
      "disk": {"LEFT.TMP": 5}}                     # a file's length on the volume afterwards
     {"bin": "third_party/msdos2/DEBUG.COM", "name": "DEBUG.COM",  # a real program
@@ -38,11 +41,14 @@ import symbols  # noqa: E402
 import textshr  # noqa: E402
 import t160shr  # noqa: E402
 import cgashr  # noqa: E402
+import egashr  # noqa: E402
 
 RES_BASE = 0x050000
 CAP_LEN, DIAG_UNH, DIAG_UNHN, DIAG_LAST = RES_BASE + 0x800, RES_BASE + 0x802, RES_BASE + 0x804, RES_BASE + 0x806
 CAP_BUF, CAP_MAX = RES_BASE + 0x1000, 0x7000
 TXT_BASE = 0x2B8000
+GUEST_BASE = 0x200000
+CRTC_START, EGA_AC = RES_BASE + 0x88C, RES_BASE + 0x970     # src/include/pc.s: CRTC_REG+12, EGA_AC
 
 
 def text_rows(buf):
@@ -80,7 +86,9 @@ def run_test(path, syms, workdir, seconds):
     r = mamerun.run(image, waits=[(syms["mb_magic"], 0x5A5A)],
                     dumps=[("mb", syms["mb_stage"], 0x70), ("caplen", CAP_LEN, 8), ("cap", CAP_BUF, CAP_MAX),
                            ("txt", TXT_BASE, cgashr.LEN), ("shr", shr.SHR_BASE, shr.SHR_LEN),
-                           ("maps", RES_BASE + 0x810, 48)],
+                           ("maps", RES_BASE + 0x810, 48), ("crtc", CRTC_START, 2), ("ac", EGA_AC, 16)] +
+                          [(f"pl{i}", GUEST_BASE + a, 0x4000) for i, a in enumerate(egashr.PLANES)
+                           if t.get("video") == "ega"],
                     seconds=seconds, settle=5, ready=(syms["mb_runidx"], 0xBE57), inputs=t.get("keys", []))
     if r["status"] == "no-output":
         print(r.get("mame_output", ""))
@@ -129,7 +137,8 @@ def run_test(path, syms, workdir, seconds):
         got = rows[int(row)][spec.get("col", 0):spec.get("col", 0) + len(spec["text"])]
         if got != spec["text"]:
             problems.append(f"screen row {row}: {got!r} != {spec['text']!r}")
-    for i, row in enumerate(rows if not cga else []):
+    ega = t.get("video") == "ega"
+    for i, row in enumerate(rows if not cga and not ega else []):
         if row.strip():
             print(f"  {i:2d}|{row.rstrip()}")
     shr_dump = bytes.fromhex(r["dumps"]["shr"]["hex"])
@@ -140,6 +149,24 @@ def run_test(path, syms, workdir, seconds):
             bad = cgashr.mismatches(bytes.fromhex(r["dumps"]["txt"]["hex"]), shr_dump, cga)
             if bad:
                 problems.append(f"{len(bad)} of the 16000 bytes of B800 are not on the screen (first line,byte {bad[0]})")
+    elif ega:                                        # the pixels are the four planes'
+        crtc = bytes.fromhex(r["dumps"]["crtc"]["hex"])
+        ac = bytes.fromhex(r["dumps"]["ac"]["hex"])
+        start = crtc[0] << 8 | crtc[1]                 # (in bytes: R12, R13)
+        if not egashr.is_ega(shr_dump):
+            problems.append("the screen is not in mode 0Dh (SHR 320, one palette)")
+        elif start + egashr.LEN > 0x4000:
+            problems.append(f"the screen starts at {start:#x}, past what the judge reads")
+        else:
+            bad = egashr.mismatches([bytes.fromhex(r["dumps"][f"pl{i}"]["hex"]) for i in range(4)], start, shr_dump)
+            if bad:
+                problems.append(f"{len(bad)} of the 8000 bytes of the planes are not on the screen "
+                                f"(first line,byte {bad[0]}; the screen starts at {start:#x})")
+            badp = egashr.palette(ac, shr_dump)
+            if badp:
+                problems.append("palette: " + ", ".join(f"{i}: {g:04X} not {w:04X}" for i, g, w in badp))
+        if "ega_ac" in t and ac.hex().upper() != t["ega_ac"].upper():
+            problems.append(f"the palette registers are {ac.hex().upper()}, expected {t['ega_ac'].upper()}")
     elif textshr.is_text(shr_dump):                  # the pixels are the text buffer's
         bad = textshr.mismatches(bytes.fromhex(r["dumps"]["txt"]["hex"]), shr_dump)
         if bad:

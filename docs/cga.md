@@ -199,8 +199,8 @@ the expected SHR pixels from B800 and requires every cell to match.
 
 ## Status and limitations
 
-- **Modes 4/5/6 and the 160x100 text-cell mode only.** EGA/VGA modes are out
-  of scope. A write to the mode-control port `3D8h` switches between modes
+- **Modes 4/5/6 and the 160x100 text-cell mode only** (the EGA's mode 0Dh
+  is docs/ega.md's). A write to the mode-control port `3D8h` switches between modes
   4/5, 6 and (with R9) 160x100, without clearing B800; 1-2-3's graphics driver
   sets its mode that way. Other text settings written to `3D8h` (40 columns,
   blink) are not acted on: text modes come from `INT 10h AH=00`.

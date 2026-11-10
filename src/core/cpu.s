@@ -188,6 +188,10 @@ slot
  beq :fetch
  sty rIP
  jsl SVC_BASE+15           ; svc_vbl: keyboard poll, screen flush, the Mode A tick
+ lda >EGA_SYNC             ; (a mode set through 3D8h ends mode 0Dh)
+ beq :nosync
+ jsr ega_sync
+:nosync
  ldy rIP
 :fetch
  jmp fetch
@@ -347,8 +351,8 @@ ea_seg_b
  lda 2,x
  bcs ea_carry
  sta pEA+2
- cmp #^H_TXT
- beq vid_mark
+ cmp #^H_EGA
+ bcs ea_hi
  rts
 ea_carry                   ; A = the base's bank word, C set
  mx %00
@@ -356,10 +360,26 @@ ea_carry                   ; A = the base's bank word, C set
  and #$000F
  ora #GUEST_BANK
  sta pEA+2
- cmp #^H_TXT
- beq vid_mark
+ cmp #^H_EGA
+ bcs ea_hi
  rts
 
+* ea_hi - the general tails' operand is in the EGA's bank or above it
+* (A = its bank word): the text buffer's page is marked, and in mode 0Dh
+* an operand in A000 is the planes' (ega_trap, with vMODRM).
+ea_hi
+ mx %00
+ cmp #^H_TXT
+ bcc :ega
+ bne :out
+ jmp vid_mark
+:ega
+ lda ega_cur
+ beq :out
+ lda vMODRM
+ jmp ega_trap
+:out
+ rts
 * Word operands: an offset of $FFFF wraps within the
 * segment (second byte at offset 0), so that case goes
 * through a bounce word in the direct page.
@@ -385,8 +405,40 @@ ea_seg_w
  lda 2,x
  bcs ea_carry
  sta pEA+2
- cmp #^H_TXT
- beq vid_mark
+ cmp #^H_EGA
+ bcs ea_hi
+ rts
+
+ea_split
+ mx %00
+ lda 0,x                   ; seg:FFFF
+ clc
+ adc #$FFFF
+ sta pSPLIT
+ lda 2,x
+ adc #0
+ and #$000F
+ ora #GUEST_BANK
+ sta pSPLIT+2
+ lda 0,x                   ; seg:0000
+ sta pTMP
+ lda 2,x
+ sta pTMP+2
+ sep #$20
+ mx %10
+ lda [pSPLIT]
+ sta vBOUNCE
+ lda [pTMP]
+ sta vBOUNCE+1
+ rep #$20
+ mx %00
+ lda #GUEST_DP+vBOUNCE
+ sta pEA
+ stz pEA+2
+ lda vNEXT
+ sta vNEXT2
+ lda #split_retire
+ sta vNEXT
  rts
 
 *--- the rare ways out of a fast EA routine (gen/eatab.s,
@@ -397,14 +449,36 @@ efb_ovr                    ; a segment override: A = the offset
  mx %00
  phx
  ldx vSEGOVR
- jsr ea_seg_b
+ clc
+ adc 0,x
+ sta pEA
+ lda 2,x
  plx
+ bcs ef_carry
+ sta pEA+2
+ cmp #^H_EGA
+ bcs ef_vid
  rts
 efw_ovr
  mx %00
+ cmp #$FFFF
+ beq :split
  phx
  ldx vSEGOVR
- jsr ea_seg_w
+ clc
+ adc 0,x
+ sta pEA
+ lda 2,x
+ plx
+ bcs ef_carry
+ sta pEA+2
+ cmp #^H_EGA
+ bcs ef_vid
+ rts
+:split
+ phx
+ ldx vSEGOVR
+ jsr ea_split
  plx
  rts
 efw_split_ds               ; a word at offset $FFFF
@@ -427,11 +501,24 @@ ef_carry                   ; A = the base's bank word, C set
  and #$000F
  ora #GUEST_BANK
  sta pEA+2
- cmp #^H_TXT
- beq ef_vid
+ cmp #^H_EGA
+ bcs ef_vid
  rts
-ef_vid                     ; the operand is in the text buffer's bank
+ef_vid                     ; the operand is in the EGA's bank or above it
  mx %00
+ cmp #^H_TXT
+ beq :txt
+ bcs :out
+ lda ega_cur               ; A000: the planes, in mode 0Dh (ega.s)
+ beq :out
+ phx
+ txa                       ; the handler's ModR/M index
+ lsr
+ jsr ega_trap
+ plx
+:out
+ rts
+:txt
  phx
  jsr vid_mark
  plx
@@ -464,37 +551,6 @@ vid_mark_a
  sta >VID_DIRTY,x
  rep #$20
  mx %00
- rts
-ea_split
- mx %00
- lda 0,x                   ; seg:FFFF
- clc
- adc #$FFFF
- sta pSPLIT
- lda 2,x
- adc #0
- and #$000F
- ora #GUEST_BANK
- sta pSPLIT+2
- lda 0,x                   ; seg:0000
- sta pTMP
- lda 2,x
- sta pTMP+2
- sep #$20
- mx %10
- lda [pSPLIT]
- sta vBOUNCE
- lda [pTMP]
- sta vBOUNCE+1
- rep #$20
- mx %00
- lda #GUEST_DP+vBOUNCE
- sta pEA
- stz pEA+2
- lda vNEXT
- sta vNEXT2
- lda #split_retire
- sta vNEXT
  rts
 * ea_plus2 - pEA for the word at vEA+2 in the same segment (the
 * segment half of a far pointer), wrapping within the segment.

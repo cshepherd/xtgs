@@ -8,8 +8,8 @@ command, docs/share.md) and the boot floppy image (the D command).
 Needs the FreeDOS kernel, shell and boot-sector source fetched by
 tools/fetch_dos.py (kernel.zip, freecom.zip), and nasm. The folder holds
 KERNEL.SYS (the 8086 kernel KERNL86.SYS), COMMAND.COM, SETVER.SYS, an
-FDCONFIG.SYS that names them on C:, the demo .BAS files and GW-BASIC when
-it is there, each under cadius's NAME#TTAAAA name: tools/make_image.sh
+FDCONFIG.SYS that names them on C:, the demo .BAS files, EGADEMO.COM
+(tests/demo/egademo.asm) and GW-BASIC when it is there, each under cadius's NAME#TTAAAA name: tools/make_image.sh
 takes the folder as it is. The floppy has the same files, named on A:,
 behind the FreeDOS FAT12 boot sector (tools/make_fat12.py).
 """
@@ -64,6 +64,19 @@ def main():
                 '60 CIRCLE (160,100),70,3\n'
                 '70 A$=INPUT$(1)\n'
                 '80 SCREEN 0:SYSTEM\n')
+    # The EGA's 320x200 16-colour mode (docs/ega.md): EGADEMO.COM is ours
+    # (tests/demo/egademo.asm) and runs as it is; EGADEMO.BAS is SCREEN 7,
+    # which the GW-BASIC rebuilt from the 1983 source does not have.
+    subprocess.run(["nasm", "-f", "bin", "-o", os.path.join(OUT, "EGADEMO.COM"),
+                    os.path.join(ROOT, "tests", "demo", "egademo.asm")], check=True)
+    with open(os.path.join(OUT, "EGADEMO.BAS"), "w", newline="\r\n") as f:
+        f.write('10 REM SCREEN 7 needs a GW-BASIC with the EGA modes (Microsoft 3.2x)\n'
+                '20 SCREEN 7\n'
+                '30 FOR C=0 TO 15:LINE (C*20,24)-(C*20+19,95),C,BF:NEXT\n'
+                '40 CIRCLE (160,145),45,14:PAINT (160,145),4,14\n'
+                '50 LOCATE 2,6:PRINT "XT/GS: EGA 320x200, 16 colours"\n'
+                '60 A$=INPUT$(1)\n'
+                '70 SCREEN 0:SYSTEM\n')
     # No AUTOEXEC.BAT: FreeDOS boots straight to the A:\ prompt. GWBASIC.EXE
     # and the demo .BAS files are on the volume to run by hand.
     # GW-BASIC 3.23 (third_party/gwbasic/, not fetched by fetch_dos.py); added
@@ -76,6 +89,8 @@ def main():
         "FDCONFIG.SYS=" + os.path.join(OUT, "FDCONFIG.SYS"),
         "HELLO.BAS=" + os.path.join(OUT, "HELLO.BAS"),
         "CGADEMO.BAS=" + os.path.join(OUT, "CGADEMO.BAS"),
+        "EGADEMO.BAS=" + os.path.join(OUT, "EGADEMO.BAS"),
+        "EGADEMO.COM=" + os.path.join(OUT, "EGADEMO.COM"),
     ]
     if os.path.exists(gwbasic):
         files.append("GWBASIC.EXE=" + gwbasic)

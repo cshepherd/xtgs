@@ -165,12 +165,20 @@ The BIOS's own text services still write from `B800:0000`: a program that
 moved the start address and then called `INT 10h` gets what it would on a
 PC, which is text somewhere else.
 
+That is Minix on a CGA. It asks the BIOS once which card there is (`INT 10h
+AH=12h`), and XT/GS now has an EGA to report (docs/ega.md), whose display
+memory does not go round at 16K. There Minix moves the start address the
+same way until the screen would run off the end of the 16K (the start at
+cell 6160 and one more row to go) and then copies the 25 rows back to
+`B800:0000` and starts again from 0. The same code draws it: a new origin
+marks every row and the compare finds nothing changed. With `VIDEO=CGA` in
+`XTGS.CMD` the PC has no EGA and Minix scrolls round the end as above.
+
 ### What was there already
 
 The 8253's channel 0 at 60 Hz (the DOC timer takes any rate up to 583 Hz),
-the keyboard's scancodes at port 60h with the strobe at 61h, `INT 10h
-AH=12h` left unanswered (no EGA), and the 8088 itself: Minix asks which
-processor it has and gets the right answer.
+the keyboard's scancodes at port 60h with the strobe at 61h, and the 8088
+itself: Minix asks which processor it has and gets the right answer.
 
 ## The test
 
@@ -178,8 +186,10 @@ processor it has and gets the right answer.
 boot by waiting for the cursor at each prompt: the boot menu's (the BDA),
 then the date's, the login's and the shell's (R14/R15), typing when it is
 there. The shell gets one line, `ls -l; ls /bin /dev; ls /dev; echo round
-the end; date`, which scrolls 84 rows and leaves the end of the 16K in the
-middle of row 18. Judged at the end:
+the end; date`, which scrolls 84 rows. On the EGA that is one copy back to
+the buffer's start and six rows more (the start address ends at cell 480);
+with `--cga` (`make test-minix CGA=1`, which writes the `VIDEO=CGA` line)
+it leaves the end of the 16K in the middle of row 18. Judged at the end:
 
 - IRQ0 is at vector 28h (and the run got here: every prompt needed the
   clock, the keyboard and the diskette interrupts to arrive);

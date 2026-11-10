@@ -19,12 +19,14 @@ make boot-dos        # builds the FreeDOS floppy and boots it headless
 git-ignored under `third_party/`), assembles the real FreeDOS FAT12 boot
 sector, and builds a 1.44 MB floppy with `tools/make_fat12.py`:
 KERNEL.SYS (KERNL86), COMMAND.COM (FreeCOM), FDCONFIG.SYS, and (no AUTOEXEC)
-GWBASIC.EXE + HELLO.BAS + CGADEMO.BAS.
+GWBASIC.EXE + HELLO.BAS + CGADEMO.BAS, and the EGA mode's EGADEMO.COM and
+EGADEMO.BAS (docs/ega.md).
 `tools/boot_dos.py` stages it as the `DISK` file, boots with command `D`,
 and reports the guest state, INT 13h count and screen.
 
 `XTGS.CMD` may name a ProDOS folder to share as a DOS drive, on a line
-after the `D` (`C=/VOL/DIR`): `docs/share.md`.
+after the `D` (`C=/VOL/DIR`): `docs/share.md`. A line `VIDEO=CGA` there
+makes the PC one with a CGA and no EGA (`docs/ega.md`).
 
 FreeDOS also boots with no disk image at all, from a ProDOS folder that is
 its drive `C:` (command `S`; `make boot-shared`, and what `make dos-image`

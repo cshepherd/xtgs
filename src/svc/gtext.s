@@ -78,6 +78,11 @@ gt_cols
 * such cell on the screen
 gt_cell
  mx %00
+ ldx gfx_mode
+ cpx #GFX_EGA
+ bne :cga
+ jmp eg_cell               ; mode 0Dh: the planes (ega.s)
+:cga
  sta gt_pos
  and #$00FF
  sta gt_off                ; (the column, for now)
@@ -155,6 +160,11 @@ gt_mark1
 * gt_draw - the character gt_ch in the colour gt_col at gt_off
 gt_draw
  mx %00
+ lda gfx_mode
+ cmp #GFX_EGA
+ bne :cga
+ jmp eg_draw
+:cga
  lda gt_ch
  and #$00FF
  asl
@@ -263,6 +273,10 @@ gt_tty
  cmp #$FFFF
  bne :col
  lda #3
+ ldx gfx_mode
+ cpx #GFX_EGA
+ bne :col
+ lda #7                    ; (of sixteen)
 :col
  and #$00FF
  sta gt_col
@@ -387,6 +401,8 @@ gt_scroll
  lda gfx_mode
  cmp #6
  beq :m6
+ cmp #GFX_EGA
+ beq :m6
  asl gs_w
  asl gs_lb
 :m6
@@ -399,12 +415,20 @@ gt_scroll
  asl
  asl
  sta gs_e
- lda gs_t
- sta gs_d
  lda gs_lines
  asl
  asl
  sta gs_n
+ lda gfx_mode
+ cmp #GFX_EGA
+ bne :fld
+ asl gs_t                  ; mode 0Dh: eight lines a row, not four in
+ asl gs_e                  ; each field
+ asl gs_n
+:fld
+ lda gs_t
+ sta gs_d
+ lda gs_n
  beq :fill                 ; no lines: the window is cleared
  clc
  adc gs_t
@@ -453,6 +477,11 @@ gt_scroll
  dec gs_d
  bra :dfill
 :marks
+ lda gfx_mode
+ cmp #GFX_EGA
+ bne :mk0
+ rts                       ; (egs_copy and egs_fill saw to it)
+:mk0
  lda gs_t                  ; the pages of both fields the window lies in
  jsr gs_l80
  clc
@@ -504,6 +533,11 @@ gs_l80
 * in both fields
 gs_copy
  mx %00
+ lda gfx_mode
+ cmp #GFX_EGA
+ bne :cga
+ jmp egs_copy
+:cga
  lda gs_s
  jsr gs_l80
  clc
@@ -544,6 +578,11 @@ gs_copy
 * gs_fill - field line gs_d, the window's bytes, <- gs_fillb in both fields
 gs_fill
  mx %00
+ lda gfx_mode
+ cmp #GFX_EGA
+ bne :cga
+ jmp egs_fill
+:cga
  lda gs_d
  jsr gs_l80
  clc
@@ -579,9 +618,17 @@ gs_fill
 * cursor (a pixel of any colour is a set bit), 0 when there is none
 gt_read
  mx %00
+ lda gfx_mode
+ cmp #GFX_EGA
+ bne :cga
+ jmp eg_read
+:cga
  lda >H_BDA+BDA_CURPOS
  jsr gt_cell
- bcs :none
+ bcc :cell
+ lda #0
+ rts
+:cell
  stz gt_i
 :row
  jsr gt_rowoff
@@ -619,6 +666,9 @@ gt_read
  lda gt_i
  cmp #8
  bcc :row
+* gt_find - A = the character whose glyph is gt_pat, 0 when none is
+gt_find
+ mx %00
  ldx #0
 :srch
  lda font,x
@@ -703,6 +753,11 @@ gt_pixel
 * gt_setpix - INT 10h 0Ch: the pixel CX, DX <- AL (bit 7: XOR)
 gt_setpix
  mx %00
+ lda gfx_mode
+ cmp #GFX_EGA
+ bne :cga
+ jmp eg_setpix
+:cga
  jsr gt_pixel
  bcc :ok
  rts
@@ -752,6 +807,11 @@ gt_setpix
 * gt_getpix - INT 10h 0Dh: AL = the pixel CX, DX
 gt_getpix
  mx %00
+ lda gfx_mode
+ cmp #GFX_EGA
+ bne :cga
+ jmp eg_getpix
+:cga
  jsr gt_pixel
  bcc :ok
  lda #0

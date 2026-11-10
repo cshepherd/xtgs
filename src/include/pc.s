@@ -113,3 +113,32 @@ RD_LOG     = RES_BASE+$8C0   ; 32 x u16: the last calls, the same way ($FF: pass
                              ; at index RD_CALLS mod 32
 CAP_BUF    = RES_BASE+$1000
 CAP_MAX    = $7000
+* The EGA (docs/ega.md): mode 0Dh, 320x200 in 16 colours. Its four 64K
+* planes are the guest's banks A, C, D and E: A000:xxxx is where the
+* guest reaches them (the core traps that bank while EGA_ON, src/core/
+* ega.s), and nothing of the PC lives in C000-EFFF here, so a guest that
+* reads those segments sees planes 1-3. The registers are as the guest
+* (the core's port handlers) or the BIOS (src/svc/ega.s) last wrote them.
+H_EGA      = GUEST_BASE+$A0000   ; plane 0
+H_EGA1     = GUEST_BASE+$C0000   ; plane 1
+H_EGA2     = GUEST_BASE+$D0000   ; plane 2
+H_EGA3     = GUEST_BASE+$E0000   ; plane 3
+GFX_EGA    = $0D             ; gfx_mode in mode 0Dh
+EGA_ON     = RES_BASE+$940   ; u16 nonzero: the screen is mode 0Dh
+EGA_SYNC   = RES_BASE+$942   ; u16 nonzero: SVC changed EGA_ON or a register; the
+                             ; core looks after every hypercall (ega_sync)
+EGA_START  = RES_BASE+$944   ; u16 the screen's first byte in the planes (the 6845's
+                             ; R12/R13 at the last flush)
+EGA_PALD   = RES_BASE+$946   ; u16 nonzero: a palette register changed
+EGA_ALLD   = RES_BASE+$948   ; u16 nonzero: the whole screen is to be drawn
+EGA_SEQI   = RES_BASE+$94A   ; u16 the sequencer's index (port 3C4h)
+EGA_GCI    = RES_BASE+$94C   ; u16 the graphics controller's (3CEh)
+EGA_ACI    = RES_BASE+$94E   ; u16 the attribute controller's (3C0h)
+EGA_ACFF   = RES_BASE+$950   ; u16 3C0h's flip-flop: 0 the index is next, 1 the data
+EGA_SEQ    = RES_BASE+$958   ; 8 bytes: the sequencer (2 is the map mask)
+EGA_GC     = RES_BASE+$960   ; 16 bytes: the graphics controller, 0-8
+EGA_AC     = RES_BASE+$970   ; 32 bytes: the attribute controller (0-15 the palette)
+EGA_LEN    = 8000            ; bytes of a plane on the screen: 40 a line
+EGA_DIRTY  = RES_BASE+$C000  ; EGA_LEN flags (and a word to spare), by place on the
+                             ; screen: the byte was written. VID_DIRTY's first 32
+                             ; say which 256 of them hold one

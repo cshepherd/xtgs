@@ -52,13 +52,13 @@ PO     := $(B)/xtgs$(if $(XTGS_FRONT),-$(XTGS_FRONT),)$(if $(XTGS_LAYOUT),-$(XTG
 # merlin32 has no dependency output: every PUT file is listed here.
 INCLUDES  := src/include/hw.s src/include/layout.s src/include/mailbox.s src/include/guest.s src/include/pc.s
 SYS_SRCS  := src/sys/xtgs.s $(INCLUDES)
-SVC_GEN   := src/svc/gen/font.s src/svc/gen/tables.s src/svc/gen/dostab.s src/svc/gen/t160.s
-SVC_SRCS  := src/svc/svc.s src/svc/video.s src/svc/gtext.s src/svc/pcinit.s src/svc/bios.s src/svc/dos.s \
+SVC_GEN   := src/svc/gen/font.s src/svc/gen/tables.s src/svc/gen/dostab.s src/svc/gen/t160.s src/svc/gen/egatab.s
+SVC_SRCS  := src/svc/svc.s src/svc/video.s src/svc/gtext.s src/svc/ega.s src/svc/pcinit.s src/svc/bios.s src/svc/dos.s \
              src/svc/files.s src/svc/disk.s src/svc/ports.s src/svc/redir.s src/svc/keyboard.s src/svc/sound.s src/svc/clock.s src/svc/capture.s $(SVC_GEN) $(INCLUDES)
-CORE_GEN  := src/core/gen/optab.s src/core/gen/eatab.s src/core/gen/alu.s src/core/gen/flagtab.s
+CORE_GEN  := src/core/gen/optab.s src/core/gen/eatab.s src/core/gen/alu.s src/core/gen/flagtab.s src/core/gen/egaw.s
 CORE_SRCS := src/core/core.s src/core/probe.s src/core/run.s src/core/jit.s src/core/jit2.s src/core/cpu.s src/core/flags.s \
              src/core/ops_mov.s src/core/ops_ctrl.s src/core/ops_grp.s src/core/ops_str.s \
-             src/core/ops_misc.s src/core/harness.s $(CORE_GEN) $(INCLUDES)
+             src/core/ops_misc.s src/core/ega.s src/core/harness.s $(CORE_GEN) $(INCLUDES)
 
 .PHONY: all image finder test-m0 test-cpu test-com test-dos test-share test-clock test-minix test-layout test-gsos test-s16 check-s16 bench boot-dos boot-shared run run-dos dos-image disk-image run-disk clean lint minix-image run-minix
 
@@ -143,11 +143,11 @@ $(B)/core: $(B)/core.bin $(RELOC_DEPS)
 # (make 3.81 has no grouped targets: the first output is the rule, the rest depend on it)
 src/svc/gen/font.s: tools/gen_tables.py third_party/font8x8/font8x8_basic.h
 	$(PY) tools/gen_tables.py
-src/svc/gen/tables.s src/svc/gen/dostab.s src/svc/gen/t160.s: src/svc/gen/font.s
+src/svc/gen/tables.s src/svc/gen/dostab.s src/svc/gen/t160.s src/svc/gen/egatab.s: src/svc/gen/font.s
 
 src/core/gen/optab.s: tools/gen_cpu.py
 	$(PY) tools/gen_cpu.py
-src/core/gen/eatab.s src/core/gen/alu.s src/core/gen/flagtab.s: src/core/gen/optab.s
+src/core/gen/eatab.s src/core/gen/alu.s src/core/gen/flagtab.s src/core/gen/egaw.s: src/core/gen/optab.s
 
 # ---- images -----------------------------------------------------------------
 
@@ -257,7 +257,7 @@ bench: $(PO)
 # floppy and the folder with the same files (tools/build_freedos.py), then
 # boots headless: boot-dos the floppy image (command D), boot-shared the
 # folder as drive C: with no image (command S, docs/share.md).
-$(FDIMG): tools/build_freedos.py tools/make_fat12.py $(wildcard $(GWBASIC))
+$(FDIMG): tools/build_freedos.py tools/make_fat12.py tests/demo/egademo.asm $(wildcard $(GWBASIC))
 	$(PY) tools/fetch_dos.py
 	$(PY) tools/build_freedos.py
 boot-dos: $(PO) $(FDIMG)
@@ -286,7 +286,7 @@ test-clock: $(PO) $(FDIMG)
 # ZipGS (a stock IIGS takes seven and a half emulated minutes).
 MINIX        := third_party/minix/demo_dsk.ibm
 test-minix: $(PO)
-	$(PY) tools/minix_test.py $(MINIX) $(if $(ZIP),--zip)
+	$(PY) tools/minix_test.py $(MINIX) $(if $(ZIP),--zip) $(if $(CGA),--cga)
 
 # ---- interactive ------------------------------------------------------------
 

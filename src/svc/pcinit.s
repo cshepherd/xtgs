@@ -705,6 +705,7 @@ build_bda
  sta >H_BDA+BDA_ROWS
  rep #$20
  mx %00
+ jsr ega_init              ; the EGA's bytes, and the font (ega.s)
  jmp clk_init              ; the tick count: the time of day (clock.s)
 
 * build_psp - the program segment prefix at PSP_SEG:0000

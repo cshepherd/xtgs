@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""minix_test.py [IMAGE] [--zip] [--seconds S] [--show] - Minix 1.5 from
+"""minix_test.py [IMAGE] [--zip] [--cga] [--seconds S] [--show] - Minix 1.5 from
 its demonstration diskette (docs/minix.md), headless.
 
 IMAGE is the 360K diskette image (default third_party/minix/demo_dsk.ibm,
@@ -7,7 +7,11 @@ in the tree with its licence). It goes on a ProDOS volume as DISK with
 command D,
 and the run answers the boot menu with "=", types the date Minix asks for,
 logs in as root and has the shell list directories until the screen has
-scrolled to where the CGA's 16K ends in the middle of it. Nothing here goes through the
+scrolled 84 rows. Minix asks the BIOS once what the display is (INT 10h
+AH=12h): on the EGA XT/GS has, it moves the start address to the end of the
+16K and then copies the screen back to the buffer's start; with --cga
+(XTGS.CMD's VIDEO=CGA, docs/ega.md) it lets the start address go round, and
+the run ends with the CGA's 16K ending in the middle of the screen. Nothing else here goes through the
 BIOS once the kernel is up, so what is judged is what Minix needs of the
 PC itself:
 
@@ -58,10 +62,13 @@ AT_MENU = 16 << 8 | 2               # the boot menu's "# " (BIOS: row, column)
 AT_DATE = 8 * 80                    # under "Please enter date"
 AT_LOGIN = 13 * 80 + 7              # after "login: "
 AT_SHELL = 14 * 80 + 2              # after the shell's first "# "
-# ... and after COMMANDS: the last row, the screen's start 84 rows on, which
-# puts the end of the 16K in the middle of row 18
+# ... and after COMMANDS: the last row, the screen's start 84 rows on. On a
+# CGA that puts the end of the 16K in the middle of row 18; on an EGA Minix
+# has the screen back at the buffer's start once 25 rows no longer fit below
+# the start address (the 78th scroll), and is 6 rows on from there
 SCROLLED = 84
-AT_END = (SCROLLED * 80 & 0x1FFF) + 24 * 80 + 2     # (Minix does not wrap the cursor address)
+ORG_CGA = SCROLLED * 80 & 0x1FFF
+ORG_EGA = SCROLLED % ((0x2000 - 2000) // 80 + 1) * 80
 
 
 def r14(cell):
@@ -73,6 +80,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("image", nargs="?", default=os.path.join(ROOT, "third_party", "minix", "demo_dsk.ibm"))
     ap.add_argument("--zip", action="store_true", help="a 16 MHz ZipGS")
+    ap.add_argument("--cga", action="store_true", help="a PC with no EGA (VIDEO=CGA)")
     ap.add_argument("--seconds", type=float, default=1800)
     ap.add_argument("--show", action="store_true", help="print the screen")
     args = ap.parse_args()
@@ -85,7 +93,7 @@ def main():
         g.write(f.read())
     cmd = os.path.join(work, "XTGS.CMD#040000")
     with open(cmd, "w") as f:
-        f.write("D\r")
+        f.write("D\rVIDEO=CGA\r" if args.cga else "D\r")
     stage = os.path.join(ROOT, "build", "stage")
     po = os.path.join(work, "minix.po")
     r = subprocess.run([os.path.join(HERE, "make_image.sh"), po,
@@ -94,6 +102,8 @@ def main():
     if r.returncode:
         sys.exit(r.stdout + r.stderr)
 
+    end_org = ORG_CGA if args.cga else ORG_EGA
+    at_end = end_org + 24 * 80 + 2      # (Minix does not wrap the cursor address)
     now = datetime.datetime.now().replace(microsecond=0)
     typed = now.strftime("%m%d%y%H%M%S")
     triggers = {"menu": (BDA_CURSOR, AT_MENU), "date": (CRTC + 14, r14(AT_DATE)),
@@ -102,7 +112,7 @@ def main():
               {"at": 30, "after": "date", "coded": typed + "{ENTER}"},
               {"at": 30, "after": "login", "coded": "root{ENTER}"},
               {"at": 30, "after": "shell", "coded": COMMANDS + "{ENTER}"}]
-    r = mamerun.run(po, waits=[(CRTC + 14, r14(AT_END))],
+    r = mamerun.run(po, waits=[(CRTC + 14, r14(at_end))],
                     dumps=[("gregs", 0x001000, 0x20), ("txt", TXT, 0x4000), ("crtc", CRTC, 0x20),
                            ("pic", PIC, 4), ("doc", DOC, 4), ("shr", shr.SHR_BASE, shr.SHR_LEN)],
                     seconds=args.seconds, settle=45, triggers=triggers, inputs=inputs, zip=args.zip)
@@ -123,7 +133,7 @@ def main():
 
     frames = {n: f[0] for n, f in r.get("triggers", {}).items()}
     print(f"Minix: status {r['status']} frame {r['frame']} ({r['frame'] / 60:.0f} emulated seconds"
-          f"{', 16 MHz' if args.zip else ''})")
+          f"{', 16 MHz' if args.zip else ''}{', no EGA' if args.cga else ''})")
     print("  " + ", ".join(f"{n} at {frames[n] / 60:.0f} s" for n in ("menu", "date", "login", "shell") if n in frames))
     print(f"  8259: IRQ0 at vector {base:#04x}, mask {mask:#04x}; timer: {irqs} interrupts (mod 65536), "
           f"{drops} dropped with the guest not taking them")
@@ -138,9 +148,9 @@ def main():
     else:
         if base != 0x28:
             bad.append(f"IRQ0 is at vector {base:#x}, not where Minix puts it (28h)")
-        if org != (SCROLLED * 80) & 0x1FFF or cur != 24 * 80 + 2:
+        if org != end_org or cur != 24 * 80 + 2:
             bad.append("the screen does not start, or the cursor is not, where the commands should leave them")
-        if org * 2 + 4000 <= 0x4000 or (0x4000 - org * 2) % 160 == 0:
+        if args.cga and (org * 2 + 4000 <= 0x4000 or (0x4000 - org * 2) % 160 == 0):
             bad.append("the end of the 16K is not in the middle of a row of the screen")
         dates = [m for m in (re.match(r"(\w{3} \w{3} [ \d]\d \d\d:\d\d:\d\d \d{4})$", row) for row in rows) if m]
         if rows[22] != "round the end" or len(dates) != 1 or rows[24] != "#":

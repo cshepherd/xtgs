@@ -75,6 +75,7 @@ com_run
  lda #$BE57
  sta >MB_RUNIDX
  jsl SVC_BASE+27           ; svc_sndopen: the DOC is the speaker and the IRQ0 timer
+ jsr ega_sync              ; the EGA as the PC's start left it (off)
  jsr run_guest
  jsl SVC_BASE+30           ; svc_sndclose
  stz vPCMODE
@@ -149,6 +150,7 @@ boot_run
  lda #$BE57
  sta >MB_RUNIDX
  jsl SVC_BASE+27           ; svc_sndopen: the DOC is the speaker and the IRQ0 timer
+ jsr ega_sync              ; the EGA as the PC's start left it (off)
  jsr run_guest
  jsl SVC_BASE+30           ; svc_sndclose
  stz vPCMODE

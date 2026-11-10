@@ -582,7 +582,11 @@ flush
  beq :txt
  cmp #GFX_T160
  beq :t160
+ cmp #GFX_EGA
+ beq :ega
  jmp gfx_flush            ; CGA graphics: repack only dirty scanlines (rts)
+:ega
+ jmp ega_flush            ; mode 0Dh: the flagged bytes of the planes (rts)
 :t160
  jmp t160_flush           ; 160x100: the changed cells of the dirty pages (rts)
 :txt
@@ -908,6 +912,22 @@ post_kb   asc ' KB RAM OK'
 post_pow  dw 10000,1000,100,10
           dw $FFFF
 
+*--- tty_cur: A = the cursor vid_tty writes at (mode 0Dh: the
+* shown page's)
+tty_cur
+ mx %00
+ ldx #0
+ lda gfx_mode
+ cmp #GFX_EGA
+ bne :p0
+ lda >H_BDA+BDA_PAGE
+ and #$0007
+ asl
+ tax
+:p0
+ lda >H_BDA+BDA_CURPOS,x
+ rts
+
 *--- vid_tty: A = character (low byte). BIOS teletype on page
 * 0: BEL ignored, BS, CR, LF with scrolling, else the character
 * at the cursor (attribute kept unless tty_attr says otherwise)
@@ -918,6 +938,17 @@ vid_tty
  sta sv0
  jsr gt_on                 ; CGA graphics: the character is drawn (gtext.s)
  beq :text
+ lda gfx_mode
+ cmp #GFX_EGA
+ bne :gfx
+ lda eg_in                 ; mode 0Dh: on the page shown, at its cursor,
+ bne :gfx                  ; unless INT 10h named the page
+ lda >H_BDA+BDA_PAGE
+ jsr eg_curin
+ lda sv0
+ jsr gt_tty
+ jmp eg_curout
+:gfx
  lda sv0
  jmp gt_tty
 :text
@@ -1224,6 +1255,10 @@ mode_poll
 :go
  lda #0
  sta >CGA_MODECHG
+ lda gfx_mode              ; (an EGA in mode 0Dh has no such register)
+ cmp #GFX_EGA
+ bne apply_cgamode
+ rts
 apply_cgamode
  mx %00
  lda >CGA_MODEREQ
@@ -1310,7 +1345,16 @@ vid_setmode
  sta >CRTC_REG+14          ; them before it is still to be applied
  sta >CRTC_CUR
  sta >CGA_MODECHG
+ lda gfx_mode
+ cmp #GFX_EGA
+ bne :was
+ jsr ega_leave             ; (the core lets go of A000)
+:was
  pla
+ cmp #GFX_EGA
+ bne :cga
+ jmp ega_enter             ; 0Dh: 320x200 in 16 colours (ega.s)
+:cga
  cmp #4
  bcc :text                 ; 0-3: text
  cmp #7

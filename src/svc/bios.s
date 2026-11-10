@@ -236,21 +236,94 @@ int_10
  bcs :unk
  asl
  tax
+ lda gfx_mode
+ cmp #GFX_EGA
+ beq :ega
+ txa
  jmp (v10_tab,x)
 :unk
  lda #$10
  jmp note_unhandled
-v10_tab da v10_00,v10_01,v10_02,v10_03,v10_nop,v10_nop,v10_06,v10_07
+* mode 0Dh has eight pages, each with its cursor: BH is the page for
+* the cursor's functions, the character's and the string's; the rest
+* (the scroll, the teletype) work on the page shown
+:ega
+ lda >H_BDA+BDA_PAGE
+ and #$0007
+ sta eg_wpg
+ cpx #$02*2
+ beq :pg
+ cpx #$03*2
+ beq :pg
+ cpx #$08*2
+ beq :pg
+ cpx #$09*2
+ beq :pg
+ cpx #$0A*2
+ beq :pg
+ cpx #$13*2
+ beq :pg
+ txa
+ jmp (v10_tab,x)
+:pg
+ phx
+ lda rBX
+ xba
+ jsr eg_curin
+ inc eg_in
+ plx
+ txa
+ jsr (v10_tab,x)
+ stz eg_in
+ jmp eg_curout
+v10_tab da v10_00,v10_01,v10_02,v10_03,v10_nop,v10_05,v10_06,v10_07
  da v10_08,v10_09,v10_0A,v10_0B,v10_0C,v10_0D,v10_0E,v10_0F
- da v10_nop,v10_nop,v10_nop,v10_13
+ da v10_10,v10_11,v10_12,v10_13
 v10_nop
  mx %00
+ rts
+v10_05                     ; select the page: mode 0Dh has eight
+ mx %00
+ lda gfx_mode
+ cmp #GFX_EGA
+ bne :out
+ lda rAX
+ jmp eg_setpage
+:out
+ rts
+v10_10                     ; the EGA's palette registers (mode 0Dh)
+ mx %00
+ lda gfx_mode
+ cmp #GFX_EGA
+ bne :out
+ jmp eg_10
+:out
+ rts
+v10_11                     ; the EGA's character generator: AL=30h, where
+ mx %00                    ; the font is
+ lda eg_none
+ bne v10_noega
+ jmp eg_11
+v10_12                     ; BL=10h: the EGA's description
+ mx %00
+ lda eg_none
+ bne v10_noega
+ jmp eg_12
+v10_noega                  ; (VIDEO=CGA: a CGA's BIOS has neither)
  rts
 v10_00                     ; set mode: text, or CGA graphics (4/5, 6)
  mx %00
  lda rAX
+ and #$0080                ; bit 7: the screen is not cleared (acted on
+ sta eg_keep               ; in mode 0Dh)
+ lda rAX
  and #$007F
  sta sv8
+ cmp #GFX_EGA
+ bne :mode
+ lda eg_none               ; no EGA: 0Dh is no mode
+ bne v10_noega
+:mode
  sep #$20
  mx %10
  lda sv8
@@ -260,6 +333,8 @@ v10_00                     ; set mode: text, or CGA graphics (4/5, 6)
  ldx #80                   ; the BDA's columns: 40 in the 320 modes, where
  lda sv8                   ; the text services draw 40 (gtext.s). (Modes 0
  cmp #4                    ; and 1 are shown as 80-column text and say so.)
+ beq :c40
+ cmp #GFX_EGA
  beq :c40
  cmp #5
  bne :cols
@@ -422,6 +497,11 @@ mark_run
  jmp mark_all
 v10_0B                     ; set palette: BH=0 background (BL 0-15),
  mx %00                    ; BH=1 palette select (BL bit 0). CGA graphics.
+ lda gfx_mode
+ cmp #GFX_EGA
+ bne :cga
+ jmp eg_0B                 ; mode 0Dh: the same of its palette registers
+:cga
  lda rBX
  xba
  and #$00FF                ; BH
@@ -480,9 +560,12 @@ v10_0F                     ; get mode: AL = mode, AH = columns, BH = page
  and #$00FF
  ora sv0
  sta rAX
- lda rBX
- and #$00FF
- sta rBX
+ sep #$20
+ mx %10
+ lda >H_BDA+BDA_PAGE
+ sta rBX+1
+ rep #$20
+ mx %00
  rts
 v10_13                     ; write string ES:BP, CX chars, at DH/DL, BL attr,
  mx %00                    ; AL bit 0: leave the cursor after it; bit 1: attrs inline

@@ -5,7 +5,7 @@ and a PC-compatible BIOS, written in 65816 assembly (Merlin32) for an 8 MB
 Apple IIGS and booted straight from ProDOS 8. It boots FreeDOS, from a
 folder of the ProDOS volume or from a floppy image, and runs real DOS
 software on top of it: GW-BASIC with CGA graphics and sound, and Lotus 1-2-3
-Release 1A. It also boots Minix 1.5 from its demonstration diskette, which
+Release 1A. It has the EGA's 320x200 16-colour mode as well. It also boots Minix 1.5 from its demonstration diskette, which
 drives the PC's interrupt controller, diskette controller and 6845 itself.
 
 | | |
@@ -18,6 +18,8 @@ drives the PC's interrupt controller, diskette controller and 6845 itself.
 | 1-2-3's `/Graph` menu | `/Graph View`: the bar graph of that worksheet, drawn by 1-2-3's CGA driver |
 | ![Tunneler in the 160x100 16-colour mode](assets/tunneler.png) | ![Minix 1.5 logged in as root](assets/minix.png) |
 | Tunneler: CGA's 160x100 16-colour mode, the blue tank firing with Control held | Minix 1.5 from its demonstration diskette: the date, the login, `ls -l /`, `df` and `date` |
+| ![EGADEMO.COM in EGA mode 0Dh](assets/ega-demo.png) | ![GW-BASIC SCREEN 7](assets/gwbasic-ega.png) |
+| `EGADEMO.COM`: EGA mode 0Dh (320x200, 16 colours) drawn through the card's registers, the palette mid-turn | Microsoft GW-BASIC 3.23, `SCREEN 7`: `LINE`, `CIRCLE` and `PAINT` in `EGADEMO.BAS` |
 
 The screenshots are the emulated IIGS's Super Hi-Res screen, captured from
 headless MAME runs and doubled in height (the SHR screen is 640x200 or
@@ -47,6 +49,10 @@ lost at power-off. See [Known limits](#known-limits).
 - **CGA graphics:** modes 4 and 5 (320x200, four colours, both palettes and
   the background colour), mode 6 (640x200 mono) and the 160x100 16-colour
   mode some games make out of text cells two scan lines high.
+- **EGA graphics:** mode 0Dh (320x200, 16 colours; GW-BASIC's `SCREEN 7`)
+  with the card's four planes, latches, write and read modes, eight pages
+  and palette registers. It is the one EGA mode the IIGS screen can show
+  pixel for pixel; the 640-wide modes are not there (`docs/ega.md`).
 - **Keyboard:** the IIGS keyboard as a PC keyboard, through `INT 16h`, the
   BIOS data area's buffer, and port 60h with IRQ1 for programs that hook
   `INT 09h`: a key held down stays down for them, and Shift and Control are
@@ -88,7 +94,9 @@ shell and whatever DOS writes are ordinary ProDOS files in that folder, so
 files go in and out with any ProDOS tool. GW-BASIC is not downloaded: put a
 `GWBASIC.EXE` (the rebuild from gitlab.com/tkchia/GW-BASIC is the one that
 works) at `third_party/gwbasic/GWBASIC.EXE` and it goes in the folder too,
-with `HELLO.BAS` and `CGADEMO.BAS`. The `.po` is an ordinary 4 MB ProDOS
+with `HELLO.BAS`, `CGADEMO.BAS` and the EGA mode's `EGADEMO.COM` (and
+`EGADEMO.BAS`, which needs a GW-BASIC that has `SCREEN 7`: Microsoft's 3.2x
+does, that rebuild of the 1983 source does not). The `.po` is an ordinary 4 MB ProDOS
 volume that boots to XT/GS, so it also serves a real IIGS from a
 hard-disk-class device.
 
@@ -229,8 +237,9 @@ and the folder is one more drive, with the letter the line gives (`C` to
 | `B` | run the benchmark program in `BENCH` until it halts |
 | `J`, `K` | the JIT experiments (`docs/jit.md`) |
 
-A later line `letter=pathname` is a setting for commands `S` and `D`: the
-shared drive, above.
+A later line is a setting for commands `S` and `D`: `letter=pathname` is
+the shared drive, above, and `VIDEO=CGA` makes the PC one with no EGA, for
+a program that would pick an EGA mode XT/GS does not have (`docs/ega.md`).
 
 ## Keyboard and function keys
 
@@ -369,7 +378,10 @@ store that lands in the bank holding `B800` marks its 256-byte page dirty;
 once a frame the dirty parts are redrawn onto the SHR screen. In text mode a
 shadow copy means only the character cells that changed are redrawn; in
 graphics modes only the changed scanlines are converted, and in the 160x100
-mode only the changed cells (`docs/cga.md`).
+mode only the changed cells (`docs/cga.md`). The EGA's planes are not plain
+memory: in mode 0Dh an operand in segment `A000` is caught where its address
+is formed and read or written through the card's latches and masks, and the
+bytes that changed are redrawn (`docs/ega.md`).
 
 **Interrupts.** The core checks for work at every fourth control transfer (a
 taken jump, a call, a return, a `REP` string instruction), so straight-line
@@ -400,7 +412,8 @@ well. It did not pay for itself on the DOS boot and is not used
 
 ```
 make test-m0      memory probe and test screen
-make test-com     nasm .COM programs against expected console output
+make test-com     nasm .COM programs against expected console output (and
+                  the screen: text, CGA and EGA pictures against the SHR)
 make test-cpu OP="00 01"
                   SingleStepTests 8088 vectors for those opcodes
 make test-dos     the Mode A programs in the compatibility table (exits non-zero:
@@ -414,7 +427,8 @@ make test-share   a ProDOS folder as drive C: under FreeDOS: DIR, COPY both
 make test-minix   boot the Minix 1.5 demonstration diskette
                   (third_party/minix/demo_dsk.ibm) to its shell, type a
                   command line and judge the screen (ZIP=1: at 16 MHz, 53
-                  emulated seconds instead of 378)
+                  emulated seconds instead of 378; CGA=1: as a PC with no
+                  EGA, which Minix scrolls another way)
 make test-layout  the probe, .COM and sampled CPU tests with every part of
                   XT/GS in a different bank, and every bank-$00 page it uses
                   at a different address, than it was assembled for
@@ -453,7 +467,10 @@ suite: all 324 opcode files, 2,883,807 vectors after the exclusions listed in
   dates, and has been run under FreeDOS only, in MAME (`docs/share.md`).
 - Booting from the shared folder is for FreeDOS's kernel only and has been
   run in MAME only. The PC has no floppy drive then: `A:` is "not ready".
-- Text is monochrome (four greys). There is no MDA, Hercules, EGA or VGA.
+- Text is monochrome (four greys). There is no MDA, Hercules or VGA, and of
+  the EGA only mode 0Dh, set through `INT 10h`: no 640-wide or 350-line
+  modes, no loadable fonts, and a store to the planes costs about three
+  times an ordinary one. Run in MAME only (`docs/ega.md` has the limits).
 - In CGA graphics modes the BIOS draws text from its own 8x8 font
   (`docs/cga.md`): there is no cursor, characters 01h-1Fh (the arrows on
   GW-BASIC's key line among them) are blank, as they are in text mode, and
@@ -484,6 +501,7 @@ suite: all 324 opcode files, 2,883,807 vectors after the exclusions listed in
 | `docs/dos-api.md` | the built-in DOS and BIOS services of Mode A |
 | `docs/keyboard.md` | the key mapping |
 | `docs/cga.md` | CGA graphics |
+| `docs/ega.md` | the EGA's mode 0Dh: the planes, the registers, the BIOS, `VIDEO=CGA` |
 | `docs/sound.md` | the DOC as PC speaker and timer |
 | `docs/clock.md` | the IIGS's clock as the PC's date, time and tick count |
 | `docs/cpu-compatibility.md` | 8088 behaviour learned from the hardware vectors |

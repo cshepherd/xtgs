@@ -142,6 +142,8 @@ port_in8                   ; A = port -> A = value (8-bit in the low byte)
  lda #$0000
  rts
 :cgastat
+ lda #0                    ; (a read makes 3C0h's next write the index: the EGA)
+ sta >EGA_ACFF
  lda cga_stat              ; free-running: all (bit0,bit3) states appear
  inc
  sta cga_stat
@@ -177,6 +179,12 @@ port_out                   ; A = port, tmp0 = value
  beq :cidx
  cmp #$03D5                ; and the selected register
  beq :creg
+ cmp #$03C0                ; 3C0h-3CFh: the EGA's registers (ega.s)
+ bcc :notega
+ cmp #$03D0
+ bcs :notega
+ jmp ega_out
+:notega
  ldx vPCMODE               ; Mode B: the 8259, the 8237 and the diskette
  cpx #2                    ; controller (ports.s)
  bne :nobody
@@ -309,23 +317,28 @@ op_EF                      ; out DX, AX
  mx %00
  lda rDX
  cmp #$03D4
- beq :crtc
+ beq :pair
+ cmp #$03CE                ; the EGA's graphics controller
+ beq :pair
+ cmp #$03C4                ; and its sequencer
+ beq :pair
  lda rAX
  sta tmp0
  lda rDX
  jsr port_out
  jmp (NEXTVEC)
-:crtc                      ; the 6845 in one word: AL selects, AH is the value
- lda rAX
+:pair                      ; an index and its register in one word: AL selects,
+ lda rAX                   ; AH is the value
  and #$00FF
  sta tmp0
- lda #$03D4
+ lda rDX
  jsr port_out
  lda rAX
  xba
  and #$00FF
  sta tmp0
- lda #$03D5
+ lda rDX
+ inc
  jsr port_out
  jmp (NEXTVEC)
 

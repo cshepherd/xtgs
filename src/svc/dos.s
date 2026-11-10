@@ -57,7 +57,7 @@ con_out                    ; A = character
 :tab
  lda #' '
  jsr vid_tty
- lda >H_BDA+BDA_CURPOS
+ jsr tty_cur
  and #$0007
  bne :tab
  rts

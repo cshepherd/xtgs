@@ -176,6 +176,15 @@ PC samples of the FreeDOS boot from the folder, one a frame, now:
 | SVC (the text screen, mostly) | 7% |
 | everything else, no routine over 4% | 48% |
 
+## The EGA's trap (2026-11-10)
+
+Mode 0Dh (docs/ega.md) added a compare of the operand's bank to every
+effective-address tail, where the text bank's compare was already. With
+the mode off the five programs measure what they did before it: stock
+28,251 / 22,592 / 33,913 / 196,608 / 15,641 IPS for `reg`, `mem`, `jmp`,
+`str` and `strs`. What an access to the planes costs in the mode is in
+docs/ega.md.
+
 ## Throughput
 
 MAME 0.284 `apple2gs` (ROM 03), 8 MB, stock 2.8 MHz and the ZipGS 16 MHz

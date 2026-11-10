@@ -257,8 +257,9 @@ rd_nokernel
  rts
 
 * rd_readcfg - XTGS.CMD's lines after the first: "X=path"
-* is the share (X a drive letter from C). C clear: rd_drive
-* and rd_root (as written, upper case) are set.
+* is the share (X a drive letter from C; the first such line),
+* "VIDEO=CGA" a PC with no EGA (eg_none, ega.s). C clear:
+* rd_drive and rd_root (as written, upper case) are set.
 rd_readcfg
  mx %00
  ldx #0
@@ -274,6 +275,8 @@ rd_readcfg
  mx %00
  stz rd_len
  stz rd_root
+ stz rd_cfgok
+ stz eg_none
  ldx #0
  lda #0
  jsr p_open
@@ -316,12 +319,20 @@ rd_readcfg
  jsr rd_cfgch
  beq :nf
  cmp #'='
- bne :skip
+ bne :word
+ lda rd_cfgok              ; (one share: the first line that names one)
+ beq :drv
+ lda #'='
+ jmp :skip
+:drv
  lda sv0
  cmp #'C'
- bcc :skip
+ bcc :sk1
  cmp #'Z'+1
- bcs :skip
+ bcc :dok
+:sk1
+ jmp :skip
+:dok
  sec
  sbc #'A'
  sta rd_drive
@@ -361,18 +372,56 @@ rd_readcfg
  sta rd_root
  rep #$20
  mx %00
- clc
- rts
+ inc rd_cfgok
+ jmp :line
+:word                      ; "VIDEO=CGA": the PC has no EGA (ega.s)
+ sta sv1
+ lda sv0
+ cmp #'V'
+ bne :wno
+ ldy #0
+:wk
+ lda rd_vkey,y
+ and #$00FF
+ beq :wval
+ cmp sv1
+ bne :wno
+ jsr rd_cfgch
+ beq :none
+ sta sv1
+ iny
+ bra :wk
+:wval
+ stz eg_none
+ lda sv1
+ cmp #'C'
+ bne :wno
+ inc eg_none
+:wno
+ lda sv1
 :skip                      ; another setting: to the end of its line
  cmp #$0D
- beq :line
+ beq :tol
  cmp #$0A
- beq :line
+ beq :tol
  jsr rd_cfgch
  bne :skip
 :none
+ lda eg_none
+ beq :ne
+ jsr ega_off
+:ne
+ lda rd_cfgok
+ beq :nn
+ clc
+ rts
+:nn
  sec
  rts
+:tol
+ jmp :line
+rd_vkey asc 'IDEO=',00
+rd_cfgok dw 0              ; a line named the share
 
 * rd_cfgch - A = the file's next character (X, in the bounce
 * buffer), upper case; 0 and Z at its end

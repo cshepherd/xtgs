@@ -36,6 +36,10 @@ immediate groups go through one 256-entry table each (gNN_t) to a
 routine an operation and kind of operand (gNN_mK, gNN_rK).
   flagtab.s  parity (PF by result low byte) and the two tables between
              the lazy flags and a FLAGS word, lp2f and f2lp
+  egaw.s     the EGA's planes (src/core/ega.s): eg_class, what each
+             opcode does to a memory operand, and ega_rd / ega_wr, one
+             byte read or written through the graphics controller, a
+             stretch of code for each of the four planes
 
 Conventions (BOOTSTRAP.md section 5, src/include/guest.s): native
 mode, M=0 X=0 at entry and at retire, D = GUEST_DP, Y = IP, handlers
@@ -147,8 +151,8 @@ def ea_fast(mod, rm, w):
     out += [" bit vOVR", " bmi :ovr"]
     if w:
         out += [" cmp #$FFFF", " beq :split"]
-    out += [" clc", f" adc {b}", " sta pEA", f" lda {b}+2", " bcs :carry", " sta pEA+2", " cmp #^H_TXT",
-            " beq :vid", " rts", ":ovr", f" jmp ef{c}_ovr"]
+    out += [" clc", f" adc {b}", " sta pEA", f" lda {b}+2", " bcs :carry", " sta pEA+2", " cmp #^H_EGA",
+            " bcs :vid", " rts", ":ovr", f" jmp ef{c}_ovr"]
     if w:
         out += [":split", f" jmp efw_split_{seg}"]
     return out + [":carry", " jmp ef_carry", ":vid", " jmp ef_vid"]
@@ -546,10 +550,114 @@ def gen_flagtab():
     return "\n".join(lines) + "\n"
 
 
+
+PLANES = ("H_EGA", "H_EGA1", "H_EGA2", "H_EGA3")
+
+
+def ega_class():
+    """What an instruction with a memory operand does to it, by opcode:
+    1 reads it, 2 writes it (3 both); 4-6 the groups, by the reg field
+    (ega_trap); $80 a word. 0: no operand in memory, or none it touches."""
+    R, W, RW, WORD = 1, 2, 3, 0x80
+    t = [0] * 256
+    for o in range(0x00, 0x40, 8):          # the ALU: r/m,reg writes, CMP only reads
+        cmp_ = o == 0x38
+        t[o], t[o + 1] = (R if cmp_ else RW), (R if cmp_ else RW) | WORD
+        t[o + 2], t[o + 3] = R, R | WORD
+    for o in (0x80, 0x82):
+        t[o] = 4
+    t[0x81] = t[0x83] = 4 | WORD
+    t[0x84], t[0x85] = R, R | WORD          # TEST
+    t[0x86], t[0x87] = RW, RW | WORD        # XCHG
+    t[0x88], t[0x89] = W, W | WORD          # MOV
+    t[0x8A], t[0x8B] = R, R | WORD
+    t[0x8C], t[0x8E], t[0x8F] = W | WORD, R | WORD, W | WORD
+    t[0xA0], t[0xA1], t[0xA2], t[0xA3] = R, R | WORD, W, W | WORD
+    t[0xC4] = t[0xC5] = R | WORD            # LES, LDS (each half in its turn)
+    t[0xC6], t[0xC7] = W, W | WORD
+    for o in (0xD0, 0xD2):
+        t[o], t[o + 1] = RW, RW | WORD      # shifts and rotates
+    t[0xD7] = R                             # XLAT
+    t[0xF6], t[0xF7] = 5, 5 | WORD
+    t[0xFE], t[0xFF] = 6, 6 | WORD
+    return t
+
+
+def gen_ega():
+    """egaw.s: the EGA's planes as the guest's reads and writes see them."""
+    L = [HEADER.format(name="egaw.s"),
+         "* The EGA's planes behind A000 in mode 0Dh (src/core/ega.s has the trap",
+         "* that brings an instruction here, and what the registers are):",
+         "* eg_class, what each opcode does to its memory operand; ega_rd and",
+         "* ega_wr, a byte read and written the way the graphics controller is",
+         "* set. X = the offset in the planes; Y is kept.", "",
+         "eg_class"]
+    t = ega_class()
+    for i in range(0, 256, 16):
+        L.append(" hex " + "".join(f"{v:02X}" for v in t[i:i + 16]))
+    L += ["",
+          "* ega_rd - A = the byte at X: the four planes' bytes into the latches,",
+          "* then the plane the read map names (read mode 0), or a bit for each",
+          "* pixel whose colour is the colour compare's in the planes that count",
+          "* (read mode 1). Keeps X and Y.",
+          "ega_rd", " mx %00", " sep #$20", " mx %10"]
+    for p, b in enumerate(PLANES):
+        L += [f" lda >{b},x", f" sta eg_lat+{p}"]
+    L += [" lda eg_rmode", " bne :cmp", " lda eg_rmap", " beq :p0", " dec", " beq :p1", " dec", " beq :p2",
+          " lda eg_lat+3", " bra :done", ":p2", " lda eg_lat+2", " bra :done", ":p1", " lda eg_lat+1",
+          " bra :done", ":p0", " lda eg_lat", ":done", " rep #$20", " mx %00", " and #$00FF", " rts",
+          ":cmp", " mx %10", " lda #$FF", " sta eg_t"]
+    for p in range(4):
+        bit = 1 << p
+        L += [f" lda eg_cdc", f" and #{bit}", f" beq :s{p}", " lda eg_cc", f" and #{bit}", f" beq :i{p}",
+              f" lda eg_lat+{p}", f" bra :a{p}", f":i{p}", f" lda eg_lat+{p}", " eor #$FF", f":a{p}",
+              " and eg_t", " sta eg_t", f":s{p}"]
+    L += [" lda eg_t", " rep #$20", " mx %00", " and #$00FF", " rts", "",
+          "* ega_wr - the byte A to X. Plain (eg_plain: write mode 0 with nothing",
+          "* of the graphics controller in the way) it is stored in the planes the",
+          "* map mask enables. Otherwise each plane's byte is the data rotated or",
+          "* the set/reset bit (mode 0), the data's bit for that plane (mode 2) or",
+          "* the latch (mode 1), put through the function and the bit mask against",
+          "* the latch. The byte's place on the screen is marked for the flush",
+          "* (eg_mark). Keeps Y; X is lost.",
+          "ega_wr", " mx %00", " sep #$20", " mx %10", " sta eg_v", " lda eg_plain", " beq :gen",
+          " lda eg_mm", " cmp #$0F", " bne :some", " lda eg_v"]
+    for b in PLANES:
+        L.append(f" sta >{b},x")
+    L += [" jmp eg_mark", ":some"]
+    for p, b in enumerate(PLANES):
+        L += [" lda eg_mm", f" and #{1 << p}", f" beq :n{p}", " lda eg_v", f" sta >{b},x", f":n{p}"]
+    L += [" jmp eg_mark", ":gen", " lda eg_wmode", " cmp #1", " bne :not1"]
+    for p, b in enumerate(PLANES):
+        L += [" lda eg_mm", f" and #{1 << p}", f" beq :l{p}", f" lda eg_lat+{p}", f" sta >{b},x", f":l{p}"]
+    L += [" jmp eg_mark", ":not1", " cmp #2", " bne :m0", " jmp egw_m2", ":m0", " lda eg_rot", " beq :norot", " sta eg_t",
+          " lda eg_v", ":rot", " lsr", " bcc :r0", " ora #$80", ":r0", " dec eg_t", " bne :rot", " sta eg_v",
+          ":norot"]
+    for p in range(4):
+        bit = 1 << p
+        L += [" lda eg_esr", f" and #{bit}", f" beq :d{p}", " lda eg_sr", f" and #{bit}", f" beq :z{p}",
+              " lda #$FF", f":z{p}", f" sta eg_pv+{p}", f" bra :e{p}", f":d{p}", " lda eg_v",
+              f" sta eg_pv+{p}", f":e{p}"]
+    L += [" jmp egw_put", "egw_m2", " mx %10"]
+    for p in range(4):
+        L += [" lda eg_v", f" and #{1 << p}", f" beq :z{p}", " lda #$FF", f":z{p}", f" sta eg_pv+{p}"]
+    L += ["egw_put", " mx %10"]
+    for p, b in enumerate(PLANES):
+        L += [" lda eg_mm", f" and #{1 << p}", f" beq :n{p}", " lda eg_func", f" beq :f{p}", " cmp #2",
+              f" beq :o{p}", f" bcs :x{p}", f" lda eg_pv+{p}", f" and eg_lat+{p}", f" bra :m{p}",
+              f":o{p}", f" lda eg_pv+{p}", f" ora eg_lat+{p}", f" bra :m{p}",
+              f":x{p}", f" lda eg_pv+{p}", f" eor eg_lat+{p}", f" bra :m{p}",
+              f":f{p}", f" lda eg_pv+{p}", f":m{p}", f" eor eg_lat+{p}", " and eg_bm", f" eor eg_lat+{p}",
+              f" sta >{b},x", f":n{p}"]
+    L += [" jmp eg_mark"]
+    return "\n".join(L) + "\n"
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     for name, text in (("optab.s", gen_optab()), ("eatab.s", gen_eatab()),
-                       ("alu.s", gen_alu()), ("flagtab.s", gen_flagtab())):
+                       ("alu.s", gen_alu()), ("flagtab.s", gen_flagtab()),
+                       ("egaw.s", gen_ega())):
         with open(os.path.join(OUT, name), "w") as f:
             f.write(text)
         print(os.path.join(OUT, name), text.count("\n"), "lines")

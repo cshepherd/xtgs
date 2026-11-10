@@ -13,7 +13,8 @@ all: [Booting from the folder](#booting-from-the-folder). That is what
 ## Setting it up
 
 `XTGS.CMD`'s first line is the command. A line after it of the form
-`letter=pathname` names the folder and the drive:
+`letter=pathname` names the folder and the drive (another kind of line,
+`VIDEO=CGA`, is docs/ega.md's; the two may come in either order):
 
 ```
 D

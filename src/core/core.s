@@ -102,10 +102,12 @@ core_entry
  put ops_grp.s
  put ops_str.s
  put ops_misc.s
+ put ega.s
  put harness.s
  put gen/optab.s
  put gen/eatab.s
  put gen/alu.s
  put gen/flagtab.s
+ put gen/egaw.s
 
  err *-1-CORE_BASE/$10000  ; one bank

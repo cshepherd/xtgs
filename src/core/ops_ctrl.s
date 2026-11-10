@@ -322,6 +322,10 @@ op_FE
  sty rIP
  jsl SVC_BASE+12
  bcs :stop
+ lda >EGA_SYNC             ; the BIOS changed the EGA's mode or registers
+ beq :nosync
+ jsr ega_sync
+:nosync
  ldy rIP
  jmp next_ct               ; (a service that waits asks for the slot: vSLOT = 1)
 :stop                      ; the program terminated: A = exit code
