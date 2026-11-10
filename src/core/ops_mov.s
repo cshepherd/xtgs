@@ -334,7 +334,7 @@ op_9D                      ; popf
  mx %00
  jsr pop16
  jsr flags_set
- jmp (NEXTVEC)
+ jmp irq_soon
 
 *--- test
 op_84                      ; test r/m8, r8

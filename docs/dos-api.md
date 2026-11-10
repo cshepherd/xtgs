@@ -42,8 +42,8 @@ but not yet detected for rendering: M3.
 | 11h | equipment word (`0021h`) |
 | 12h | memory size (640) |
 | 15h/84 | joystick: no switches pressed (DX=0), no sticks (DX=1). Other INT 15h functions: CF set, AH=86h |
-| 1Ah/00,01 | get/set tick count (18.2 Hz, from the DOC timer: `docs/sound.md`) |
-| 1Ah/02,04 | RTC time/date: fixed 12:00:00, 1987-01-01 until M3 |
+| 1Ah/00,01 | get/set tick count (18.2 Hz, from the DOC timer: `docs/sound.md`). It starts at the time of day and AH=00 hands over the midnight flag (`docs/clock.md`) |
+| 1Ah/02,04 | RTC time/date, BCD: the IIGS's clock (`docs/clock.md`). 03 and 05 (set) are accepted and ignored |
 | 29h | fast console output |
 
 ## INT 20h / INT 21h (DOS)
@@ -59,7 +59,7 @@ but not yet detected for rendering: M3.
 | 0D, 0E, 19 | disk reset, select (3 drives), current drive (C:) | |
 | 1A, 2F | set / get DTA | default PSP:0080 |
 | 25, 35 | set / get interrupt vector | real IVT |
-| 2A, 2C | date, time | fixed until M3 |
+| 2A, 2C | date, time | the IIGS's clock (`docs/clock.md`); no hundredths. 2B and 2D (set) are not there |
 | 30 | version | 3.30 |
 | 33 | Ctrl-Break flag | off |
 | 36 | disk free space | a fixed plausible disk |

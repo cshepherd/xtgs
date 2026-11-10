@@ -150,7 +150,7 @@ op_CF                      ; iret
  jsr pop16
  jsr flags_set
  ldy tmp1
- jmp (NEXTVEC)
+ jmp irq_soon              ; (an interrupt owed is taken now)
 op_CD                      ; int imm8
  mx %00
  lda [bCS],y

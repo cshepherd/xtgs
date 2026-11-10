@@ -7,6 +7,8 @@
 #   make test-dos         independently sourced DOS utilities (third_party/)
 #   make test-share       FreeDOS with a ProDOS folder as drive C: (docs/share.md);
 #                         BOOT=1: FreeDOS booted from that folder, no disk image
+#   make test-clock       the IIGS clock as the guest's date and time (docs/clock.md);
+#                         DOS=1: under FreeDOS, with the timer's lost ticks made up
 #   make test-layout      the tests again with every bank and bank-$00 page moved
 #   make test-gsos        launch XTGS.SYSTEM from GS/OS (needs a System 6 volume: SYSTEM6=)
 #   make test-s16         the GS/OS application XTGS (src/gs): probe, .COM programs and
@@ -47,13 +49,13 @@ INCLUDES  := src/include/hw.s src/include/layout.s src/include/mailbox.s src/inc
 SYS_SRCS  := src/sys/xtgs.s $(INCLUDES)
 SVC_GEN   := src/svc/gen/font.s src/svc/gen/tables.s src/svc/gen/dostab.s src/svc/gen/t160.s
 SVC_SRCS  := src/svc/svc.s src/svc/video.s src/svc/pcinit.s src/svc/bios.s src/svc/dos.s \
-             src/svc/files.s src/svc/disk.s src/svc/redir.s src/svc/keyboard.s src/svc/sound.s src/svc/capture.s $(SVC_GEN) $(INCLUDES)
+             src/svc/files.s src/svc/disk.s src/svc/redir.s src/svc/keyboard.s src/svc/sound.s src/svc/clock.s src/svc/capture.s $(SVC_GEN) $(INCLUDES)
 CORE_GEN  := src/core/gen/optab.s src/core/gen/eatab.s src/core/gen/alu.s src/core/gen/flagtab.s
 CORE_SRCS := src/core/core.s src/core/probe.s src/core/run.s src/core/jit.s src/core/jit2.s src/core/cpu.s src/core/flags.s \
              src/core/ops_mov.s src/core/ops_ctrl.s src/core/ops_grp.s src/core/ops_str.s \
              src/core/ops_misc.s src/core/harness.s $(CORE_GEN) $(INCLUDES)
 
-.PHONY: all image finder test-m0 test-cpu test-com test-dos test-share test-layout test-gsos test-s16 check-s16 bench boot-dos boot-shared run run-dos dos-image clean lint
+.PHONY: all image finder test-m0 test-cpu test-com test-dos test-share test-clock test-layout test-gsos test-s16 check-s16 bench boot-dos boot-shared run run-dos dos-image clean lint
 
 all: $(PO)
 
@@ -265,6 +267,12 @@ boot-shared: $(PO) $(FDIMG)
 # the batch file are in the folder SHARED and DOS boots from it (command S).
 test-share: $(PO) $(FDIMG)
 	$(PY) tools/share_test.py $(if $(BOOT),--boot) $(if $(LETTER),--letter $(LETTER)) $(if $(FULL),--full)
+
+# The IIGS clock as the guest's (docs/clock.md): tests/com/clock.asm under
+# the stub DOS, or with DOS=1 under FreeDOS booted from a folder (command S),
+# its answers held against this machine's clock.
+test-clock: $(PO) $(FDIMG)
+	$(PY) tools/clock_test.py $(if $(DOS),--dos)
 
 # ---- interactive ------------------------------------------------------------
 

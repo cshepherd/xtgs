@@ -173,6 +173,11 @@ other; this is the whole of what the two images need from either.
   gets there on page 1 of bank `$00`, which `SVC` saves and restores
   around a run (`>$000100,x` in `src/svc/sound.s`). That page and the
   interrupt vector are machine facts, not layout, and stay literal.
+- **The Toolbox.** The Tool Locator and the Misc Tools stay started while
+  the core runs: `SVC` reads the date and time with ReadTimeHex
+  (`src/svc/clock.s`, `docs/clock.md`) through the dispatcher at
+  `$E1:0000`. `XTGS.SYSTEM` starts both (`tools_up`); under GS/OS they are
+  up before an application is.
 
 `XTGS.SYSTEM` keeps to itself the things that are not on that list: its
 load address, the native stack, the buffers it reads `CORE` and `SVC`

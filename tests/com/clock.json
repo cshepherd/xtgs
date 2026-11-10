@@ -1,0 +1,8 @@
+{
+ "com": "clock.asm",
+ "name": "CLOCK.COM",
+ "args": "",
+ "exit": 0,
+ "stdout_contains": ["D ", "T ", "R ", "K ", "W ", "X "],
+ "show_output": true
+}

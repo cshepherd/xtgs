@@ -42,6 +42,7 @@
  put redir.s
  put keyboard.s
  put sound.s
+ put clock.s
  put capture.s
  put gen/font.s
  put gen/tables.s

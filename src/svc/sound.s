@@ -271,6 +271,8 @@ svc_sndopen
  lda #1
  sta snd_on
  jsr tmr_apply             ; a count of 0: 18.2 Hz
+ jsr clk_init              ; the guest starts now: the time of day again (clock.s)
+ mx %00
  cli
 :out
  ply

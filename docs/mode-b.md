@@ -43,6 +43,10 @@ redirector. `docs/share.md`, "Booting from the folder".
   interrupts are enabled: 18.2 times a second, or at the rate the guest
   programs into the 8253. The tick is the Ensoniq DOC's timer oscillator, and
   the PC speaker is two more of its oscillators (`docs/sound.md`).
+- **The date and time** are the IIGS's (`docs/clock.md`): `INT 1Ah AH=02/04`
+  read its clock, the BIOS tick count starts at the time of day, and the
+  ticks the guest could not be given are made up from the clock, so DOS's
+  time stays right. The clock is read-only to the guest.
 - **INT 13h** (`src/svc/disk.s`): reset, read (AH=02, CHS), write, get
   params (AH=08), type (AH=15). The geometry (sectors/track) is read from the
   booted disk's BPB at `svc_bootinit`, so Mode B serves 320K/720K/1.2M/1.44M
@@ -57,7 +61,8 @@ redirector. `docs/share.md`, "Booting from the folder".
 - The boot sector finds KERNEL.SYS, loads it, and chains in. The FreeDOS
   kernel initialises, processes FDCONFIG.SYS, loads COMMAND.COM (FreeCOM
   0.85a), and reaches the `A:\>` prompt. There is no AUTOEXEC.BAT, so FreeCOM
-  first shows its date/time prompt (press Enter twice). A full boot to the
+  first shows its date/time prompt (the IIGS's date and time: press Enter
+  twice to keep them). A full boot to the
   prompt takes roughly 240 s of emulated time at the stock ~15 K guest IPS
   (kernel init plus the COMMAND.COM load is a lot of guest work); it is not a
   hang.
@@ -120,6 +125,12 @@ that code is gone. **IRQ0 is now the Ensoniq DOC's timer oscillator**
 delivers one INT 08h for each while IF is set, and the rate is whatever the
 guest programs into 8253 channel 0 (18.2 Hz by default). The once-a-frame work
 (keyboard poll, screen flush) runs on one VBL edge a frame.
+
+One more of the kind turned up with the clock (`docs/clock.md`): a loop
+that polls `INT 1Ah` and is a divisor of 16 instructions long met the slot
+check only inside the BIOS stub, with interrupts off, and never got its
+IRQ0. `IRET`, `POPF` and `STI` now bring the slot forward when an interrupt
+is owed (`irq_chk`, `src/core/cpu.s`).
 
 ## Real applications
 

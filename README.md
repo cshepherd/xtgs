@@ -51,6 +51,9 @@ lost at power-off. See [Known limits](#known-limits).
   keys of their own. Function keys are Option+digit.
 - **Timer and sound:** the Ensoniq DOC is both the 8253's IRQ0 tick (18.2 Hz,
   or whatever rate the guest programs) and the PC speaker (`docs/sound.md`).
+- **Clock:** the guest's date and time are the IIGS's own, read from its
+  clock (never set by the guest), and the timer ticks DOS could not be given
+  are made up from it so its time stays right (`docs/clock.md`).
 - **Shared drive:** a folder of the ProDOS volume as a DOS drive in Mode B,
   read and written in place, and the drive FreeDOS boots from
   (`docs/share.md`).
@@ -108,7 +111,8 @@ real IIGS yet; `docs/relocation.md`.
 
 Booting FreeDOS takes a few minutes of emulated time (MAME's throttle can be
 turned off to shorten the wait). The folder has no `AUTOEXEC.BAT`, so FreeCOM
-asks for the date and the time first: press Return twice. Then:
+asks for the date and the time first, showing the IIGS's: press Return twice
+to keep them. Then:
 
 ```
 C:\>GWBASIC
@@ -296,14 +300,22 @@ mode only the changed cells (`docs/cga.md`).
 
 **Interrupts.** Every 16 guest instructions the core checks for work: a timer
 tick owed becomes `INT 08h`, a waiting scancode becomes `INT 09h` (both only
-while the guest has interrupts enabled), and on each vertical blank it polls
-the keyboard and flushes the screen.
+while the guest has interrupts enabled; `IRET`, `POPF` and `STI` bring the
+check forward when one is owed), and on each vertical blank it polls the
+keyboard and flushes the screen.
 
 **Timer and sound.** The 8253 is modelled on the Ensoniq DOC. One oscillator
 runs silently and interrupts at the rate the guest programmed into timer
 channel 0; that interrupt is the PC's IRQ0. Two more play a square wave at the
 channel 2 frequency when the guest opens the speaker gate at port 61h
 (`docs/sound.md`).
+
+**Clock.** The date and time come from the IIGS's clock through the Misc
+Tools (`INT 1Ah`, and the built-in DOS's date and time calls). The BIOS tick
+count starts at the time of day, and every two seconds it is compared with
+the clock: ticks lost while a slow BIOS call ran are added back, so a DOS
+that keeps time by counting ticks stays within a second of the IIGS
+(`docs/clock.md`).
 
 A runtime translator (8086 blocks to 65816 code) was built and measured as
 well. It did not pay for itself on the DOS boot and is not used
@@ -366,6 +378,8 @@ suite: all 324 opcode files, 2,883,807 vectors after the exclusions listed in
   several key combinations are missing (above).
 - The interrupt controller has no mask or end-of-interrupt handling, there is
   no A20 or extended memory, and `INT 15h` is nearly empty.
+- The guest reads the IIGS's clock and cannot set it: `DATE` and `TIME`
+  under DOS last until the next boot. Run in MAME only (`docs/clock.md`).
 - The timer tick tops out at 583 Hz. GW-BASIC's background music runs its
   timer at 400 Hz and loses about 6 % of the ticks.
 - GW-BASIC's `TIMER` function returns 0.
@@ -380,6 +394,7 @@ suite: all 324 opcode files, 2,883,807 vectors after the exclusions listed in
 | `docs/keyboard.md` | the key mapping |
 | `docs/cga.md` | CGA graphics |
 | `docs/sound.md` | the DOC as PC speaker and timer |
+| `docs/clock.md` | the IIGS's clock as the PC's date, time and tick count |
 | `docs/cpu-compatibility.md` | 8088 behaviour learned from the hardware vectors |
 | `docs/benchmarks.md` | measurements and where the time goes |
 | `docs/jit.md` | the translator experiment |

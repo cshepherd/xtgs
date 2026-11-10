@@ -47,15 +47,16 @@ vbl_work
  lda vTICK
  beq :noinc
  dec vTICK                 ; (one instruction: the interrupt cannot split it)
- lda >H_BDA+BDA_TICKS
- inc
- sta >H_BDA+BDA_TICKS
- bne :tick
- lda >H_BDA+BDA_TICKS+2
- inc
- sta >H_BDA+BDA_TICKS+2
+ jsr clk_tick
  bra :tick
 :noinc
+ lda vbl_count
+ and #CLK_EVERY
+ bne :nosync
+ lda vPCMODE               ; (a PC there is: the probe and the vectors have none)
+ beq :nosync
+ jsr clk_sync              ; ticks lost? (clock.s)
+:nosync
  jmp flush
 
 * vbl_check - while a service waits: on a VBL edge do the frame's work

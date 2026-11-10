@@ -296,19 +296,40 @@ dos_25                     ; set vector AL = DS:DX
  lda rDS
  sta >H_IVT+2,x
  rts
-dos_2A                     ; date: 1987-01-01, Thursday (fixed until M3)
+dos_2A                     ; date: the IIGS's clock (clock.s). AL = weekday, 0 Sunday
  mx %00
- lda #1987
+ jsr clk_read
+ lda clk_hour
+ xba
+ and #$00FF
+ clc
+ adc #1900
  sta rCX
- lda #$0101
+ lda clk_date
+ clc
+ adc #$0101                ; (month and day from 0; neither carries)
  sta rDX
- lda #4
+ lda clk_wday
+ xba
+ and #$00FF
+ dec
  jmp set_al
-dos_2C                     ; time 12:00:00.00
+dos_2C                     ; time: the same clock, whole seconds
  mx %00
- lda #$0C00
+ jsr clk_read
+ lda clk_hour
+ and #$00FF
+ xba
  sta rCX
- stz rDX
+ lda clk_sec
+ xba
+ and #$00FF
+ ora rCX
+ sta rCX
+ lda clk_sec
+ and #$00FF
+ xba
+ sta rDX
  rts
 dos_2F                     ; get DTA
  mx %00

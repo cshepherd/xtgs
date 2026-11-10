@@ -105,6 +105,39 @@ slot
 :fetch
  jmp fetch
 
+*--- an instruction that can turn interrupts on retires here (Mode B).
+* The slot looks every SLOT_N instructions, and a loop whose length
+* divides SLOT_N meets it at the same instruction every time. When that
+* one is inside a BIOS stub (IF is clear from the INT to its IRET) no
+* interrupt was ever delivered: a program polling INT 1Ah for the tick it
+* was waiting for waited for ever. So with an IRQ owed the slot looks at
+* once after IRET and POPF, and after STI one instruction later, which is
+* when the 8088 takes it.
+irq_sti
+ mx %00
+ lda #2
+ bra irq_chk
+irq_soon
+ mx %00
+ lda #1
+irq_chk
+ mx %00
+ ldx vPCMODE
+ cpx #2
+ bne :no
+ ldx vTICK                 ; IRQ0
+ bne :yes
+ tax
+ lda >KBD_QHEAD            ; IRQ1
+ and #KBD_QMASK
+ cmp >KBD_QTAIL
+ beq :no
+ txa
+:yes
+ sta vSLOT
+:no
+ jmp (NEXTVEC)
+
 *--- prefixes: note it and fetch the next byte
 op_26
  mx %00

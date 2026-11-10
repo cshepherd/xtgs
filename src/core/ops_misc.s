@@ -31,7 +31,7 @@ op_FB                      ; sti
  lda rFL
  ora #F_IF
  sta rFL
- jmp (NEXTVEC)
+ jmp irq_sti               ; (an interrupt owed: after the next instruction)
 op_FC                      ; cld
  mx %00
  lda rFL

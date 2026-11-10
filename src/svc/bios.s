@@ -488,8 +488,15 @@ int_1A
  sta rDX
  lda >H_BDA+BDA_TICKS+2
  sta rCX
+ sep #$20
+ mx %10
+ lda >H_BDA+BDA_MIDNT      ; midnights since the last call, and no more
+ sta rAX
  lda #0
- jmp set_al
+ sta >H_BDA+BDA_MIDNT
+ rep #$20
+ mx %00
+ rts
 :n0
  cmp #1
  bne :n1
@@ -497,21 +504,29 @@ int_1A
  sta >H_BDA+BDA_TICKS
  lda rCX
  sta >H_BDA+BDA_TICKS+2
- rts
+ sep #$20
+ mx %10
+ lda #0
+ sta >H_BDA+BDA_MIDNT
+ rep #$20
+ mx %00
+ jmp clk_mark              ; the guest's own time: kept, at the clock's rate
 :n1
  cmp #2
  bne :n2
- lda #$1200                ; RTC time 12:00:00 (fixed until M3)
- sta rCX
- stz rDX
+ jsr clk_rtctime           ; the IIGS's clock (clock.s)
  jmp clr_cf
 :n2
  cmp #4
+ bne :n4
+ jsr clk_rtcdate
+ jmp clr_cf
+:n4
+ cmp #3                    ; set the time, set the date: the IIGS's clock
+ beq :ro                   ; is not the guest's to set. Taken and dropped.
+ cmp #5
  bne :unk
- lda #$1987                ; RTC date 1987-01-01
- sta rCX
- lda #$0101
- sta rDX
+:ro
  jmp clr_cf
 :unk
  jsr set_cf

@@ -459,15 +459,7 @@ mul_track                  ; sv8 * cur_spt -> A (cur_spt is 8/9/15/18...)
 *----------------------------------------------------------
 int_08
  mx %00
- lda >H_BDA+BDA_TICKS
- inc
- sta >H_BDA+BDA_TICKS
- bne :nc
- lda >H_BDA+BDA_TICKS+2
- inc
- sta >H_BDA+BDA_TICKS+2
-:nc
- rts
+ jmp clk_tick              ; (clock.s: the count, midnight)
 
 *----------------------------------------------------------
 * int_19 - bootstrap loader: a guest that calls it wants to
