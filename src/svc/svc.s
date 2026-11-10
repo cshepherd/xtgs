@@ -32,6 +32,8 @@
  jmp svc_sndopen           ; $04001B  take the DOC: speaker and the IRQ0 timer
  jmp svc_sndclose          ; $04001E  give it back
  jmp svc_sndport           ; $040021  a write to port A (40h-61h), value in tmp0
+ jmp svc_portout           ; $040024  Mode B: a write to any other port A, value in tmp0
+ jmp svc_portin            ; $040027  Mode B: a read of port A the core has not -> A
 
  put video.s
  put pcinit.s
@@ -39,6 +41,7 @@
  put dos.s
  put files.s
  put disk.s
+ put ports.s
  put redir.s
  put keyboard.s
  put sound.s

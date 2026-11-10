@@ -21,6 +21,7 @@
 
 TXT_BASE  = H_TXT            ; B800:0000 in host memory
 TXT_LEN   = 4000
+TXT_WRAP  = $3FFF            ; the CGA's 16K: buffer offsets go round
 ROW_BYTES = 1280             ; 8 scan lines x 160 bytes
 
 *----------------------------------------------------------
@@ -127,6 +128,11 @@ svc_render_row
 * render_row - A = row. DBR = $04. Clobbers A, X, Y, sv0-sv3,
 * pCELL, pTXT.
 *
+* The row's cells are at txt_org in the buffer (the 6845's
+* start address, which a guest that scrolls in hardware moves:
+* flush), and the buffer is 16K and goes round, in the middle
+* of a row as well. txt_shadow is by place on the screen.
+*
 * Only the cells that differ from txt_shadow (what the screen
 * shows) are drawn: a guest that rewrites B800 with what is
 * already there (GW-BASIC's idle prompt does, every tick)
@@ -137,7 +143,8 @@ svc_render_row
 *----------------------------------------------------------
 txt_shadow ds TXT_LEN        ; the char/attribute words on the screen
 shd_ok     ds 50             ; a word a row: the shadow matches the pixels
-shd_part   dw 0              ; this row: nonzero = changed cells only
+shd_part   dw 0              ; this row: $8000 = changed cells only
+txt_org    dw 0              ; buffer offset of the screen's first cell (even)
 shd_end    dw 0              ; text offset just past this row
 shd_cell   dw 0              ; pCELL = this + the text offset
 
@@ -160,6 +167,8 @@ render_row
  sta shd_end
  lda #^TXT_BASE
  sta pTXT+2
+ lda #TXT_BASE
+ sta pTXT
  lda #^SHR_PIX
  sta pCELL+2
  lda sv3
@@ -185,30 +194,44 @@ render_row
  asl
  tax
  lda shd_ok,x
+ cmp #1
+ lda #0
+ ror                       ; $8000: the shadow is good
  sta shd_part
  lda #1
  sta shd_ok,x
+ lda sv2
+ clc
+ adc txt_org
+ and #TXT_WRAP
+ tay                       ; Y: in the buffer, X: on the screen
  ldx sv2
 :cell
- lda >TXT_BASE,x
- ldy shd_part
- beq :draw
+ lda [pTXT],y
  cmp txt_shadow,x
- beq :skip
+ bne :draw
+ bit shd_part
+ bmi :skip
 :draw
  sta txt_shadow,x
  stx sv2
- txa
- clc
- adc #TXT_BASE
- sta pTXT
+ sty sv3
+ tay
  txa
  clc
  adc shd_cell
  sta pCELL
+ tya
  jsr render_cell
  ldx sv2
+ ldy sv3
 :skip
+ iny
+ iny
+ cpy #TXT_WRAP+1
+ bcc :in
+ ldy #0
+:in
  inx
  inx
  cpx shd_end
@@ -247,13 +270,12 @@ rrow mac
  <<<
 
 *----------------------------------------------------------
-* render_cell - the char/attribute word at [pTXT] to the
-* 8x8 cell at [pCELL]. DBR = $04. Clobbers A, X, Y, sv0, sv1.
+* render_cell - the char/attribute word A to the 8x8 cell
+* at [pCELL]. DBR = $04. Clobbers A, X, Y, sv0, sv1.
 *----------------------------------------------------------
 render_cell
  mx %00
- lda [pTXT]                ; low: character, high: attribute
- pha
+ pha                       ; low: character, high: attribute
  and #$00FF
  asl
  asl
@@ -514,7 +536,8 @@ cell_shr
  clc
  adc sv9
  rts
-* cell_ptrs - sv4 = row, sv5 = col -> pTXT, pCELL for render_cell
+* cell_ptrs - sv4 = row, sv5 = col on the screen -> pTXT (its
+* cell in the buffer), pCELL, X = its offset in txt_shadow
 cell_ptrs
  mx %00
  lda sv4
@@ -523,6 +546,10 @@ cell_ptrs
  adc sv5
  clc
  adc sv5
+ tax
+ clc
+ adc txt_org
+ and #TXT_WRAP
  clc
  adc #TXT_BASE
  sta pTXT
@@ -559,6 +586,15 @@ flush
 :t160
  jmp t160_flush           ; 160x100: the changed cells of the dirty pages (rts)
 :txt
+ lda >CRTC_REG+12          ; the 6845's start address (R12 high, R13 low, in
+ xba                       ; cells): a guest that scrolls by moving it (Minix)
+ asl                       ; has every row somewhere else. The shadow is by
+ and #TXT_WRAP-1           ; screen place, so only cells that differ are drawn
+ cmp txt_org
+ beq :same
+ sta txt_org
+ jsr mark_all
+:same
  jsr pages_to_rows
  lda dirty_any
  beq :cursor
@@ -595,11 +631,13 @@ flush
  lda blink
  and #$0020
  bne :want
+:hide
  lda cur_on
  beq :done
  jmp cursor_erase
 :want
- lda >H_BDA+BDA_CURPOS
+ jsr cur_where
+ bcs :hide
  sta sv8
  lda cur_on
  beq :put
@@ -615,51 +653,131 @@ flush
  sta cur_on
 :done
  rts
-* pages_to_rows - the core's 256-byte page marks (direct B800 writes)
-* become dirty rows: page p covers rows p*256/160 .. (p*256+255)/160.
+* cur_where - where the cursor is: A = col | row<<8, or carry set
+* when it is not on the screen. The BIOS's cursor (the BDA) until
+* the guest writes the 6845's cursor address (R14/R15, CRTC_CUR
+* from the core's port write), and again once the BIOS moves its own.
+cur_bda    dw 0              ; the BDA's cursor when last looked at
+cur_where
+ mx %00
+ lda >H_BDA+BDA_CURPOS
+ cmp cur_bda
+ beq :still
+ sta cur_bda
+ lda #0
+ sta >CRTC_CUR
+:still
+ lda >CRTC_CUR
+ bne :crtc
+ lda cur_bda
+ clc
+ rts
+:crtc
+ lda >CRTC_REG+10          ; cursor start: bits 6-5 = 01 is no cursor
+ and #$0060
+ cmp #$0020
+ beq :off
+ lda >CRTC_REG+14          ; R14 high, R15 low, in cells from B800:0000
+ xba
+ asl
+ sec
+ sbc txt_org
+ and #TXT_WRAP-1
+ cmp #TXT_LEN
+ bcs :off
+ sta sv8                   ; its offset on the screen
+ lsr
+ lsr
+ lsr
+ lsr
+ lsr
+ tax
+ lda div5_tab,x
+ and #$00FF
+ pha                       ; row
+ jsr row_off
+ eor #$FFFF
+ sec
+ adc sv8
+ lsr
+ sta sv8                   ; col
+ pla
+ xba
+ ora sv8
+ clc
+ rts
+:off
+ sec
+ rts
+* pages_to_rows - the core's 256-byte page marks (direct B800 writes,
+* all 16K) become dirty rows: the rows that show the page's first
+* byte, its last and the one 160 on, from where the screen starts.
 pages_to_rows
  mx %00
  ldx #0
 :p
- lda >VID_DIRTY,x
- and #$00FF
+ lda >VID_DIRTY,x          ; two pages at a time
  beq :next
+ pha
  lda #0
- sep #$20
- mx %10
  sta >VID_DIRTY,x
- rep #$20
- mx %00
- lda page_row0,x
+ lda 1,s
  and #$00FF
- pha
- lda page_row1,x
- and #$00FF
- sta sv9
+ beq :odd
+ txa
+ jsr page_rows
+:odd
  pla
-:r
- cmp sv9
- beq :last
- bcs :next
-:last
- pha
- jsr mark_row
- pla
+ and #$FF00
+ beq :next
+ txa
  inc
- cmp sv9
- bcc :r
- beq :r
+ jsr page_rows
 :next
  inx
- cpx #16
+ inx
+ cpx #64
  bcc :p
  rts
-page_row0 hex 00010304060809
- hex 0B0C0E0F11121416
- hex 1718
-page_row1 hex 01030406080A0B
- hex 0D0E101113141617
- hex 1818
+page_rows                  ; A = page. Keeps X.
+ mx %00
+ phx
+ xba
+ sec
+ sbc txt_org
+ sta sv8
+ jsr :mark
+ lda sv8
+ clc
+ adc #160
+ jsr :mark
+ lda sv8
+ clc
+ adc #255
+ jsr :mark
+ plx
+ rts
+:mark
+ and #TXT_WRAP
+ cmp #TXT_LEN
+ bcs :no
+ lsr
+ lsr
+ lsr
+ lsr
+ lsr
+ tax
+ lda div5_tab,x
+ and #$00FF
+ jmp mark_row
+:no
+ rts
+div5_tab                   ; n/5: a screen offset / 32 -> its row
+ hex 00000000000101010101020202020203030303030404040404
+ hex 05050505050606060606070707070708080808080909090909
+ hex 0A0A0A0A0A0B0B0B0B0B0C0C0C0C0C0D0D0D0D0D0E0E0E0E0E
+ hex 0F0F0F0F0F1010101010111111111112121212121313131313
+ hex 14141414141515151515161616161617171717171818181818
 cursor_draw                ; underline (pixel rows 6-7) at cur_at
  mx %00
  lda cur_at
@@ -679,11 +797,7 @@ cursor_erase               ; re-render the cell under the cursor
  and #$00FF
  sta sv5
  jsr cell_ptrs
- lda pTXT                  ; what is drawn goes in the shadow too
- sec
- sbc #TXT_BASE
- tax
- lda [pTXT]
+ lda [pTXT]                ; what is drawn goes in the shadow too
  sta txt_shadow,x
  jsr render_cell
  stz cur_on
@@ -1181,9 +1295,12 @@ vid_setmode
  and #$00FF
  pha
  lda #$0607                ; a mode set reprograms the 6845 (8 scan lines a row;
- sta >CRTC_REG+9           ; the 160x100 mode ends here) and the mode-control
- lda #0                    ; register, so nothing written to them before it is
- sta >CGA_MODECHG          ; still to be applied
+ sta >CRTC_REG+9           ; the 160x100 mode ends here; the screen from
+ lda #0                    ; B800:0000, the cursor the BIOS's) and the
+ sta >CRTC_REG+12          ; mode-control register, so nothing written to
+ sta >CRTC_REG+14          ; them before it is still to be applied
+ sta >CRTC_CUR
+ sta >CGA_MODECHG
  pla
  cmp #4
  bcc :text                 ; 0-3: text

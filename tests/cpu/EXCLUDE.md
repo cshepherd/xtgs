@@ -13,3 +13,12 @@ Vectors from SingleStepTests/8088 v2 that `tools/vectors.py` drops, and why.
 Instruction fetch also does not wrap at the *segment* boundary (a byte of an
 instruction at `xxxx:FFFF` followed by `xxxx:0000`); the suite does not
 exercise that and real code does not do it.
+
+## Known deviations
+
+- `IN` from a port the core serves itself reads the PC's device in every
+  mode, where the suite's machine had nothing there and read `FFh`: the
+  keyboard's 60h and 64h, the 8253's 40h and 42h, port B at 61h and the
+  CGA's status at 3DAh (`port_in8`, `src/core/ops_misc.s`). In a 300-vector
+  sample of `E4` that is 2 failures (`E4 60`, `E4 61`). Every other port
+  reads `FFh` under the vectors.

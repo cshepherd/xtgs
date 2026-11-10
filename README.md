@@ -5,7 +5,8 @@ and a PC-compatible BIOS, written in 65816 assembly (Merlin32) for an 8 MB
 Apple IIGS and booted straight from ProDOS 8. It boots FreeDOS, from a
 folder of the ProDOS volume or from a floppy image, and runs real DOS
 software on top of it: GW-BASIC with CGA graphics and sound, and Lotus 1-2-3
-Release 1A.
+Release 1A. It also boots Minix 1.5 from its demonstration diskette, which
+drives the PC's interrupt controller, diskette controller and 6845 itself.
 
 | | |
 | --- | --- |
@@ -15,8 +16,8 @@ Release 1A.
 | GW-BASIC `SCREEN 1` (CGA 320x200, four colours): `LINE`, `CIRCLE`, `COLOR 1,1` | Lotus 1-2-3 1A: labels, values and `@SUM(B1..B3)` |
 | ![Lotus 1-2-3 graph menu](assets/lotus-menu.png) | ![Lotus 1-2-3 bar graph](assets/lotus-graph.png) |
 | 1-2-3's `/Graph` menu | `/Graph View`: the bar graph of that worksheet, drawn by 1-2-3's CGA driver |
-| ![Tunneler in the 160x100 16-colour mode](assets/tunneler.png) | |
-| Tunneler: CGA's 160x100 16-colour mode, the blue tank firing with Control held | |
+| ![Tunneler in the 160x100 16-colour mode](assets/tunneler.png) | ![Minix 1.5 logged in as root](assets/minix.png) |
+| Tunneler: CGA's 160x100 16-colour mode, the blue tank firing with Control held | Minix 1.5 from its demonstration diskette: the date, the login, `ls -l /`, `df` and `date` |
 
 The screenshots are the emulated IIGS's Super Hi-Res screen, captured from
 headless MAME runs and doubled in height (the SHR screen is 640x200 or
@@ -58,7 +59,8 @@ lost at power-off. See [Known limits](#known-limits).
   read and written in place, and the drive FreeDOS boots from
   (`docs/share.md`).
 - **Disk:** or one floppy image (320 KB to 1.44 MB), held in RAM and served
-  through `INT 13h`.
+  through `INT 13h`, and through the diskette controller's own ports (765
+  and 8237) to a system that brings its own driver (`docs/minix.md`).
 - **Two ways to run a program:** *Mode B* boots a real DOS, from the shared
   folder or a floppy image, with XT/GS supplying only the BIOS and hardware. *Mode A* runs a
   single `.COM` or `.EXE` from the ProDOS volume under a small built-in DOS
@@ -122,11 +124,18 @@ C:\>GWBASIC
 
 No commercial software is included. To boot a disk of your own (or
 anything that is not FreeDOS, or needs a drive `A:`), put a raw sector
-image (320 KB, 720 KB, 1.2 MB or 1.44 MB; the geometry is read from its boot
-sector) on the volume as `DISK`, with an `XTGS.CMD` that says `D`. The whole
+image (320 KB, 360 KB, 720 KB, 1.2 MB or 1.44 MB; the geometry goes by its
+size) on the volume as `DISK`, with an `XTGS.CMD` that says `D`. The whole
 image is read into memory before the PC starts, and takes 23 banks
 (1.44 MB) of the IIGS's memory whatever its size; `make boot-dos` boots
-FreeDOS that way, from `third_party/freedos/fd/freedos.img`:
+FreeDOS that way, from `third_party/freedos/fd/freedos.img`.
+
+```
+make disk-image IMG=mydisk.img    # build/disk/disk.po
+make run-disk IMG=mydisk.img      # the same, and boot it in Ample's MAME
+```
+
+or by hand:
 
 ```
 mkdir -p build/my
@@ -137,6 +146,49 @@ VOLSIZE=4096KB tools/make_image.sh build/my/my.po \
     'build/stage/SVC#060000' 'build/my/DISK#060000' 'build/my/XTGS.CMD#040000'
 tools/mame/run-mame.sh build/my/my.po
 ```
+
+### Minix
+
+The tree carries one system that is not a DOS: the 360K demonstration
+diskette of Minix 1.5 (`third_party/minix/`, under Minix's BSD-style
+licence).
+
+```
+make run-minix      # build/disk/disk.po with the diskette on it, in Ample's MAME
+make minix-image    # only build the volume
+```
+
+| | |
+| --- | --- |
+| ![The Minix 1.5 boot menu](assets/minix-boot.png) | ![Minix 1.5 logged in as root](assets/minix.png) |
+| The boot menu: press `=` | The date typed, `login: root`, then `ls -l /`, `df` and `date` |
+
+At the boot menu press `=`. Minix loads its root file system from the
+diskette into a RAM disk, then asks for the date: twelve digits,
+`MMDDYYhhmmss`, and Return (Minix does not read a PC's clock, so it cannot
+have the IIGS's). Log in as `root`; there is no password. The diskette has
+`sh` and 25 commands in `/bin`, among them `ls`, `cp`, `df`, `date`,
+`head`, `tail`, `sort`, `mkfs` and the editor `mined` (no `cat`: `head` or
+`tail` will do). There is no shutdown command on it: switch off when done,
+nothing is written back.
+
+It is a patient system on this machine. Emulated seconds from power-on, in
+MAME:
+
+| | boot menu | date prompt | `login:` | first `#` |
+| --- | --- | --- | --- | --- |
+| stock IIGS, 2.8 MHz | 18 | 327 | 452 | 493 |
+| ZipGS, 16 MHz | 4 | 33 | 45 | 50 |
+
+Minix is the guest that takes the PC at its word. Once its kernel is up it
+never calls the BIOS: it moves the 8259's interrupt vectors and masks its
+lines, reads the diskette with its own driver through the 765 controller
+and the 8237, writes the screen memory and scrolls by the 6845's start
+address, and keeps time from a 60 Hz timer interrupt. XT/GS grew each of
+those for it (`src/svc/ports.s`, the text renderer in `src/svc/video.s`),
+and any other system that drives the hardware gets them too.
+`docs/minix.md` has the details, the test (`make test-minix`) and the
+limits. Minix has been run in MAME only, not yet on a real IIGS.
 
 ### The ProDOS folder that is drive C:
 
@@ -229,6 +281,7 @@ DOS on its floppy image); "Mode A" means under the built-in DOS.
 | GW-BASIC (tkchia's MIT-licensed rebuild of Microsoft's source) | B | **Works.** Editor, `LIST`/`RUN`/`LOAD`, function keys, `SCREEN 1` and `SCREEN 2` drawing, `COLOR`, `SOUND`/`PLAY`/`BEEP`. `PRINT` does not show in the graphics screens (see limits) |
 | GW-BASIC 3.23 (Microsoft's binary) | B | Runs a program given on the command line; interactively it refuses with "You can not SHELL to BASIC" on FreeDOS. Use the rebuild |
 | Lotus 1-2-3 Release 1A (1983), System disk | B | **Partly.** The disk boots its own PC-DOS and the Lotus Access System menu works. The disk is copy-protected and a sector image cannot satisfy the check, so an unmodified `123.EXE` exits back to the menu. With that check bypassed in a private copy, 1-2-3 runs: worksheet entry, formulas, recalculation, F-keys, and graphs in CGA. The stock `AUTOEXEC.BAT`'s clock utility hangs, and the first keystroke in a new worksheet is dropped |
+| Minix 1.5, 360K demonstration diskette (in the tree) | B | **Works, slowly.** Boot menu, kernel, RAM disk loaded through Minix's own diskette driver, date prompt, login as `root`, the shell; `ls -l`, `date`, `df`, `mkfs /dev/fd0` and the scrolling console were tried, in MAME. A stock IIGS takes five and a half minutes to the date prompt and eight to the shell, a 16 MHz ZipGS under a minute (`docs/minix.md`) |
 | MS-DOS 2.0 `FIND.EXE`, `DEBUG.COM`, `EDLIN.COM`, `MORE.COM` | A | **Work** |
 | FreeDOS 1.3 `TREE.COM`, `DEBUG.COM` | A | **Work** |
 | FreeDOS 1.3 `FIND.COM` | A | Exits without output after checking the DOS version |
@@ -336,6 +389,10 @@ make test-share   a ProDOS folder as drive C: under FreeDOS: DIR, COPY both
                   ways, MD/REN/DEL, programs and GW-BASIC run from it, and
                   the volume compared afterwards (LETTER=E, FULL=1 vary it;
                   BOOT=1: FreeDOS booted from that folder, no disk image)
+make test-minix   boot the Minix 1.5 demonstration diskette
+                  (third_party/minix/demo_dsk.ibm) to its shell, type a
+                  command line and judge the screen (ZIP=1: at 16 MHz, 75
+                  emulated seconds instead of 743)
 make test-layout  the probe, .COM and sampled CPU tests with every part of
                   XT/GS in a different bank, and every bank-$00 page it uses
                   at a different address, than it was assembled for
@@ -376,8 +433,14 @@ suite: all 324 opcode files, 2,883,807 vectors after the exclusions listed in
   of the screen. Clear with `LINE (0,0)-(319,199),0,BF` instead.
 - One ordinary key can be held at a time (plus Shift and Control), and
   several key combinations are missing (above).
-- The interrupt controller has no mask or end-of-interrupt handling, there is
-  no A20 or extended memory, and `INT 15h` is nearly empty.
+- The interrupt controller is its vector base and its mask: no priorities,
+  no in-service register, and only the timer, the keyboard and the diskette
+  interrupt. There is no A20 or extended memory, and `INT 15h` is nearly
+  empty.
+- The diskette controller answers at once and has one drive; there is no
+  hard disk, serial port or printer port. Minix and the hardware it drives
+  have been run in MAME only, and Minix spends about half of a stock IIGS's
+  time on its 60 Hz clock interrupt (`docs/minix.md`).
 - The guest reads the IIGS's clock and cannot set it: `DATE` and `TIME`
   under DOS last until the next boot. Run in MAME only (`docs/clock.md`).
 - The timer tick tops out at 583 Hz. GW-BASIC's background music runs its
@@ -390,6 +453,7 @@ suite: all 324 opcode files, 2,883,807 vectors after the exclusions listed in
 | --- | --- |
 | `docs/mode-b.md` | booting DOS from a disk image; application notes |
 | `docs/share.md` | a ProDOS folder as a DOS drive, and as the drive FreeDOS boots from |
+| `docs/minix.md` | Minix 1.5, and the hardware it drives directly: the 8259, the diskette controller, the 6845's start address and cursor |
 | `docs/dos-api.md` | the built-in DOS and BIOS services of Mode A |
 | `docs/keyboard.md` | the key mapping |
 | `docs/cga.md` | CGA graphics |
@@ -405,8 +469,11 @@ suite: all 324 opcode files, 2,883,807 vectors after the exclusions listed in
 
 ## Third-party software
 
-Nothing third-party is distributed in this tree except the public-domain
-`font8x8` glyphs. The build fetches the rest into `third_party/`: the FreeDOS
+Two third-party things are distributed in this tree: the public-domain
+`font8x8` glyphs, and the Minix 1.5 demonstration diskette
+(`third_party/minix/demo_dsk.ibm`, unmodified), which is under the BSD-style
+licence Prentice Hall agreed to for Minix in April 2000
+(`third_party/minix/LICENSE`). The build fetches the rest into `third_party/`: the FreeDOS
 kernel and utilities (GPL), FreeCOM, Microsoft's MIT-licensed MS-DOS 2.0
 binaries, and the SingleStepTests 8088 vectors. GW-BASIC is tkchia's rebuild
 of Microsoft's MIT-licensed source. Lotus 1-2-3 and other commercial titles

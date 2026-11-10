@@ -18,7 +18,9 @@
 *----------------------------------------------------------
 disk_lba   ds 4              ; working LBA (SVC bank)
 disk_cnt   dw 0              ; sectors this call
-cur_spt    dw 18             ; sectors/track, from the booted disk's BPB
+cur_spt    dw 18             ; sectors/track: the image's size says, or its BPB
+cur_cyls   dw 80             ; cylinders
+cur_type   dw 4              ; INT 13h AH=08's drive type in BL
 disk_have  dw 1              ; 0: no image (the S command)
 boot_res   dw 0              ; what svc_bootinit returns
 
@@ -43,6 +45,7 @@ svc_bootinit
  sta >KBD_QHEAD            ; empty the hardware-keyboard scancode ring
  sta >KBD_QTAIL
  jsr kb_reset              ; no key down, no modifier sent
+ jsr ports_init            ; the 8259 as a BIOS leaves it, the 765 idle
  jsr build_stubs
  jsr build_ivt
  jsr build_bda
@@ -78,12 +81,7 @@ svc_bootinit
  lda #GUEST_BANK
  sta pGST+2
  jsr disk_copy_in
- lda >GUEST_BASE+$7C18     ; BPB sectors/track (offset 0x18) sets the geometry
- and #$00FF                ; so Mode B serves 320K/720K/1.2M/1.44M alike
- bne :spt
- lda #DISK_SPT             ; a boot sector with no BPB: assume 1.44 MB
-:spt
- sta cur_spt
+ jsr disk_geom             ; 320K/360K/720K/1.2M/1.44M alike
  lda >GUEST_BASE+$7DFE     ; boot sector signature (AA55) -> boot trace
  sta >MB_BOOTTRC
 :screen
@@ -100,6 +98,61 @@ svc_bootinit
  plb
  lda >boot_res
  rtl
+
+* disk_geom - the geometry of the image. A floppy's size names its
+* format, and a disk need not have a BPB to say so (Minix's has code
+* there); for any other size the BPB's sectors/track, or 1.44 MB's.
+disk_geom
+ mx %00
+ lda >MB_FILELEN+1         ; bytes >> 9: sectors
+ lsr
+ sta sv0
+ lda >MB_FILELEN+2
+ and #$FF00
+ beq :small
+ lda #$FFFF
+ sta sv0
+:small
+ ldx #0
+:find
+ lda geo_secs,x
+ beq :bpb
+ cmp sv0
+ beq :got
+ txa
+ clc
+ adc #8
+ tax
+ bra :find
+:got
+ lda geo_secs+2,x
+ sta cur_spt
+ lda geo_secs+4,x
+ sta cur_cyls
+ lda geo_secs+6,x
+ sta cur_type
+ rts
+:bpb
+ lda #DISK_CYLS
+ sta cur_cyls
+ lda #4
+ sta cur_type
+ lda >GUEST_BASE+$7C18     ; BPB sectors/track (offset 0x18)
+ and #$00FF
+ beq :dflt
+ cmp #64
+ bcc :spt
+:dflt
+ lda #DISK_SPT             ; a boot sector with no BPB: assume 1.44 MB
+:spt
+ sta cur_spt
+ rts
+geo_secs   dw 640,8,40,1     ; sectors, sectors/track, cylinders, type
+           dw 720,9,40,1
+           dw 1440,9,80,3
+           dw 2400,15,80,2
+           dw 2880,18,80,4
+           dw 0
 
 * disk_copy_in - copy disk_cnt sectors from LBA disk_lba into
 * [pGST] (host pointer). pGST advances. Clobbers A,X,Y,sv*.
@@ -244,16 +297,17 @@ int_13
  lda #1
  jsr set_ah
  jmp clr_cf
-:params                   ; geometry of a 1.44 MB floppy
- lda #$0000               ; CH = max cylinder low (79), CL bits: sectors
+:params                   ; the geometry of the image
+ lda #$0000               ; CH = max cylinder low, CL bits: sectors
  sta rAX                  ; AH = 0
- lda #DISK_CYLS-1         ; CH
+ lda cur_cyls             ; CH
+ dec
  xba
  ora cur_spt              ; CL = sectors/track (cyl high bits 0)
  sta rCX
  lda #$0101               ; DH = heads-1 (1), DL = drive count (1)
  sta rDX
- lda #$0004               ; BL = 04 (1.44 MB), ES:DI -> DPT (left 0)
+ lda cur_type              ; BL = the drive type, ES:DI -> DPT (left 0)
  sta rBX
  stz rDI
  stz rES
@@ -401,6 +455,10 @@ chs_to_lba
 :lj7
  dec
  sta sv2                  ; sector-1
+ cmp cur_spt
+ bcc :lj8
+ jmp :bad                 ; a sector the track has not: "not found"
+:lj8
  lda rCX
  and #$00C0               ; cyl high bits
  asl
@@ -411,6 +469,8 @@ chs_to_lba
  and #$00FF               ; CH = cyl low
  ora sv3
  sta sv4                  ; cylinder
+ cmp cur_cyls
+ bcs :bad
  lda rDX
  xba
  and #$00FF               ; DH = head

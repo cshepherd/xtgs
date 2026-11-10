@@ -9,6 +9,8 @@
 #                         BOOT=1: FreeDOS booted from that folder, no disk image
 #   make test-clock       the IIGS clock as the guest's date and time (docs/clock.md);
 #                         DOS=1: under FreeDOS, with the timer's lost ticks made up
+#   make test-minix       Minix 1.5's demonstration diskette (third_party/minix)
+#                         booted to its shell (docs/minix.md; ZIP=1 at 16 MHz)
 #   make test-layout      the tests again with every bank and bank-$00 page moved
 #   make test-gsos        launch XTGS.SYSTEM from GS/OS (needs a System 6 volume: SYSTEM6=)
 #   make test-s16         the GS/OS application XTGS (src/gs): probe, .COM programs and
@@ -20,6 +22,9 @@
 #                         it) when opened
 #   make boot-dos         boot the FreeDOS floppy image headless (command D);
 #   make boot-shared      the same from the folder SHARED (command S)
+#   make disk-image IMG=path   build/disk/disk.po: XT/GS and a PC diskette image,
+#                         command D; make run-disk boots it in Ample's MAME
+#   make minix-image      the same with the Minix diskette; make run-minix boots it
 #   make run         boot the image in Ample's MAME with the claudebridge plugin
 #   make run-dos     boot FreeDOS from the folder SHARED interactively in Ample's MAME
 #   make clean
@@ -49,13 +54,13 @@ INCLUDES  := src/include/hw.s src/include/layout.s src/include/mailbox.s src/inc
 SYS_SRCS  := src/sys/xtgs.s $(INCLUDES)
 SVC_GEN   := src/svc/gen/font.s src/svc/gen/tables.s src/svc/gen/dostab.s src/svc/gen/t160.s
 SVC_SRCS  := src/svc/svc.s src/svc/video.s src/svc/pcinit.s src/svc/bios.s src/svc/dos.s \
-             src/svc/files.s src/svc/disk.s src/svc/redir.s src/svc/keyboard.s src/svc/sound.s src/svc/clock.s src/svc/capture.s $(SVC_GEN) $(INCLUDES)
+             src/svc/files.s src/svc/disk.s src/svc/ports.s src/svc/redir.s src/svc/keyboard.s src/svc/sound.s src/svc/clock.s src/svc/capture.s $(SVC_GEN) $(INCLUDES)
 CORE_GEN  := src/core/gen/optab.s src/core/gen/eatab.s src/core/gen/alu.s src/core/gen/flagtab.s
 CORE_SRCS := src/core/core.s src/core/probe.s src/core/run.s src/core/jit.s src/core/jit2.s src/core/cpu.s src/core/flags.s \
              src/core/ops_mov.s src/core/ops_ctrl.s src/core/ops_grp.s src/core/ops_str.s \
              src/core/ops_misc.s src/core/harness.s $(CORE_GEN) $(INCLUDES)
 
-.PHONY: all image finder test-m0 test-cpu test-com test-dos test-share test-clock test-layout test-gsos test-s16 check-s16 bench boot-dos boot-shared run run-dos dos-image clean lint
+.PHONY: all image finder test-m0 test-cpu test-com test-dos test-share test-clock test-minix test-layout test-gsos test-s16 check-s16 bench boot-dos boot-shared run run-dos dos-image disk-image run-disk clean lint minix-image run-minix
 
 all: $(PO)
 
@@ -274,6 +279,15 @@ test-share: $(PO) $(FDIMG)
 test-clock: $(PO) $(FDIMG)
 	$(PY) tools/clock_test.py $(if $(DOS),--dos)
 
+# Minix 1.5 from its demonstration diskette (docs/minix.md): the boot menu,
+# the date, a login and a shell that lists directories, with the 8259, the
+# diskette controller and the 6845 as Minix drives them itself. MINIX= is
+# the 360K image (third_party/minix, with its licence); ZIP=1 a 16 MHz
+# ZipGS (a stock IIGS takes twelve emulated minutes).
+MINIX        := third_party/minix/demo_dsk.ibm
+test-minix: $(PO)
+	$(PY) tools/minix_test.py $(MINIX) $(if $(ZIP),--zip)
+
 # ---- interactive ------------------------------------------------------------
 
 run: $(PO)
@@ -301,6 +315,31 @@ $(B)/boot/boot.po: $(B)/xtgs $(B)/core $(B)/svc $(FDIMG) tools/make_image.sh
 # Boot that image (Mode B) interactively in Ample's MAME. See docs/mode-b.md.
 run-dos: $(B)/boot/boot.po
 	tools/mame/run-mame.sh $(B)/boot/boot.po
+
+# disk-image IMG=path: build/disk/disk.po, a ProDOS 8 volume that boots
+# XT/GS and then the PC diskette image IMG (Mode B, command D): its boot
+# sector is run, whatever system it holds. run-disk boots it in Ample's MAME.
+# (Always rebuilt: IMG is whatever was named this time.)
+disk-image: $(B)/xtgs $(B)/core $(B)/svc
+	@[ -f "$(IMG)" ] || { echo "disk-image: name a diskette image, IMG=path"; exit 1; }
+	@mkdir -p $(B)/disk
+	cp $(B)/xtgs $(B)/disk/XTGS.SYSTEM\#FF2000
+	cp $(B)/core $(B)/disk/CORE\#060000
+	cp $(B)/svc  $(B)/disk/SVC\#060000
+	cp "$(IMG)"  $(B)/disk/DISK\#060000
+	printf 'D\r' > $(B)/disk/XTGS.CMD\#040000
+	VOLSIZE=4096KB tools/make_image.sh $(B)/disk/disk.po \
+	    $(B)/disk/XTGS.SYSTEM\#FF2000 $(B)/disk/CORE\#060000 $(B)/disk/SVC\#060000 \
+	    $(B)/disk/DISK\#060000 $(B)/disk/XTGS.CMD\#040000
+run-disk: disk-image
+	tools/mame/run-mame.sh $(B)/disk/disk.po
+
+# Minix 1.5 that way (docs/minix.md): at its boot menu press "=", type the
+# date it asks for, log in as root.
+minix-image:
+	$(MAKE) disk-image IMG=$(MINIX)
+run-minix:
+	$(MAKE) run-disk IMG=$(MINIX)
 
 lint: $(B)/xtgs $(B)/xtgs16 $(B)/core $(B)/svc
 

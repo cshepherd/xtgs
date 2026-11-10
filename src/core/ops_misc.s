@@ -81,6 +81,12 @@ port_in8                   ; A = port -> A = value (8-bit in the low byte)
  beq :ppib
  cmp #$03DA
  beq :cgastat
+ ldx vPCMODE               ; Mode B: the 8259, the 8237 and the diskette
+ cpx #2                    ; controller (ports.s); a port nobody is at reads FF
+ bne :nobody
+ jsl SVC_BASE+39           ; svc_portin (keeps Y)
+ rts
+:nobody
  lda #$00FF
  rts
 :ppib                      ; 8255 port B: what was written (the speaker bits a
@@ -171,6 +177,11 @@ port_out                   ; A = port, tmp0 = value
  beq :cidx
  cmp #$03D5                ; and the selected register
  beq :creg
+ ldx vPCMODE               ; Mode B: the 8259, the 8237 and the diskette
+ cpx #2                    ; controller (ports.s)
+ bne :nobody
+ jsl SVC_BASE+36           ; svc_portout (keeps Y)
+:nobody
  rts
 :cidx
  lda tmp0
@@ -187,9 +198,17 @@ port_out                   ; A = port, tmp0 = value
  rep #$20
  mx %00
  cpx #9                    ; the maximum scan line: with 1, text is the 160x100
- bne :cdone                ; mode (svc_vbl looks, as for a 0x3D8 write)
+ bne :curs                 ; mode (svc_vbl looks, as for a 0x3D8 write)
  lda #1
  sta >CGA_MODECHG
+ rts
+:curs
+ cpx #14                   ; the cursor address: the guest moves the cursor
+ bcc :cdone                ; itself (the BIOS's own moves take it back)
+ cpx #16
+ bcs :cdone
+ lda #1
+ sta >CRTC_CUR
 :cdone
  rts
 :mctl

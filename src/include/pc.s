@@ -83,7 +83,8 @@ CGA_MODEREQ = RES_BASE+$870  ; last value written to CGA mode-control port 0x3D8
 CGA_MODECHG = RES_BASE+$872  ; nonzero: that write is pending (svc_vbl applies it)
 CRTC_IDX   = RES_BASE+$87C   ; u16 the 6845 register selected through port 0x3D4
 CRTC_REG   = RES_BASE+$880   ; 32 bytes: the 6845's registers as written through 0x3D5
-                             ; (only R9, the maximum scan line, is acted on)
+                             ; (acted on: R9, the maximum scan line; R12/R13, where
+                             ; the text screen starts in the 16 KB; R14/R15, the cursor)
 T160_SHD   = RES_BASE+$8000  ; 16,000 bytes: the cells the 160x100 screen shows
 T160_LEN   = 16000           ; 80 x 100 cells of two bytes
 GFX_T160   = 160             ; gfx_mode in the 160x100 mode (4-6 are the BIOS's)
@@ -93,6 +94,14 @@ DOC_IRQS   = RES_BASE+$878   ; u16 DOC timer interrupts taken (diagnostic)
 DOC_DROPS  = RES_BASE+$87A   ; u16 of those, dropped with vTICK at TICK_MAX
 CLK_PAID   = RES_BASE+$8A8   ; u16 times the tick count was moved up to the clock (clock.s)
 CLK_MADE   = RES_BASE+$8AA   ; u16 ticks added in all (diagnostic, as CLK_PAID)
+* The 8259 as far as it goes (ports.s, and the slot in cpu.s): where the
+* guest put the interrupts and which it holds off. No priorities and
+* nothing in service: an EOI is accepted and means nothing.
+PIC_BASE   = RES_BASE+$8AC   ; u16 the vector of IRQ0 (ICW2): 8 on a PC, 28h under Minix
+PIC_MASK   = RES_BASE+$8AE   ; u16 the mask register (port 21h): bit n set holds IRQn back
+PIC_IRQ6   = RES_BASE+$8B0   ; u16 nonzero: the diskette controller's interrupt is waiting
+CRTC_CUR   = RES_BASE+$8B2   ; u16 nonzero: the cursor is where the 6845's R14/R15 put it
+                             ; (the guest wrote them after the BIOS last moved it)
 TICK_OFF   = $0510           ; F000:0510, INT 08h: hypercall 8 / int 1Ch / iret
 RD_OFF     = $0540           ; F000:0540, the shared drive's stubs (redir.s)
 RD_STATE   = RES_BASE+$8A0   ; u16 the shared drive: 0 none, 1-3 on the way,

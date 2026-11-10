@@ -48,9 +48,11 @@ redirector. `docs/share.md`, "Booting from the folder".
   ticks the guest could not be given are made up from the clock, so DOS's
   time stays right. The clock is read-only to the guest.
 - **INT 13h** (`src/svc/disk.s`): reset, read (AH=02, CHS), write, get
-  params (AH=08), type (AH=15). The geometry (sectors/track) is read from the
-  booted disk's BPB at `svc_bootinit`, so Mode B serves 320K/720K/1.2M/1.44M
-  images alike (all PC floppies are 2-head); `chs_to_lba` and AH=08 use it.
+  params (AH=08), type (AH=15). The geometry comes from the image's size at
+  `svc_bootinit` (`disk_geom`: 320K, 360K, 720K, 1.2M and 1.44M, all
+  2-head), or from the booted disk's BPB for a size that is none of those;
+  `chs_to_lba` and AH=08 use it, and a sector or cylinder the disk has not
+  is refused. (A disk need not have a BPB: Minix's has not.)
   Reads and writes convert CHS to LBA and serve sectors from the image banks.
   LBA extensions (41h/42h) report absent, as a real floppy does.
 - The real FreeDOS boot sector runs: it relocates itself to 1FE0:7C00,
@@ -134,6 +136,11 @@ is owed (`irq_chk`, `src/core/cpu.s`).
 
 ## Real applications
 
+- **Minix 1.5** boots from its 360K demonstration diskette to a root shell
+  (`make test-minix`, `docs/minix.md`). It is the guest that drives the
+  hardware itself: it moves the 8259's vectors and masks its lines, reads
+  the diskette through the 765 and the 8237, and scrolls by the 6845's start
+  address. `src/svc/ports.s` and the text renderer's origin are there for it.
 - **Lotus 1-2-3 Release 1A (1983)** boots from its original self-booting
   System disk image (a 320 KB PC-DOS 1.x floppy): PC-DOS 1.x loads and the
   **Lotus Access System** menu displays and is driven from the keyboard (zero
@@ -183,10 +190,16 @@ worksheet receives is dropped.
 
 ## Not yet implemented (needed for a full boot)
 
-- The 8259 PIC: no mask register and no EOI; IRQ0 and IRQ1 are delivered
-  whenever IF is set. The 8253 PIT's channels 0 and 2 and port 61h are served
-  by the DOC (`docs/sound.md`: the tick and the speaker), square-wave mode
-  only, with synthetic counter reads.
+- The 8259 PIC is its vector base and its mask and nothing more
+  (`src/svc/ports.s`, `docs/minix.md`): IRQ0, IRQ1 and the diskette's IRQ6
+  are delivered at `PIC_BASE+n` when IF is set and their mask bit is clear.
+  No in-service register, no priorities, an EOI means nothing. The 8253
+  PIT's channels 0 and 2 and port 61h are served by the DOC
+  (`docs/sound.md`: the tick and the speaker), square-wave mode only, with
+  synthetic counter reads.
+- The diskette controller (765 + the 8237's channel 2) answers at once and
+  never fails as a real one can; one drive. No hard disk, serial or
+  parallel ports: a port nobody is at reads `FFh`.
 - A20, and INT 15h beyond AH=84h (the joystick, answered "none"); the rest
   return CF set, AH=86h.
 - Writes to the disk image persist only in memory (no write-back to the

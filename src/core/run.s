@@ -10,6 +10,10 @@ run_guest                  ; until HLT; rIP = IP after it
  sta >PIT_CTR              ; seed the free-running PIT state
  lda #$0607                ; the 6845 as a text mode has it: 8 scan lines a row
  sta >CRTC_REG+9           ; (R9 = 7), the cursor from line 6
+ lda #0                    ; the screen from B800:0000, the cursor the BIOS's
+ sta >CRTC_REG+12
+ sta >CRTC_REG+14
+ sta >CRTC_CUR
  lda #run_done
  sta vHALTVEC
  lda #next

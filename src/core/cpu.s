@@ -69,7 +69,9 @@ slot
  inc vICOUNT+2
 :nc
  lda vPCMODE               ; running a PC program?
- beq :fetch                ; bench: no services
+ bne :pc
+ jmp fetch                 ; bench: no services
+:pc
  cmp #2                    ; Mode B: the interrupt lines, looked at EVERY slot
  bne :vbl                  ; (not only on the VBL edge) so they reach the guest's
  lda rFL                   ; handlers promptly. do_int clears IF, so delivery
@@ -77,19 +79,40 @@ slot
  beq :vbl                  ; hold them (vTICK counts the IRQ0s owed).
  lda vTICK                 ; IRQ0: the DOC timer oscillator wrapped (sound.s)
  beq :kbd
+ lda >PIC_MASK             ; held back at the 8259: it stays owed
+ lsr
+ bcs :kbd
  dec vTICK                 ; (one instruction: the interrupt cannot split it)
  sty rIP
- lda #8
- jsr do_int                ; INT 08h
+ lda >PIC_BASE
+ jsr do_int                ; INT 08h, or where the guest moved IRQ0
  jmp fetch
 :kbd                       ; IRQ1: a queued keyboard scancode
  lda >KBD_QHEAD
  and #KBD_QMASK
  cmp >KBD_QTAIL
- beq :vbl                  ; scancode queue empty
+ beq :fdc                  ; scancode queue empty
+ lda >PIC_MASK
+ and #$0002
+ bne :fdc
  sty rIP
- lda #9
+ lda >PIC_BASE
+ inc
  jsr do_int                ; INT 09h (IRQ1): the guest handler reads port 0x60
+ jmp fetch
+:fdc                       ; IRQ6: the diskette controller finished (ports.s)
+ lda >PIC_IRQ6
+ beq :vbl
+ lda >PIC_MASK
+ and #$0040
+ bne :vbl
+ lda #0
+ sta >PIC_IRQ6
+ sty rIP
+ lda >PIC_BASE
+ clc
+ adc #6
+ jsr do_int                ; INT 0Eh
  jmp fetch
 :vbl                       ; once-a-frame services, on entering the vertical blank
  lda >VBLBAR
@@ -128,10 +151,13 @@ irq_chk
  ldx vTICK                 ; IRQ0
  bne :yes
  tax
+ lda >PIC_IRQ6             ; IRQ6
+ bne :some
  lda >KBD_QHEAD            ; IRQ1
  and #KBD_QMASK
  cmp >KBD_QTAIL
  beq :no
+:some
  txa
 :yes
  sta vSLOT

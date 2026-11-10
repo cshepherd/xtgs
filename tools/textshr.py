@@ -60,7 +60,9 @@ def is_text(shr_dump):
     return all(b & 0x80 for b in shr_dump[SCB:SCB + 200])
 
 
-def mismatches(txt, shr_dump):
+def mismatches(txt, shr_dump, cursors=None):
+    """cursors: a list that gets the (row, col) of each cell drawn with the
+    cursor's underline over the right character."""
     want, bad, cursor = expected(txt), [], []
     for row in range(25):
         for col in range(80):
@@ -76,4 +78,6 @@ def mismatches(txt, shr_dump):
                 cursor.append((row, col))
             else:
                 bad.append((row, col))
+    if cursors is not None:
+        cursors.extend(cursor)
     return bad + cursor[1:]                                 # one cursor at most
