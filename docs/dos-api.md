@@ -36,7 +36,11 @@ Unlisted functions do nothing but are counted: the judge reports them
 
 05h in other modes, and 10h, 11h and 12h with other subfunctions, return
 with nothing changed; so do 0Dh as a mode, 11h and 12h on a PC started with
-`VIDEO=CGA` (Mode B only, docs/ega.md).
+`VIDEO=CGA` (docs/ega.md). With `VIDEO=TANDY` the PC is a Tandy 1000: no
+EGA either, modes 08h (20 columns in the BDA) and 09h as modes, 05h with
+AL=80h-83h (the CPU's and the screen's pages), 10h with AL=00h-02h (the
+video array's palette) and 0Ch/0Dh in modes 08h and 09h; the character
+services draw nothing in those modes (docs/tandy.md).
 
 Direct writes to `B800:0000` are stored (the buffer is real guest memory)
 but not yet detected for rendering: M3.

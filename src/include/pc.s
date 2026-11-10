@@ -24,9 +24,10 @@ H_DOSDATA  = GUEST_BASE+$F8000
 DPB_OFF    = $0040               ; DPB at F800:0040
 LOL_OFF    = $0082               ; list of lists at F800:0082 (first MCB word at -2)
 MCB_FIRST  = $0FFF               ; our one MCB, just below the PSP
-VID_DIRTY  = RES_BASE+$900       ; 64 bytes: a 256-byte page of the B800 bank was
+VID_DIRTY  = RES_BASE+$A00       ; 128 bytes: a 256-byte page of B800-BFFF was
                                  ; written (core hook). Text uses pages 0-15 (4 KB);
-                                 ; CGA graphics use 0-63 (the 16 KB framebuffer).
+                                 ; CGA graphics use 0-63 (the 16 KB framebuffer);
+                                 ; the Tandy's 32K window all 128 (64 on are BC00)
 
 * Mode B (disk boot): the disk image is loaded into host banks from
 * DISK_BASE; INT 13h serves sectors from there. A 1.44 MB floppy is 23
@@ -142,3 +143,24 @@ EGA_LEN    = 8000            ; bytes of a plane on the screen: 40 a line
 EGA_DIRTY  = RES_BASE+$C000  ; EGA_LEN flags (and a word to spare), by place on the
                              ; screen: the byte was written. VID_DIRTY's first 32
                              ; say which 256 of them hold one
+* The Tandy 1000's video (docs/tandy.md; XTGS.CMD's VIDEO=TANDY): eight
+* pages of 16K, of which the page register (3DFh) says which the CPU
+* has at B800 (two when its number is even) and which the screen shows.
+* Here a page is moved to the window when it is asked for, so the core
+* knows nothing of it: nine 16K slots, 0-3 at A000-AFFF, 4 and 5 at
+* C000 and C400, 6 and 7 the window, 8 at C800 (no EGA: its banks are
+* free, and nothing writes there as a program looking for a monochrome
+* card writes B000), eight pages in them and one slot to spare
+* (src/svc/tandy.s).
+GFX_TDY8   = 8               ; gfx_mode in mode 08h, 160x200 in 16 colours
+GFX_TDY9   = 9               ; gfx_mode in mode 09h, 320x200 in 16 colours
+ err GFX_TDY9-GFX_TDY8-1     ; (tdy_mode: bit 0 of 3D8h is the difference)
+H_TDYA     = H_EGA           ; slots 0-3
+H_TDYC     = H_EGA1          ; slots 4, 5 and 8
+TDY_ON     = RES_BASE+$990   ; u16 nonzero: the PC is a Tandy 1000
+TDY_IDX    = RES_BASE+$992   ; u16 the video array's register, as chosen at 3DAh
+TDY_PAGE   = RES_BASE+$994   ; u16 the page register as last written (3DFh)
+TDY_MOVES  = RES_BASE+$996   ; u16 16K moves made (diagnostic)
+TDY_SLOT   = RES_BASE+$998   ; 8 bytes: the slot each page is in
+TDY_REG    = RES_BASE+$9A0   ; 32 bytes: the array's registers (1 the palette mask,
+                             ; 2 the border, 3 the mode, 10h-1Fh the palette)

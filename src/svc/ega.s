@@ -44,6 +44,7 @@ FONT_LOW   = $FA6E           ; and its first half where the PC's BIOS has it
 ega_init
  mx %00
  lda #0
+ sta >TDY_ON               ; (nor is the PC a Tandy until XTGS.CMD says so)
  sta >EGA_ON
  sta >EGA_SYNC
  sta >EGA_ACFF

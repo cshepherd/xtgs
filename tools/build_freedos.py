@@ -8,8 +8,8 @@ command, docs/share.md) and the boot floppy image (the D command).
 Needs the FreeDOS kernel, shell and boot-sector source fetched by
 tools/fetch_dos.py (kernel.zip, freecom.zip), and nasm. The folder holds
 KERNEL.SYS (the 8086 kernel KERNL86.SYS), COMMAND.COM, SETVER.SYS, an
-FDCONFIG.SYS that names them on C:, the demo .BAS files, EGADEMO.COM
-(tests/demo/egademo.asm) and GW-BASIC when it is there, each under cadius's NAME#TTAAAA name: tools/make_image.sh
+FDCONFIG.SYS that names them on C:, the demo .BAS files, EGADEMO.COM and
+TDYDEMO.COM (tests/demo/egademo.asm, tdydemo.asm) and GW-BASIC when it is there, each under cadius's NAME#TTAAAA name: tools/make_image.sh
 takes the folder as it is. The floppy has the same files, named on A:,
 behind the FreeDOS FAT12 boot sector (tools/make_fat12.py).
 """
@@ -69,6 +69,10 @@ def main():
     # which the GW-BASIC rebuilt from the 1983 source does not have.
     subprocess.run(["nasm", "-f", "bin", "-o", os.path.join(OUT, "EGADEMO.COM"),
                     os.path.join(ROOT, "tests", "demo", "egademo.asm")], check=True)
+    # A Tandy 1000's mode 09h (docs/tandy.md): for a PC that XTGS.CMD's
+    # VIDEO=TANDY makes; anywhere else it says so and ends.
+    subprocess.run(["nasm", "-f", "bin", "-o", os.path.join(OUT, "TDYDEMO.COM"),
+                    os.path.join(ROOT, "tests", "demo", "tdydemo.asm")], check=True)
     with open(os.path.join(OUT, "EGADEMO.BAS"), "w", newline="\r\n") as f:
         f.write('10 REM SCREEN 7 needs a GW-BASIC with the EGA modes (Microsoft 3.2x)\n'
                 '20 SCREEN 7\n'
@@ -91,6 +95,7 @@ def main():
         "CGADEMO.BAS=" + os.path.join(OUT, "CGADEMO.BAS"),
         "EGADEMO.BAS=" + os.path.join(OUT, "EGADEMO.BAS"),
         "EGADEMO.COM=" + os.path.join(OUT, "EGADEMO.COM"),
+        "TDYDEMO.COM=" + os.path.join(OUT, "TDYDEMO.COM"),
     ]
     if os.path.exists(gwbasic):
         files.append("GWBASIC.EXE=" + gwbasic)

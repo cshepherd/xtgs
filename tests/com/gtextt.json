@@ -1,0 +1,1 @@
+{"com": "gtext.asm", "name": "GTEXT.COM", "exit": 0, "stdout": "gtext.out", "video": "cga4", "cmd": ["VIDEO=TANDY"]}

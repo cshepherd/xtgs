@@ -450,7 +450,9 @@ cur_at     dw 0              ; where: col | row<<8
 blink      dw 0              ; frame counter; bit 5 = cursor visible
 tty_attr   dw $FFFF          ; $FFFF: teletype keeps the cell's attribute
 gfx_mode   dw 0              ; 0 = text; 4/5 = CGA 320x200x4 graphics (SCREEN 1);
-                             ; 6 = 640x200 mono; GFX_T160 = 160x100x16 (text cells)
+                             ; 6 = 640x200 mono; GFX_T160 = 160x100x16 (text cells);
+                             ; GFX_EGA = mode 0Dh; GFX_TDY8 and GFX_TDY9 = the
+                             ; Tandy's modes 08h and 09h
 
 mark_row                   ; A = row
  mx %00
@@ -584,7 +586,13 @@ flush
  beq :t160
  cmp #GFX_EGA
  beq :ega
+ cmp #GFX_TDY8
+ beq :tdy
+ cmp #GFX_TDY9
+ beq :tdy
  jmp gfx_flush            ; CGA graphics: repack only dirty scanlines (rts)
+:tdy
+ jmp tdy_flush            ; the Tandy's 16 colours: the lines written (rts)
 :ega
  jmp ega_flush            ; mode 0Dh: the flagged bytes of the planes (rts)
 :t160
@@ -934,6 +942,14 @@ tty_cur
 * and the cursor advances with wrap.
 vid_tty
  mx %00
+ ldx gfx_mode              ; (the Tandy's modes 08h and 09h: nothing is
+ cpx #GFX_TDY8             ; drawn yet)
+ beq :no
+ cpx #GFX_TDY9
+ bne :go
+:no
+ rts
+:go
  and #$00FF
  sta sv0
  jsr gt_on                 ; CGA graphics: the character is drawn (gtext.s)
@@ -1261,6 +1277,12 @@ mode_poll
  rts
 apply_cgamode
  mx %00
+ lda >TDY_ON               ; a Tandy: its 16-colour mode is the array's
+ beq :pc                   ; doing as well (tandy.s)
+ jsr tdy_mode
+ bcc :pc
+ rts
+:pc
  lda >CGA_MODEREQ
  and #$0002                ; bit 1 = graphics mode select
  bne :gfx
@@ -1350,11 +1372,24 @@ vid_setmode
  bne :was
  jsr ega_leave             ; (the core lets go of A000)
 :was
+ lda 1,s
+ jsr tdy_modeset           ; a Tandy: its array and page register (tandy.s)
  pla
  cmp #GFX_EGA
  bne :cga
  jmp ega_enter             ; 0Dh: 320x200 in 16 colours (ega.s)
 :cga
+ cmp #GFX_TDY8
+ beq :tdy
+ cmp #GFX_TDY9
+ bne :cga2
+:tdy
+ tax
+ lda >TDY_ON               ; 08h and 09h are modes on a Tandy only
+ beq :text
+ txa
+ jmp tdy_enter             ; 160x200 or 320x200 in 16 colours (tandy.s)
+:cga2
  cmp #4
  bcc :text                 ; 0-3: text
  cmp #7

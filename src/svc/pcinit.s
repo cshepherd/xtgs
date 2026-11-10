@@ -22,6 +22,7 @@ svc_pcinit
  jsr state_init
  jsr handle_init
  jsr get_prefix
+ jsr rd_readcfg            ; XTGS.CMD's VIDEO line: which PC (redir.s)
  jsr psp_fcbs
  jsr redirect_setup
  jsr load_program

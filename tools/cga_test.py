@@ -6,8 +6,10 @@ screen shows.
 Builds a floppy whose AUTOEXEC runs GWBASIC on the program (GWBASIC in
 the environment names another interpreter than third_party/gwbasic's:
 SCREEN 7 needs Microsoft's 3.2x, docs/ega.md) or the .COM itself (VIDEO=CGA
-in the environment: XTGS.CMD's line of that name, a PC with no EGA; TEXT=1:
-print the buffer as the text screen as well), boots it in
+in the environment: XTGS.CMD's line of that name, a PC with no EGA, and
+VIDEO=TANDY a Tandy 1000, whose mode 08h or 09h is then judged against
+the SHR by tools/tandyshr.py; ARGS=...: the .COM's command line; TEXT=1:
+print the buffer as the text screen as well; CAP=1: the end of what the BIOS teletype printed), boots it in
 MAME for the given emulated seconds (default 400; 500 has been enough
 for a short program at stock speed, most of it the FreeDOS boot) and
 writes build/cgatest/NAME.png. Prints the frame reached,
@@ -20,7 +22,9 @@ work files in build/cgatest are shared.
 import os,sys,struct,subprocess
 HERE=os.path.dirname(os.path.abspath(__file__)); ROOT=os.path.dirname(HERE)
 sys.path.insert(0,os.path.join(HERE,"mame")); sys.path.insert(0,HERE)
-import mamerun, shr, symbols
+import mamerun, shr, symbols, tandyshr
+RES=0x050000; CAP_LEN=RES+0x800; CAP_BUF=RES+0x1000; CAP_MAX=0x7000    # src/include/pc.s
+tandy=os.environ.get("VIDEO","").upper().startswith("T")
 bas=sys.argv[1]; T=float(sys.argv[2]) if len(sys.argv)>2 else 400
 tag=os.path.splitext(os.path.basename(bas))[0]
 FD=os.path.join(ROOT,"third_party","freedos","fd")
@@ -28,7 +32,7 @@ GW=os.environ.get("GWBASIC") or os.path.join(ROOT,"third_party","gwbasic","GWBAS
 com=bas.upper().endswith(".COM")
 work=os.path.join(ROOT,"build","cgatest"); os.makedirs(work,exist_ok=True)
 if com:
-    extra=["PROG.COM="+os.path.abspath(bas)]; line="PROG"
+    extra=["PROG.COM="+os.path.abspath(bas)]; line=("PROG "+os.environ.get("ARGS","")).rstrip()
 else:
     # PROG.BAS from the given file, CRLF
     prog=open(bas).read().replace("\n","\r\n")
@@ -47,7 +51,10 @@ subprocess.run([os.path.join(HERE,"make_image.sh"),po,os.path.join(stage,"XTGS.S
   os.path.join(stage,"CORE#060000"),os.path.join(stage,"SVC#060000"),disk,cmd],check=True,capture_output=True)
 syms=symbols.read(os.path.join(ROOT,"build","xtgs.lst"))
 r=mamerun.run(po, waits=[(syms["mb_magic"],0x5A5A)],
-  dumps=[("fb",0x2B8000,0x4000),("pal",0xE19E00,32),("shr",shr.SHR_BASE,shr.SHR_LEN)], seconds=T, settle=5)
+  dumps=[("fb",0x2B8000,0x4000),("pal",0xE19E00,32),("shr",shr.SHR_BASE,shr.SHR_LEN),
+         ("caplen",CAP_LEN,2),("cap",CAP_BUF,CAP_MAX)]+
+        ([("tdy",RES+tandyshr.STATE,tandyshr.STATE_LEN),("tdymr",RES+tandyshr.MODEREQ,2)]+[(f"tm{a:x}",0x200000+a,n) for a,n in tandyshr.REGIONS] if tandy else []),
+  seconds=T, settle=5)
 fb=bytes.fromhex(r["dumps"]["fb"]["hex"]); nz=sum(1 for b in fb if b)
 pal=struct.unpack("<16H",bytes.fromhex(r["dumps"]["pal"]["hex"]))
 png,l640=shr.render(bytes.fromhex(r["dumps"]["shr"]["hex"]))
@@ -59,3 +66,18 @@ if os.environ.get("TEXT"):       # the buffer read as 80x25 text (a program that
     for y in range(25):
         row=bytes(fb[y*160+x*2] for x in range(80)).decode("cp437").rstrip("\0 ")
         if row: print(f"  {y:2}: {row}")
+if tandy:                        # the Tandy's registers, and mode 08h or 09h against the screen
+    sd=bytes.fromhex(r["dumps"]["shr"]["hex"]); st=bytes.fromhex(r["dumps"]["tdy"]["hex"])
+    print(f"  Tandy: on={st[0]} page register {tandyshr.page_reg(st):02X}, pages in slots {tandyshr.slots(st)}, "
+          f"{st[6]|st[7]<<8} moves of 16K, mode register {tandyshr.regs(st)[3]:02X}, "
+          f"palette {tandyshr.regs(st)[16:32].hex().upper()} through {tandyshr.regs(st)[1]:02X}")
+    tm=tandyshr.mode(st,bytes.fromhex(r["dumps"]["tdymr"]["hex"])[0])
+    if not l640 and tm and tandyshr.is_tandy9(sd):
+        mem={a:bytes.fromhex(r["dumps"][f"tm{a:x}"]["hex"]) for a,_n in tandyshr.REGIONS}
+        bad=tandyshr.mismatches(mem,st,sd,tm); badp=tandyshr.palette(st,sd)
+        print(f"  as mode {tm:02X}h: {len(bad)} of 32000 bytes not on the screen"+(f" (first line,byte {bad[0]})" if bad else "")+
+              f", {len(badp)} palette entries wrong")
+if os.environ.get("CAP"):        # what the BIOS teletype printed, the end of it
+    n=struct.unpack("<H",bytes.fromhex(r["dumps"]["caplen"]["hex"]))[0]
+    cap=bytes.fromhex(r["dumps"]["cap"]["hex"])[:n]
+    print(f"  teletype ({n} bytes), the end: {cap[-300:]!r}")

@@ -55,11 +55,17 @@ con_out                    ; A = character
  beq :tab
  jmp vid_tty
 :tab
+ lda gfx_mode              ; (the Tandy's modes 08h and 09h have no cursor
+ cmp #GFX_TDY8             ; to bring to the stop)
+ beq :notab
+ cmp #GFX_TDY9
+ beq :notab
  lda #' '
  jsr vid_tty
  jsr tty_cur
  and #$0007
  bne :tab
+:notab
  rts
 
 *--- console input: a DOS key is the ASCII, or 0 then the scan code

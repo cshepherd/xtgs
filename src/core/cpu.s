@@ -542,8 +542,8 @@ vid_mark_dst
  lda pDST
 vid_mark_a
  mx %00
- and #$3F00                ; 64 pages: the full 16 KB B800 bank (CGA graphics).
- xba                       ; text writes fall in pages 0-15 as before.
+ and #$7F00                ; 128 pages: B800-BFFF (the CGA's 16K is the first
+ xba                       ; 64, text the first 16; the Tandy's window is all)
  tax
  sep #$20
  mx %10
@@ -773,7 +773,7 @@ vid_mark_rng
  and #$00FF
 :pg
  pha
- and #$003F
+ and #$007F
  tax
  sep #$20
  mx %10

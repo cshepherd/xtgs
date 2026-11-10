@@ -10,9 +10,15 @@ screen rows, against tests/com/NAME.json:
      "video": "t160",                             # the screen it ends on: "text", or "t160"
                                                   # (160x100: the pixels must show all of B800),
                                                   # or "cga4"/"cga6" (CGA graphics, the same),
-                                                  # or "ega" (mode 0Dh: the four planes)
+                                                  # or "ega" (mode 0Dh: the four planes),
+                                                  # or "tandy9" (a Tandy's mode 09h: the two
+                                                  # pages shown, wherever they are kept),
+                                                  # or "tandy8" (its mode 08h: the one page)
      "ega_ac": "00141503...",                     # with "ega": the attribute controller's
                                                   # sixteen palette registers at the end
+     "tandy_pal": "000C0E03...", "tandy_page": "F6",  # with those two: the array's sixteen palette
+                                                  # registers and the page register at the end
+     "cmd": ["VIDEO=TANDY"],                      # XTGS.CMD's lines after the command's
      "keys": [{"at": 90, "key": "xtgs"}, {"at": 150, "coded": "{ENTER}"}],
      "disk": {"LEFT.TMP": 5}}                     # a file's length on the volume afterwards
     {"bin": "third_party/msdos2/DEBUG.COM", "name": "DEBUG.COM",  # a real program
@@ -42,6 +48,7 @@ import textshr  # noqa: E402
 import t160shr  # noqa: E402
 import cgashr  # noqa: E402
 import egashr  # noqa: E402
+import tandyshr  # noqa: E402
 
 RES_BASE = 0x050000
 CAP_LEN, DIAG_UNH, DIAG_UNHN, DIAG_LAST = RES_BASE + 0x800, RES_BASE + 0x802, RES_BASE + 0x804, RES_BASE + 0x806
@@ -70,7 +77,7 @@ def run_test(path, syms, workdir, seconds):
             g.write(f.read())
     cmd = os.path.join(workdir, "XTGS.CMD#040000")
     with open(cmd, "w") as f:
-        f.write(f"C {t['name']} {t.get('args', '')}".rstrip() + "\r")
+        f.write(f"C {t['name']} {t.get('args', '')}".rstrip() + "\r" + "".join(l + "\r" for l in t.get("cmd", [])))
     extra = []                                       # data files on the volume: NAME#TTAAAA from tests/data
     for fn in t.get("files", []):
         srcf = os.path.join(ROOT, "tests", "data", fn)
@@ -88,7 +95,11 @@ def run_test(path, syms, workdir, seconds):
                            ("txt", TXT_BASE, cgashr.LEN), ("shr", shr.SHR_BASE, shr.SHR_LEN),
                            ("maps", RES_BASE + 0x810, 48), ("crtc", CRTC_START, 2), ("ac", EGA_AC, 16)] +
                           [(f"pl{i}", GUEST_BASE + a, 0x4000) for i, a in enumerate(egashr.PLANES)
-                           if t.get("video") == "ega"],
+                           if t.get("video") == "ega"] +
+                          ([("tdy", RES_BASE + tandyshr.STATE, tandyshr.STATE_LEN),
+                            ("tdymr", RES_BASE + tandyshr.MODEREQ, 2)] +
+                           [(f"tm{a:x}", GUEST_BASE + a, n) for a, n in tandyshr.REGIONS]
+                           if t.get("video") in ("tandy8", "tandy9") else []),
                     seconds=seconds, settle=5, ready=(syms["mb_runidx"], 0xBE57), inputs=t.get("keys", []))
     if r["status"] == "no-output":
         print(r.get("mame_output", ""))
@@ -138,7 +149,8 @@ def run_test(path, syms, workdir, seconds):
         if got != spec["text"]:
             problems.append(f"screen row {row}: {got!r} != {spec['text']!r}")
     ega = t.get("video") == "ega"
-    for i, row in enumerate(rows if not cga and not ega else []):
+    tandy = {"tandy8": 8, "tandy9": 9}.get(t.get("video"))
+    for i, row in enumerate(rows if not cga and not ega and not tandy else []):
         if row.strip():
             print(f"  {i:2d}|{row.rstrip()}")
     shr_dump = bytes.fromhex(r["dumps"]["shr"]["hex"])
@@ -167,6 +179,32 @@ def run_test(path, syms, workdir, seconds):
                 problems.append("palette: " + ", ".join(f"{i}: {g:04X} not {w:04X}" for i, g, w in badp))
         if "ega_ac" in t and ac.hex().upper() != t["ega_ac"].upper():
             problems.append(f"the palette registers are {ac.hex().upper()}, expected {t['ega_ac'].upper()}")
+    elif tandy:                                      # the pixels are the pages shown
+        state = bytes.fromhex(r["dumps"]["tdy"]["hex"])
+        modereq = bytes.fromhex(r["dumps"]["tdymr"]["hex"])[0]
+        mem = {a: bytes.fromhex(r["dumps"][f"tm{a:x}"]["hex"]) for a, _n in tandyshr.REGIONS}
+        pal = tandyshr.regs(state)[16:32].hex().upper()
+        print(f"  page register {tandyshr.page_reg(state):02X}, pages in slots {tandyshr.slots(state)}, "
+              f"{state[6] | state[7] << 8} moves of 16K, palette {pal} through {tandyshr.regs(state)[1]:02X}")
+        if not state[0]:
+            problems.append("the PC is not a Tandy (TDY_ON)")
+        elif not tandyshr.is_tandy9(shr_dump):
+            problems.append(f"the screen is not in mode {tandy:02X}h (SHR 320, one palette)")
+        elif tandyshr.mode(state, modereq) != tandy:
+            problems.append(f"the mode registers are not mode {tandy:02X}h's (3D8h {modereq:02X}, "
+                            f"the array's mode {tandyshr.regs(state)[3]:02X})")
+        else:
+            bad = tandyshr.mismatches(mem, state, shr_dump, tandy)
+            if bad:
+                problems.append(f"{len(bad)} of the 32000 bytes the screen should show are not on it "
+                                f"(first line,byte {bad[0]}, last {bad[-1]})")
+            badp = tandyshr.palette(state, shr_dump)
+            if badp:
+                problems.append("palette: " + ", ".join(f"{i}: {g:04X} not {w:04X}" for i, g, w in badp))
+        if "tandy_pal" in t and pal != t["tandy_pal"].upper():
+            problems.append(f"the palette registers are {pal}, expected {t['tandy_pal'].upper()}")
+        if "tandy_page" in t and tandyshr.page_reg(state) != int(t["tandy_page"], 16):
+            problems.append(f"the page register is {tandyshr.page_reg(state):02X}, expected {t['tandy_page']}")
     elif textshr.is_text(shr_dump):                  # the pixels are the text buffer's
         bad = textshr.mismatches(bytes.fromhex(r["dumps"]["txt"]["hex"]), shr_dump)
         if bad:

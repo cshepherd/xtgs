@@ -83,6 +83,13 @@ svc_portout
  phk
  plb
  phy
+ cmp #$03DA                ; 3DAh-3DFh: the Tandy's video array and page
+ bcc :ntdy                 ; register (tandy.s; the .COM runner sends these
+ cmp #$03E0                ; and no others)
+ bcs :ntdy
+ jsr tdy_port
+ bra :out
+:ntdy
  cmp #$0021
  bne :n21
  jsr pic_data

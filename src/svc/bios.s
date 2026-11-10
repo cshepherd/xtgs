@@ -239,11 +239,44 @@ int_10
  lda gfx_mode
  cmp #GFX_EGA
  beq :ega
+ cmp #GFX_TDY8
+ beq :tdy
+ cmp #GFX_TDY9
+ beq :tdy
  txa
  jmp (v10_tab,x)
 :unk
  lda #$10
  jmp note_unhandled
+* the Tandy's modes 08h and 09h: the pixel's functions are their own
+* (tandy.s), and the character's (06h-0Ah, 13h, the teletype) draw
+* nothing there yet
+:tdy
+ cpx #$0C*2
+ bne :t1
+ jmp tdy_setpix
+:t1
+ cpx #$0D*2
+ bne :t2
+ jmp tdy_getpix
+:t2
+ cpx #$0E*2
+ bne :t3
+ lda rAX                   ; (the teletype is still captured)
+ and #$00FF
+ jmp cap_putc
+:t3
+ cpx #$13*2
+ beq :tn
+ cpx #$06*2
+ bcc :t4
+ cpx #$0B*2
+ bcc :tn
+:t4
+ txa
+ jmp (v10_tab,x)
+:tn
+ rts
 * mode 0Dh has eight pages, each with its cursor: BH is the page for
 * the cursor's functions, the character's and the string's; the rest
 * (the scroll, the teletype) work on the page shown
@@ -286,17 +319,25 @@ v10_05                     ; select the page: mode 0Dh has eight
  mx %00
  lda gfx_mode
  cmp #GFX_EGA
- bne :out
+ bne :tdy
  lda rAX
  jmp eg_setpage
+:tdy
+ lda >TDY_ON               ; a Tandy: AL = 80h-83h, the page register's two
+ beq :out
+ jmp tdy_05
 :out
  rts
 v10_10                     ; the EGA's palette registers (mode 0Dh)
  mx %00
  lda gfx_mode
  cmp #GFX_EGA
- bne :out
+ bne :tdy
  jmp eg_10
+:tdy
+ lda >TDY_ON               ; a Tandy: its array's
+ beq :out
+ jmp tdy_10
 :out
  rts
 v10_11                     ; the EGA's character generator: AL=30h, where
@@ -337,7 +378,18 @@ v10_00                     ; set mode: text, or CGA graphics (4/5, 6)
  cmp #GFX_EGA
  beq :c40
  cmp #5
+ beq :c40
+ cmp #GFX_TDY8             ; (a Tandy's 160x200 in 16 colours: 20)
+ bne :t9
+ lda >TDY_ON
+ beq :cols
+ ldx #20
+ bra :cols
+:t9
+ cmp #GFX_TDY9             ; (and its 320x200)
  bne :cols
+ lda >TDY_ON
+ beq :cols
 :c40
  ldx #40
 :cols

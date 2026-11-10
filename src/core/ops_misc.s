@@ -186,8 +186,14 @@ port_out                   ; A = port, tmp0 = value
  jmp ega_out
 :notega
  ldx vPCMODE               ; Mode B: the 8259, the 8237 and the diskette
- cpx #2                    ; controller (ports.s)
- bne :nobody
+ beq :nobody               ; controller (ports.s); there and under the .COM
+ cpx #2                    ; runner 3DAh-3DFh, the Tandy's video (tandy.s)
+ beq :svc
+ cmp #$03DA
+ bcc :nobody
+ cmp #$03E0
+ bcs :nobody
+:svc
  jsl SVC_BASE+36           ; svc_portout (keeps Y)
 :nobody
  rts

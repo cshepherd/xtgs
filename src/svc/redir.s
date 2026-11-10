@@ -258,8 +258,10 @@ rd_nokernel
 
 * rd_readcfg - XTGS.CMD's lines after the first: "X=path"
 * is the share (X a drive letter from C; the first such line),
-* "VIDEO=CGA" a PC with no EGA (eg_none, ega.s). C clear:
-* rd_drive and rd_root (as written, upper case) are set.
+* "VIDEO=CGA" a PC with no EGA (eg_none, ega.s), "VIDEO=TANDY"
+* a Tandy 1000 (tdy_setup, tandy.s). C clear: rd_drive and
+* rd_root (as written, upper case) are set. The .COM runner
+* calls it too, for the VIDEO line (svc_pcinit).
 rd_readcfg
  mx %00
  ldx #0
@@ -277,6 +279,7 @@ rd_readcfg
  stz rd_root
  stz rd_cfgok
  stz eg_none
+ stz tdy_cfg
  ldx #0
  lda #0
  jsr p_open
@@ -393,7 +396,12 @@ rd_readcfg
  bra :wk
 :wval
  stz eg_none
+ stz tdy_cfg
  lda sv1
+ cmp #'T'                  ; "VIDEO=TANDY": a Tandy 1000 (tandy.s)
+ bne :wcga
+ inc tdy_cfg
+:wcga
  cmp #'C'
  bne :wno
  inc eg_none
@@ -411,6 +419,10 @@ rd_readcfg
  beq :ne
  jsr ega_off
 :ne
+ lda tdy_cfg
+ beq :nt
+ jsr tdy_setup
+:nt
  lda rd_cfgok
  beq :nn
  clc

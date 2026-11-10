@@ -75,8 +75,9 @@ VIDEO=CGA
 Then mode 0Dh is not set (`AH=00h AL=0Dh` is ignored, like any mode a card
 lacks), `AH=11h` and `AH=12h` return with the registers as they were and
 the BDA's EGA bytes are 0. The line may come before or after the shared
-drive's (`C=...`, docs/share.md); SVC reads both (`rd_readcfg`). The stub
-DOS of command `C` does not read it.
+drive's (`C=...`, docs/share.md); SVC reads both (`rd_readcfg`). Command
+`C` reads the `VIDEO` line as well (`svc_pcinit`), and `VIDEO=TANDY` is
+the Tandy 1000 of docs/tandy.md.
 
 Minix 1.5 shows the difference: it asks `AH=12h`, and on an EGA it does not
 let the 6845's start address go round at 16K but copies the screen back to

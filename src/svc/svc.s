@@ -38,6 +38,7 @@
  put video.s
  put gtext.s
  put ega.s
+ put tandy.s
  put pcinit.s
  put bios.s
  put dos.s
@@ -53,6 +54,7 @@
  put gen/tables.s
  put gen/t160.s
  put gen/egatab.s
+ put gen/tdytab.s
  put gen/dostab.s
 
  err *-1-SVC_BASE/$10000   ; one bank
