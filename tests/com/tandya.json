@@ -1,0 +1,1 @@
+{"com": "tandya.asm", "name": "TANDYA.COM", "exit": 0, "stdout": "tandya.out", "video": "tandyA", "cmd": ["VIDEO=TANDY"], "tandy_pal": "000C0E030405060708090A0B0C0D0E0F", "tandy_page": "F6"}

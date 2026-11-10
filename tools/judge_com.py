@@ -13,11 +13,18 @@ screen rows, against tests/com/NAME.json:
                                                   # or "ega" (mode 0Dh: the four planes),
                                                   # or "tandy9" (a Tandy's mode 09h: the two
                                                   # pages shown, wherever they are kept),
-                                                  # or "tandy8" (its mode 08h: the one page)
+                                                  # or "tandy8" (its mode 08h: the one page),
+                                                  # or "tandyA" (its mode 0Ah: the two pages)
      "ega_ac": "00141503...",                     # with "ega": the attribute controller's
                                                   # sixteen palette registers at the end
      "tandy_pal": "000C0E03...", "tandy_page": "F6",  # with those two: the array's sixteen palette
                                                   # registers and the page register at the end
+                                                  # ("tandy_pal" with any "video", and
+     "tandy_mask": "07",                          # the array's palette mask)
+     "cga_colours": [0, 11, 13, 15],              # with "cga4"/"cga6": which of the sixteen
+                                                  # colours pixels 0-3 (0-1) are shown in. The
+                                                  # SHR palette is always judged against the
+                                                  # registers (tools/cgashr.py colours)
      "cmd": ["VIDEO=TANDY"],                      # XTGS.CMD's lines after the command's
      "keys": [{"at": 90, "key": "xtgs"}, {"at": 150, "coded": "{ENTER}"}],
      "disk": {"LEFT.TMP": 5}}                     # a file's length on the volume afterwards
@@ -96,10 +103,11 @@ def run_test(path, syms, workdir, seconds):
                            ("maps", RES_BASE + 0x810, 48), ("crtc", CRTC_START, 2), ("ac", EGA_AC, 16)] +
                           [(f"pl{i}", GUEST_BASE + a, 0x4000) for i, a in enumerate(egashr.PLANES)
                            if t.get("video") == "ega"] +
-                          ([("tdy", RES_BASE + tandyshr.STATE, tandyshr.STATE_LEN),
-                            ("tdymr", RES_BASE + tandyshr.MODEREQ, 2)] +
-                           [(f"tm{a:x}", GUEST_BASE + a, n) for a, n in tandyshr.REGIONS]
-                           if t.get("video") in ("tandy8", "tandy9") else []),
+                          [("tdy", RES_BASE + tandyshr.STATE, tandyshr.STATE_LEN),
+                           ("tdymr", RES_BASE + tandyshr.MODEREQ, 2),
+                           ("csel", syms["GUEST_DP"] + syms["cga_bg"], 6)] +
+                          ([(f"tm{a:x}", GUEST_BASE + a, n) for a, n in tandyshr.REGIONS]
+                           if t.get("video") in ("tandy8", "tandy9", "tandyA") else []),
                     seconds=seconds, settle=5, ready=(syms["mb_runidx"], 0xBE57), inputs=t.get("keys", []))
     if r["status"] == "no-output":
         print(r.get("mame_output", ""))
@@ -149,18 +157,32 @@ def run_test(path, syms, workdir, seconds):
         if got != spec["text"]:
             problems.append(f"screen row {row}: {got!r} != {spec['text']!r}")
     ega = t.get("video") == "ega"
-    tandy = {"tandy8": 8, "tandy9": 9}.get(t.get("video"))
+    tandy = {"tandy8": 8, "tandy9": 9, "tandyA": 0x0A}.get(t.get("video"))
     for i, row in enumerate(rows if not cga and not ega and not tandy else []):
         if row.strip():
             print(f"  {i:2d}|{row.rstrip()}")
     shr_dump = bytes.fromhex(r["dumps"]["shr"]["hex"])
+    tstate = bytes.fromhex(r["dumps"]["tdy"]["hex"])  # the Tandy's array, when the PC is one
+    tregs = tandyshr.regs(tstate) if tstate[0] else None
     if cga:                                          # the pixels are B800's two fields
+        csel = bytes.fromhex(r["dumps"]["csel"]["hex"])   # cga_bg, cga_pal, cga_int: 3D9h
+        assert syms["cga_pal"] == syms["cga_bg"] + 2 and syms["cga_int"] == syms["cga_bg"] + 4
+        sel = csel[0] & 15 | (csel[4] & 1) << 4 | (csel[2] & 1) << 5
+        modereq = bytes.fromhex(r["dumps"]["tdymr"]["hex"])[0]
+        cols = cgashr.colours(sel, modereq, cga, tregs)
+        print(f"  colours {' '.join(map(str, cols))} (3D9h {sel:02X}, 3D8h {modereq:02X}" +
+              (f", a Tandy's palette {tregs[16:32].hex().upper()} through {tregs[1]:02X}" if tregs else "") + ")")
         if not cgashr.is_cga(shr_dump, cga):
             problems.append(f"the screen is not in CGA mode {cga} (SHR {640 if cga == 6 else 320})")
         else:
             bad = cgashr.mismatches(bytes.fromhex(r["dumps"]["txt"]["hex"]), shr_dump, cga)
             if bad:
                 problems.append(f"{len(bad)} of the 16000 bytes of B800 are not on the screen (first line,byte {bad[0]})")
+            badp = cgashr.palette(shr_dump, cga, cols)
+            if badp:
+                problems.append("palette: " + ", ".join(f"{i}: {g:04X} not {w:04X}" for i, g, w in badp))
+        if "cga_colours" in t and cols != t["cga_colours"]:
+            problems.append(f"the colours are {cols}, expected {t['cga_colours']}")
     elif ega:                                        # the pixels are the four planes'
         crtc = bytes.fromhex(r["dumps"]["crtc"]["hex"])
         ac = bytes.fromhex(r["dumps"]["ac"]["hex"])
@@ -188,8 +210,8 @@ def run_test(path, syms, workdir, seconds):
               f"{state[6] | state[7] << 8} moves of 16K, palette {pal} through {tandyshr.regs(state)[1]:02X}")
         if not state[0]:
             problems.append("the PC is not a Tandy (TDY_ON)")
-        elif not tandyshr.is_tandy9(shr_dump):
-            problems.append(f"the screen is not in mode {tandy:02X}h (SHR 320, one palette)")
+        elif not tandyshr.shows(shr_dump, tandy):
+            problems.append(f"the screen is not in mode {tandy:02X}h (SHR {640 if tandy == 0x0A else 320}, one palette)")
         elif tandyshr.mode(state, modereq) != tandy:
             problems.append(f"the mode registers are not mode {tandy:02X}h's (3D8h {modereq:02X}, "
                             f"the array's mode {tandyshr.regs(state)[3]:02X})")
@@ -198,11 +220,9 @@ def run_test(path, syms, workdir, seconds):
             if bad:
                 problems.append(f"{len(bad)} of the 32000 bytes the screen should show are not on it "
                                 f"(first line,byte {bad[0]}, last {bad[-1]})")
-            badp = tandyshr.palette(state, shr_dump)
+            badp = tandyshr.palette(state, shr_dump, tandy)
             if badp:
                 problems.append("palette: " + ", ".join(f"{i}: {g:04X} not {w:04X}" for i, g, w in badp))
-        if "tandy_pal" in t and pal != t["tandy_pal"].upper():
-            problems.append(f"the palette registers are {pal}, expected {t['tandy_pal'].upper()}")
         if "tandy_page" in t and tandyshr.page_reg(state) != int(t["tandy_page"], 16):
             problems.append(f"the page register is {tandyshr.page_reg(state):02X}, expected {t['tandy_page']}")
     elif textshr.is_text(shr_dump):                  # the pixels are the text buffer's
@@ -211,9 +231,20 @@ def run_test(path, syms, workdir, seconds):
             problems.append(f"{len(bad)} screen cells do not show the text buffer (first row,col {bad[0]})")
     elif t.get("video") == "text":
         problems.append("the screen is not in text mode")
+    if "tandy_pal" in t or "tandy_mask" in t:        # the array as the program left it
+        if tregs is None:
+            problems.append("the PC is not a Tandy (TDY_ON)")
+        else:
+            if "tandy_pal" in t and tregs[16:32].hex().upper() != t["tandy_pal"].upper():
+                problems.append(f"the palette registers are {tregs[16:32].hex().upper()}, expected {t['tandy_pal'].upper()}")
+            if "tandy_mask" in t and tregs[1] != int(t["tandy_mask"], 16):
+                problems.append(f"the palette mask is {tregs[1]:02X}, expected {t['tandy_mask']}")
     if t.get("video") == "t160":
-        if not t160shr.is_t160(shr_dump):
-            problems.append("the screen is not in the 160x100 mode (SHR 320, the CGA palette)")
+        if tregs:
+            print(f"  a Tandy's palette {tregs[16:32].hex().upper()} through {tregs[1]:02X}")
+        if not t160shr.is_t160(shr_dump, tregs):
+            problems.append("the screen is not in the 160x100 mode (SHR 320, the CGA palette" +
+                            (" as the Tandy's array has it)" if tregs else ")"))
         else:
             bad = t160shr.mismatches(bytes.fromhex(r["dumps"]["txt"]["hex"]), shr_dump)
             if bad:
@@ -235,6 +266,8 @@ def main():
     workdir = os.path.join(ROOT, "build", "com")
     os.makedirs(workdir, exist_ok=True)
     syms = symbols.read(os.path.join(ROOT, "build", "xtgs.lst"))
+    svc = symbols.read(os.path.join(ROOT, "build", "svc.lst"))   # the colour-select register's
+    syms.update({k: svc[k] for k in ("GUEST_DP", "cga_bg", "cga_pal", "cga_int")})   # three fields
     ok = True
     for p in paths:
         ok &= run_test(p, syms, workdir, seconds=120)

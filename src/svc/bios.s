@@ -239,44 +239,11 @@ int_10
  lda gfx_mode
  cmp #GFX_EGA
  beq :ega
- cmp #GFX_TDY8
- beq :tdy
- cmp #GFX_TDY9
- beq :tdy
  txa
  jmp (v10_tab,x)
 :unk
  lda #$10
  jmp note_unhandled
-* the Tandy's modes 08h and 09h: the pixel's functions are their own
-* (tandy.s), and the character's (06h-0Ah, 13h, the teletype) draw
-* nothing there yet
-:tdy
- cpx #$0C*2
- bne :t1
- jmp tdy_setpix
-:t1
- cpx #$0D*2
- bne :t2
- jmp tdy_getpix
-:t2
- cpx #$0E*2
- bne :t3
- lda rAX                   ; (the teletype is still captured)
- and #$00FF
- jmp cap_putc
-:t3
- cpx #$13*2
- beq :tn
- cpx #$06*2
- bcc :t4
- cpx #$0B*2
- bcc :tn
-:t4
- txa
- jmp (v10_tab,x)
-:tn
- rts
 * mode 0Dh has eight pages, each with its cursor: BH is the page for
 * the cursor's functions, the character's and the string's; the rest
 * (the scroll, the teletype) work on the page shown
@@ -547,20 +514,29 @@ mark_run
  jmp mark_row
 :all
  jmp mark_all
-v10_0B                     ; set palette: BH=0 background (BL 0-15),
- mx %00                    ; BH=1 palette select (BL bit 0). CGA graphics.
- lda gfx_mode
- cmp #GFX_EGA
- bne :cga
+v10_0B                     ; the colour-select register (3D9h): BH=0 its
+ mx %00                    ; bits 0-4 from BL (the background of modes 4
+ lda gfx_mode              ; and 5, mode 6's colour, and bit 4 the bright
+ cmp #GFX_EGA              ; three), BH=1 its bit 5 from BL's bit 0 (the
+ bne :cga                  ; palette). The BDA's copy at 40:66 follows.
  jmp eg_0B                 ; mode 0Dh: the same of its palette registers
 :cga
  lda rBX
  xba
  and #$00FF                ; BH
  bne :pal
- lda rBX                   ; BH=0: background colour
+ lda rBX
  and #$000F
  sta cga_bg
+ ldx #0
+ lda rBX
+ and #$0010
+ beq :int
+ inx
+:int
+ stx cga_int
+ lda rBX
+ jsr tdy_0B                ; (a Tandy: the border, register 0 in 08h and 09h)
  bra :mark
 :pal
  lda rBX                   ; BH=1: palette 0/1
@@ -569,7 +545,7 @@ v10_0B                     ; set palette: BH=0 background (BL 0-15),
 :mark
  lda #1
  sta cga_pd
- rts
+ jmp cga_bda66
 v10_0C                     ; write pixel: AL at CX, DX (graphics only)
  mx %00
  jsr gt_on

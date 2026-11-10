@@ -22,10 +22,10 @@ Unlisted functions do nothing but are counted: the judge reports them
 | 01 | cursor shape | stored |
 | 02 / 03 | set / get cursor position | page ignored, except in mode 0Dh: BH is one of eight pages, each with its cursor |
 | 05 | select display page | mode 0Dh: page AL (0-7) is shown, and is the one the teletype and the scrolls work on; other modes have one page |
-| 06 / 07 | scroll window up / down | AL lines (0 clears), BH attribute (in graphics: the byte the freed lines are filled with) |
+| 06 / 07 | scroll window up / down | AL lines (0 clears), BH attribute (in graphics: the byte the freed lines are filled with; in a Tandy's modes 08h-0Ah the colour) |
 | 08 | read char/attr at cursor | in graphics: the cell's pixels matched against the font, 0 for none (mode 0Dh: on page BH) |
 | 09 / 0A | write char (+attr) CX times | cursor stays; in graphics BL is the colour, bit 7 XOR (mode 0Dh: on page BH) |
-| 0B | background / palette | CGA colour select (docs/cga.md); in mode 0Dh the same through the palette registers |
+| 0B | background / palette | CGA colour select (docs/cga.md): BH=0, BL's bits 0-3 the background (mode 6: the pixels' colour) and bit 4 the bright palettes; BH=1, BL's bit 0 the palette; `40:66` follows. In mode 0Dh the same through the palette registers |
 | 0C / 0D | write / read pixel | graphics modes: CX, DX, AL (bit 7 XOR); mode 0Dh: BH the page |
 | 0E | teletype | BEL BS CR LF, wrap, scroll; attribute kept (in graphics BL is the colour) |
 | 0F | get mode | AL mode, AH columns, BH 0 |
@@ -37,10 +37,17 @@ Unlisted functions do nothing but are counted: the judge reports them
 05h in other modes, and 10h, 11h and 12h with other subfunctions, return
 with nothing changed; so do 0Dh as a mode, 11h and 12h on a PC started with
 `VIDEO=CGA` (docs/ega.md). With `VIDEO=TANDY` the PC is a Tandy 1000: no
-EGA either, modes 08h (20 columns in the BDA) and 09h as modes, 05h with
+EGA either, modes 08h (20 columns in the BDA), 09h and 0Ah (640x200 in
+four colours, 80 columns) as modes, 05h with
 AL=80h-83h (the CPU's and the screen's pages), 10h with AL=00h-02h (the
-video array's palette) and 0Ch/0Dh in modes 08h and 09h; the character
-services draw nothing in those modes (docs/tandy.md).
+video array's palette, which the CGA's modes' colours go through as well)
+and 0Ch/0Dh in modes 08h, 09h and 0Ah; 0Bh with BH=0 also writes palette
+register 0 in modes 08h and 09h; the character services draw in the
+three modes as in the CGA's (40, 20 and 80 columns; BL a colour 0-15, in
+mode 0Ah 0-3; a scroll's BH a colour)
+(docs/tandy.md). `40:65` and `40:66` are the BIOS's copies of the
+mode-control and colour-select registers (`3D8h`, `3D9h`) as a mode set
+and 0Bh leave them.
 
 Direct writes to `B800:0000` are stored (the buffer is real guest memory)
 but not yet detected for rendering: M3.

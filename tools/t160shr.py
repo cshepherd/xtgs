@@ -4,6 +4,7 @@ the 80x100 cells the way src/svc/video.s t160_flush does and compares
 them with the SHR pixels.
 
     t160shr.is_t160(shr_dump)                 # 320 mode, the 16 CGA colours
+    t160shr.is_t160(shr_dump, tandy_regs)     # or as a Tandy's video array has them
     bad = t160shr.mismatches(cells, shr_dump) # [(row, col), ...]
 
 The masks of the characters the mode is used with are written out here
@@ -53,10 +54,15 @@ def expected(cells):
     return pix
 
 
-def is_t160(shr_dump):
-    """Every scan line in 320 mode with palette 0, and that the CGA's colours."""
+def is_t160(shr_dump, tandy_regs=None):
+    """Every scan line in 320 mode with palette 0, and that the CGA's colours
+    (on a Tandy: colour n is palette register n & the mask, 10h-1Fh and 01h
+    of the array's 32 registers)."""
     pal = [shr_dump[PAL + 2 * i] | shr_dump[PAL + 2 * i + 1] << 8 for i in range(16)]
-    return not any(shr_dump[SCB:SCB + 200]) and pal == CGA_RGB
+    want = CGA_RGB
+    if tandy_regs is not None:
+        want = [CGA_RGB[tandy_regs[0x10 + (i & tandy_regs[1] & 15)] & 15] for i in range(16)]
+    return not any(shr_dump[SCB:SCB + 200]) and pal == want
 
 
 def mismatches(cells, shr_dump):

@@ -451,8 +451,8 @@ blink      dw 0              ; frame counter; bit 5 = cursor visible
 tty_attr   dw $FFFF          ; $FFFF: teletype keeps the cell's attribute
 gfx_mode   dw 0              ; 0 = text; 4/5 = CGA 320x200x4 graphics (SCREEN 1);
                              ; 6 = 640x200 mono; GFX_T160 = 160x100x16 (text cells);
-                             ; GFX_EGA = mode 0Dh; GFX_TDY8 and GFX_TDY9 = the
-                             ; Tandy's modes 08h and 09h
+                             ; GFX_EGA = mode 0Dh; GFX_TDY8, GFX_TDY9 and
+                             ; GFX_TDYA = the Tandy's modes 08h, 09h and 0Ah
 
 mark_row                   ; A = row
  mx %00
@@ -590,9 +590,11 @@ flush
  beq :tdy
  cmp #GFX_TDY9
  beq :tdy
+ cmp #GFX_TDYA
+ beq :tdy
  jmp gfx_flush            ; CGA graphics: repack only dirty scanlines (rts)
 :tdy
- jmp tdy_flush            ; the Tandy's 16 colours: the lines written (rts)
+ jmp tdy_flush            ; the Tandy's own modes: the lines written (rts)
 :ega
  jmp ega_flush            ; mode 0Dh: the flagged bytes of the planes (rts)
 :t160
@@ -942,14 +944,6 @@ tty_cur
 * and the cursor advances with wrap.
 vid_tty
  mx %00
- ldx gfx_mode              ; (the Tandy's modes 08h and 09h: nothing is
- cpx #GFX_TDY8             ; drawn yet)
- beq :no
- cpx #GFX_TDY9
- bne :go
-:no
- rts
-:go
  and #$00FF
  sta sv0
  jsr gt_on                 ; CGA graphics: the character is drawn (gtext.s)
@@ -1316,7 +1310,11 @@ apply_cgamode
  lda #4
 :chk
  cmp gfx_mode
- beq :done                 ; already in this graphics mode
+ bne :new
+ lda #1                    ; already in this graphics mode: bit 2, mode 5's
+ sta cga_pd                ; colours, may be what changed
+ rts
+:new
  sta gfx_mode
  cmp #6
  beq :scb6
@@ -1367,6 +1365,10 @@ vid_setmode
  sta >CRTC_REG+14          ; them before it is still to be applied
  sta >CRTC_CUR
  sta >CGA_MODECHG
+ sta cga_bg                ; and the colour-select register: 30h, the bright
+ lda #1                    ; colours of palette 1 on a black ground (3Fh in
+ sta cga_int               ; mode 6, below)
+ sta cga_pal
  lda gfx_mode
  cmp #GFX_EGA
  bne :was
@@ -1381,14 +1383,17 @@ vid_setmode
 :cga
  cmp #GFX_TDY8
  beq :tdy
+ cmp #GFX_TDYA
+ beq :tdy
  cmp #GFX_TDY9
  bne :cga2
 :tdy
  tax
- lda >TDY_ON               ; 08h and 09h are modes on a Tandy only
+ lda >TDY_ON               ; 08h-0Ah are modes on a Tandy only
  beq :text
  txa
- jmp tdy_enter             ; 160x200 or 320x200 in 16 colours (tandy.s)
+ jmp tdy_enter             ; 160x200 or 320x200 in 16 colours, 640x200
+                           ; in four (tandy.s)
 :cga2
  cmp #4
  bcc :text                 ; 0-3: text
@@ -1396,19 +1401,56 @@ vid_setmode
  bcs :text                 ; 7+: text
  sta gfx_mode              ; 4/5 (320x200x4) or 6 (640x200 mono)
  ldx #$002A                ; what the BIOS leaves in 0x3D8: 320 graphics,
+ cmp #5
+ bne :n5
+ ldx #$002E                ; mode 5, the colour burst off: on an RGB screen
+:n5                        ; cyan, red and white (cga_setpal)
  cmp #6
  bne :g
- ldx #$001E                ; 640 graphics
+ ldx #$001E                ; 640 graphics, and white for the pixels that
+ lda #$000F                ; are set (3D9h = 3Fh)
+ sta cga_bg
 :g
  txa
  sta >CGA_MODEREQ
+ jsr cga_bda
  jmp gfx_setup
 :text
  lda #$0029                ; 80-column text, enabled, blink
  sta >CGA_MODEREQ
+ jsr cga_bda
  stz gfx_mode
  jsr init_shr              ; 640 text mode, text palette, pixels cleared
  jmp vid_clear             ; blank the text buffer, home the cursor (rts)
+
+* cga_bda - the BDA's copies of what the BIOS wrote to the mode-control
+* and colour-select registers (40:65 and 40:66): A is the first, the
+* second is made of cga_bg, cga_int and cga_pal. A write to either port
+* by the guest does not come here: the BIOS never hears of it.
+cga_bda
+ mx %00
+ sep #$20
+ mx %10
+ sta >H_BDA+BDA_MODESET
+ rep #$20
+ mx %00
+* cga_bda66 - 40:66 alone (INT 10h 0Bh)
+cga_bda66
+ mx %00
+ lda cga_pal
+ asl
+ ora cga_int
+ asl
+ asl
+ asl
+ asl
+ ora cga_bg
+ sep #$20
+ mx %10
+ sta >H_BDA+BDA_PALETTE
+ rep #$20
+ mx %00
+ rts
 
 * gfx_setup - SHR to 320 mode, CGA palette, screen and the CGA
 * framebuffer cleared. DBR=$04.
@@ -1437,13 +1479,8 @@ gfx_setup
  inx
  cpx #200
  bcc :scb3
- lda #0                    ; default: palette 1, non-intensified, bg 0
- sta cga_bg                ; (faithful CGA: cyan/magenta/white; palette 0 is
- sta cga_int               ; green/red/brown)
- lda #1
- sta cga_pal
- stz cga_pd
- jsr cga_setpal
+ stz cga_pd                ; the colours vid_setmode chose: palette 1, bright
+ jsr cga_setpal            ; (cyan, magenta, white), on black
  bra :clrpix
 :m6
  ldx #0                    ; 640 mode: SCB $80 on every line
@@ -1454,6 +1491,7 @@ gfx_setup
  inx
  cpx #200
  bcc :scb6
+ stz cga_pd
  jsr cga_setpal6
 :clrpix
  ldx #0                    ; clear 32000 SHR pixel bytes
@@ -1478,68 +1516,80 @@ gfx_setup
  bcc :cfb
  rts
 
-* cga_setpal - set SHR palette 0 entries 0-3 for 320 mode from the
-* current CGA background/palette/intensity. Entry 0 = background,
-* 1-3 = the selected palette's three foreground colours. DBR=$04.
+* cga_setpal - SHR palette 0, entries 0-3, for the 320 modes from the
+* colour-select register (cga_bg, cga_int, cga_pal) and bit 2 of the
+* mode-control register. A pixel that is 0 is colour cga_bg; one that
+* is 1-3 is green, red, brown (palette 0) or cyan, magenta, white
+* (palette 1), and with bit 2 set (mode 5: no colour burst, which an
+* RGB screen shows as a third palette) cyan, red, white; cga_int makes
+* the three bright. On a Tandy each of the four then goes through the
+* video array's mask and palette registers (tdy_col). DBR=$04.
 cga_setpal
  mx %00
- lda cga_bg                ; entry 0 = cga_rgb[background]
- and #$000F
- asl
- tax
- lda cga_rgb,x
+ lda cga_bg                ; entry 0 = the background
+ jsr cga_ent
  sta >SHR_PAL
- lda cga_pal               ; combo = pal*2 + intensity ; base = combo*3
+ lda >CGA_MODEREQ
+ and #$0004
+ beq :m4
+ lda cga_int               ; mode 5: rows 4 and 5
+ and #$0001
+ clc
+ adc #4
+ bra :row
+:m4
+ lda cga_pal               ; row = pal*2 + intensity
  and #$0001
  asl
  clc
  adc cga_int
+:row
  sta gL
  asl
  clc
- adc gL                    ; base into fg_tab (0,3,6,9)
- tax
- lda fg_tab,x              ; entry 1
- and #$00FF
- asl
- phx
- tax
- lda cga_rgb,x
+ adc gL                    ; * 3: its place in fg_tab
+ tay
+ lda fg_tab,y              ; entry 1
+ jsr cga_ent
  sta >SHR_PAL+2
- plx
- inx
- lda fg_tab,x              ; entry 2
- and #$00FF
- asl
- phx
- tax
- lda cga_rgb,x
+ lda fg_tab+1,y            ; entry 2
+ jsr cga_ent
  sta >SHR_PAL+4
- plx
- inx
- lda fg_tab,x              ; entry 3
- and #$00FF
- asl
- tax
- lda cga_rgb,x
+ lda fg_tab+2,y            ; entry 3
+ jsr cga_ent
  sta >SHR_PAL+6
  rts
 
-* cga_setpal6 - 640-mode mono palette: cga640_tab emits pixel value
-* 0 (black) or 3 (white); in 640 mode the four pixel positions read
-* groups based at entries 8,12,0,4, so make entry base+0 black and
-* base+3 white for each group. DBR=$04.
+* cga_ent - the SHR's word for colour A (its low four bits) of the
+* CGA's sixteen, as this PC shows it. Keeps Y.
+cga_ent
+ mx %00
+ jsr tdy_col
+ asl
+ tax
+ lda cga_rgb,x
+ rts
+
+* cga_setpal6 - the 640 mode's palette. A pixel that is set is the
+* colour in the colour-select register's low four bits (cga_bg here;
+* the BIOS writes 3Fh, white) and one that is clear is black; on a
+* Tandy both go through the array, so the clear ones are palette
+* register 0. cga640_tab emits pixel value 0 or 3, and in 640 mode
+* the four pixel positions read groups based at entries 8, 12, 0, 4:
+* entry base+0 is the ground and base+3 the colour in each. DBR=$04.
 cga_setpal6
  mx %00
+ lda #0
+ jsr cga_ent
  ldx #0
- lda #$0000
 :z
  sta >SHR_PAL,x
  inx
  inx
  cpx #32
  bcc :z
- lda #$0FFF
+ lda cga_bg
+ jsr cga_ent
  sta >SHR_PAL+6            ; entry 3  (group at base 0)
  sta >SHR_PAL+14          ; entry 7  (group at base 4)
  sta >SHR_PAL+22          ; entry 11 (group at base 8)
@@ -1555,13 +1605,18 @@ cga_setpal6
 * either page is dirty, so nothing is missed. DBR=$04.
 gfx_flush
  mx %00
- lda cga_pd               ; apply a pending COLOR / 3D9h palette change
+ lda cga_pd               ; apply a pending COLOR / 3D9h palette change,
+ ora tdy_pald             ; or one of a Tandy's palette registers or mask
  beq :nopd
  stz cga_pd
+ stz tdy_pald
  lda gfx_mode
  cmp #6
- beq :nopd                ; mode 6 palette is fixed mono
+ beq :pd6
  jsr cga_setpal
+ bra :nopd
+:pd6
+ jsr cga_setpal6
 :nopd
  stz gPG
 :pg
@@ -1834,14 +1889,8 @@ t160_enter
  inx
  cpx #200
  bcc :scb
- ldx #0                    ; palette 0 = the 16 CGA colours
-:pal
- lda cga_rgb,x
- sta >SHR_PAL,x
- inx
- inx
- cpx #32
- bcc :pal
+ jsr tdy_setpal            ; palette 0 = the 16 CGA colours (a Tandy: as its
+ stz tdy_pald              ; array has them)
  ldx #0
  sep #$20
  mx %10
@@ -1860,6 +1909,11 @@ t160_enter
 * pCELL and the g* scratch.
 t160_flush
  mx %00
+ lda tdy_pald              ; a Tandy: a palette register or the mask written
+ beq :nopd
+ stz tdy_pald
+ jsr tdy_setpal
+:nopd
  lda #^SHR_PIX
  sta pCELL+2
  sta gDST+2
@@ -1974,8 +2028,9 @@ cga_rgb
  dw $0000,$000A,$00A0,$00AA,$0A00,$0A0A,$0A50,$0AAA
  dw $0555,$055F,$05F5,$05FF,$0F55,$0F5F,$0FF5,$0FFF
 
-* fg_tab - CGA foreground colour indices for the four (palette,
-* intensity) combos, three per combo: pal0/i0, pal0/i1, pal1/i0,
-* pal1/i1. pal0 = green/red/brown, pal1 = cyan/magenta/white.
+* fg_tab - CGA foreground colour indices, three a row: pal0/i0,
+* pal0/i1, pal1/i0, pal1/i1 (pal0 = green/red/brown, pal1 =
+* cyan/magenta/white), then mode 5's cyan/red/white, i0 and i1. The
+* byte after the last is read with it (cga_setpal reads words).
 fg_tab
- hex 0204060A0C0E0305070B0D0F
+ hex 0204060A0C0E0305070B0D0F0304070B0C0F00

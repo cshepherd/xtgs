@@ -1,0 +1,1 @@
+{"com": "cgapal.asm", "name": "CGAPAL.COM", "args": "5", "exit": 0, "stdout": "cgapal5.out", "video": "cga4", "cga_colours": [0, 13, 10, 1], "cmd": ["VIDEO=TANDY"], "tandy_pal": "0001020D0A05000108090A0B0C0D0E0F", "tandy_mask": "07"}

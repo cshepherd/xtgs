@@ -1,0 +1,1 @@
+{"com": "tandya.asm", "name": "TANDYA.COM", "args": "T", "exit": 0, "stdout": "tandya.out", "video": "text", "cmd": ["VIDEO=TANDY"]}

@@ -1,0 +1,1 @@
+{"com": "ttext.asm", "name": "TTEXT.COM", "args": "A", "exit": 0, "stdout": "ttext.out", "video": "tandyA", "cmd": ["VIDEO=TANDY"], "tandy_page": "F6"}

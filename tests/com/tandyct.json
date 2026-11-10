@@ -1,0 +1,1 @@
+{"com": "cgapal.asm", "name": "CGAPAL.COM", "args": "T", "exit": 0, "video": "t160", "cmd": ["VIDEO=TANDY"], "tandy_pal": "00010C030E05060708090A0B0C0D0E00", "tandy_mask": "07"}

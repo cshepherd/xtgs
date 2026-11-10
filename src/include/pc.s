@@ -61,6 +61,8 @@ BDA_CURPOS = $50             ; 8 x u16: col | row<<8
 BDA_CURSHP = $60             ; u16 cursor shape (start<<8 | end)
 BDA_PAGE   = $62             ; u8 active page
 BDA_CRTC   = $63             ; u16 CRTC base port
+BDA_MODESET = $65            ; u8 what the BIOS wrote to 3D8h
+BDA_PALETTE = $66            ; u8 and to 3D9h
 BDA_TICKS  = $6C             ; u32 timer ticks since midnight
 BDA_MIDNT  = $70             ; u8 midnight flag
 BDA_ROWS   = $84             ; u8 rows - 1
@@ -155,6 +157,8 @@ EGA_DIRTY  = RES_BASE+$C000  ; EGA_LEN flags (and a word to spare), by place on 
 GFX_TDY8   = 8               ; gfx_mode in mode 08h, 160x200 in 16 colours
 GFX_TDY9   = 9               ; gfx_mode in mode 09h, 320x200 in 16 colours
  err GFX_TDY9-GFX_TDY8-1     ; (tdy_mode: bit 0 of 3D8h is the difference)
+GFX_TDYA   = $0A             ; gfx_mode in mode 0Ah, 640x200 in 4 colours
+ err GFX_TDYA-GFX_TDY9-1     ; (tdy_mode: the three are one range)
 H_TDYA     = H_EGA           ; slots 0-3
 H_TDYC     = H_EGA1          ; slots 4, 5 and 8
 TDY_ON     = RES_BASE+$990   ; u16 nonzero: the PC is a Tandy 1000

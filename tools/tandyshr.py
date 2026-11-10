@@ -1,22 +1,29 @@
 #!/usr/bin/env python3
-"""Does the SHR screen show the Tandy's mode 09h (320x200 in 16 colours)
-or 08h (160x200 in 16; docs/tandy.md)? In mode 09h the screen is two of
+"""Does the SHR screen show the Tandy's mode 09h (320x200 in 16 colours),
+08h (160x200 in 16) or 0Ah (640x200 in four; docs/tandy.md)? In mode 09h the screen is two of
 the eight 16K pages, the even one the page register names (bits 0-2) and
 the next; line y is in the 8K bank y & 3 of those 32K at (y >> 2) * 160,
 a pixel four bits and the left one a byte's high four: the SHR's 320 mode
 a byte for a byte. In mode 08h it is the one page the register names,
 laid out as the CGA's graphics are: line y at (y & 1) * 8K + (y >> 1) *
-80, a byte two pixels, each of them two of the SHR's. The pages are
+80, a byte two pixels, each of them two of the SHR's. Mode 0Ah is mode
+09h's two pages and four line banks, a line eighty pairs of bytes and a
+pair eight pixels: the even byte is the low bit of each pixel's colour,
+the odd byte the high bit, and the SHR is in 640 mode, two bits a pixel
+(the four pixels of an SHR byte read palette entries from 8, 12, 0 and
+4, so the four colours are there four times). The pages are
 read from where they are kept (TDY_SLOT, src/include/pc.s), so a page
 that is shown but not the CPU's is judged too, and a line that changed
 without its flag in VID_DIRTY shows as stale. The palette is the video
 array's sixteen registers, reached through the palette mask, each one of
 the BIOS's sixteen colours (cga_rgb in src/svc/video.s).
 
-    tandyshr.is_tandy9(shr_dump)                       # (either mode: SHR 320, palette 0)
-    tandyshr.mode(state, modereq)                      # 8, 9 or None: what the ports ask for
+    tandyshr.is_tandy9(shr_dump)                       # (modes 08h and 09h: SHR 320, palette 0)
+    tandyshr.is_tandyA(shr_dump)                       # (mode 0Ah: SHR 640, palette 0)
+    tandyshr.shows(shr_dump, mode)                     # the one of those two that is mode's
+    tandyshr.mode(state, modereq)                      # 8, 9, 10 or None: what the ports ask for
     bad = tandyshr.mismatches(mem, state, shr_dump, mode=9)   # [(line, byte), ...]
-    bad = tandyshr.palette(state, shr_dump)            # [(entry, got, want), ...]
+    bad = tandyshr.palette(state, shr_dump, mode=9)    # [(entry, got, want), ...]
 
 mem is {guest address: bytes} for the REGIONS; state the 48 bytes from
 TDY_ON (ON, IDX, PAGE, MOVES as words, the eight slots, the registers);
@@ -81,30 +88,58 @@ def expected8(mem, state):
     return pix
 
 
+def expectedA(mem, state):
+    """The 32000 pixel bytes of mode 0Ah: a pair of bytes, bit for bit,
+    is eight pixels of two bits, the odd byte's bit the high one."""
+    src = expected(mem, state)
+    pix = bytearray(32000)
+    for o in range(0, 32000, 2):
+        lo, hi = src[o], src[o + 1]
+        px = [(hi >> (7 - i) & 1) << 1 | (lo >> (7 - i) & 1) for i in range(8)]
+        pix[o] = px[0] << 6 | px[1] << 4 | px[2] << 2 | px[3]
+        pix[o + 1] = px[4] << 6 | px[5] << 4 | px[6] << 2 | px[7]
+    return pix
+
+
 def is_tandy9(shr_dump):
     """Every scan line in 320 mode, palette 0 (mode 08h is the same)."""
     return all(b == 0 for b in shr_dump[SCB:SCB + 200])
 
 
+def is_tandyA(shr_dump):
+    """Every scan line in 640 mode, palette 0."""
+    return all(b == 0x80 for b in shr_dump[SCB:SCB + 200])
+
+
+def shows(shr_dump, mode):
+    return is_tandyA(shr_dump) if mode == 0x0A else is_tandy9(shr_dump)
+
+
 def mode(state, modereq):
-    """The 16-colour mode the array and the CGA's mode register ask for."""
-    if not regs(state)[3] & 0x10 or not modereq & 2:
+    """The mode of its own the array and the CGA's mode register ask for:
+    graphics with the array's 16 colours (3D8h's bit 0: 320 across), or
+    with its four at 640 and 3D8h's 640."""
+    if not modereq & 2:
         return None
-    return 9 if modereq & 1 else 8
+    if regs(state)[3] & 0x10:
+        return 9 if modereq & 1 else 8
+    if regs(state)[3] & 8 and modereq & 0x10:
+        return 0x0A
+    return None
 
 
 def mismatches(mem, state, shr_dump, mode=9):
-    want = expected8(mem, state) if mode == 8 else expected(mem, state)
+    want = {8: expected8, 0x0A: expectedA}.get(mode, expected)(mem, state)
     return [(o // 160, o % 160) for o in range(32000) if shr_dump[o] != want[o]]
 
 
-def palette(state, shr_dump):
+def palette(state, shr_dump, mode=9):
     rgb = textshr._table(VIDEO, "cga_rgb", "dw")
     assert len(rgb) == 16, len(rgb)
     r = regs(state)
     bad = []
     for i in range(16):
-        want = rgb[r[0x10 + (i & r[1] & 15)] & 15]
+        want = rgb[r[0x10 + ((i & 3 if mode == 0x0A else i) & r[1] & 15)] & 15]
         got = shr_dump[PAL + i * 2] | shr_dump[PAL + i * 2 + 1] << 8
         if got != want:
             bad.append((i, got, want))

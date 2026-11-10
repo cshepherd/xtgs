@@ -69,7 +69,7 @@ def main():
     # which the GW-BASIC rebuilt from the 1983 source does not have.
     subprocess.run(["nasm", "-f", "bin", "-o", os.path.join(OUT, "EGADEMO.COM"),
                     os.path.join(ROOT, "tests", "demo", "egademo.asm")], check=True)
-    # A Tandy 1000's mode 09h (docs/tandy.md): for a PC that XTGS.CMD's
+    # A Tandy 1000's modes 09h, 08h and 0Ah (docs/tandy.md): for a PC that XTGS.CMD's
     # VIDEO=TANDY makes; anywhere else it says so and ends.
     subprocess.run(["nasm", "-f", "bin", "-o", os.path.join(OUT, "TDYDEMO.COM"),
                     os.path.join(ROOT, "tests", "demo", "tdydemo.asm")], check=True)

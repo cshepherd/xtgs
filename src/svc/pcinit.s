@@ -706,6 +706,13 @@ build_bda
  sta >H_BDA+BDA_ROWS
  rep #$20
  mx %00
+ stz cga_bg                ; the colour-select register as the BIOS's mode
+ lda #1                    ; set leaves it, 30h, and the two registers'
+ sta cga_int               ; copies in the BDA (3D8h: 29h, 80-column text)
+ sta cga_pal
+ lda #$0029
+ sta >CGA_MODEREQ
+ jsr cga_bda
  jsr ega_init              ; the EGA's bytes, and the font (ega.s)
  jmp clk_init              ; the tick count: the time of day (clock.s)
 

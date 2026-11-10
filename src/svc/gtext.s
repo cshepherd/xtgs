@@ -9,7 +9,10 @@
 * byte the freed lines are filled with), read character (08h:
 * the cell's pixels matched against the font) and the pixel
 * calls (0Ch/0Dh). video.s and bios.s come here when gt_on
-* says so; the 160x100 mode is text cells and does not.
+* says so; the 160x100 mode is text cells and does not. The
+* EGA's mode 0Dh and a Tandy's modes 08h, 09h and 0Ah come
+* here too, and each routine goes on to its own in ega.s or
+* tandy.s for the cell, the pixels and the lines of a scroll.
 *
 * A character row is four lines of the even field and four
 * of the odd ($2000 further on); a cell is two bytes wide in
@@ -62,13 +65,21 @@ gt_on
 :out
  rts
 
-* gt_cols - A = characters a row: 40 in modes 4/5, 80 in 6
+* gt_cols - A = characters a row: 40 in modes 4/5, 80 in 6; a Tandy's
+* 20 in mode 08h, 40 in 09h and 80 in 0Ah
 gt_cols
  mx %00
  lda gfx_mode
  cmp #6
  beq :w
+ cmp #GFX_TDYA
+ beq :w
+ cmp #GFX_TDY8
+ beq :n
  lda #40
+ rts
+:n
+ lda #20
  rts
 :w
  lda #80
@@ -83,6 +94,12 @@ gt_cell
  bne :cga
  jmp eg_cell               ; mode 0Dh: the planes (ega.s)
 :cga
+ cpx #GFX_TDY8
+ bcc :cga1
+ cpx #GFX_TDYA+1
+ bcs :cga1
+ jmp tdy_cell              ; a Tandy's modes: its line banks (tandy.s)
+:cga1
  sta gt_pos
  and #$00FF
  sta gt_off                ; (the column, for now)
@@ -165,6 +182,10 @@ gt_draw
  bne :cga
  jmp eg_draw
 :cga
+ jsr tdy_gm
+ bcc :cga1
+ jmp tdy_draw
+:cga1
  lda gt_ch
  and #$00FF
  asl
@@ -263,7 +284,7 @@ gt_write
  rts
 
 * gt_tty - the teletype: A = character, in the colour tty_attr
-* ($FFFF: 3). BEL ignored, BS, CR, LF; the screen moves up a row,
+* ($FFFF: 3, or 7 where there are sixteen). BEL ignored, BS, CR, LF; the screen moves up a row,
 * the new one empty, when the cursor leaves it. Keeps sv3-sv8.
 gt_tty
  mx %00
@@ -275,7 +296,12 @@ gt_tty
  lda #3
  ldx gfx_mode
  cpx #GFX_EGA
+ beq :c7
+ cpx #GFX_TDY8
+ beq :c7
+ cpx #GFX_TDY9
  bne :col
+:c7
  lda #7                    ; (of sixteen)
 :col
  and #$00FF
@@ -405,6 +431,13 @@ gt_scroll
  beq :m6
  asl gs_w
  asl gs_lb
+ cmp #GFX_TDY8             ; a Tandy's sixteen colours: four bytes a cell
+ beq :x4
+ cmp #GFX_TDY9
+ bne :m6
+:x4
+ asl gs_w
+ asl gs_lb
 :m6
  lda gs_top
  asl
@@ -421,9 +454,13 @@ gt_scroll
  sta gs_n
  lda gfx_mode
  cmp #GFX_EGA
- bne :fld
- asl gs_t                  ; mode 0Dh: eight lines a row, not four in
- asl gs_e                  ; each field
+ beq :x8
+ jsr tdy_gm
+ bcc :fld
+ jsr tdy_fillw             ; (a Tandy's modes: BH is a colour)
+:x8
+ asl gs_t                  ; mode 0Dh and a Tandy's: eight lines a row,
+ asl gs_e                  ; not four in each field
  asl gs_n
 :fld
  lda gs_t
@@ -479,8 +516,11 @@ gt_scroll
 :marks
  lda gfx_mode
  cmp #GFX_EGA
- bne :mk0
- rts                       ; (egs_copy and egs_fill saw to it)
+ beq :mkx
+ jsr tdy_gm
+ bcc :mk0
+:mkx
+ rts                       ; (the copy and the fill saw to it)
 :mk0
  lda gs_t                  ; the pages of both fields the window lies in
  jsr gs_l80
@@ -538,6 +578,10 @@ gs_copy
  bne :cga
  jmp egs_copy
 :cga
+ jsr tdy_gm
+ bcc :cga1
+ jmp tdys_copy
+:cga1
  lda gs_s
  jsr gs_l80
  clc
@@ -583,6 +627,10 @@ gs_fill
  bne :cga
  jmp egs_fill
 :cga
+ jsr tdy_gm
+ bcc :cga1
+ jmp tdys_fill
+:cga1
  lda gs_d
  jsr gs_l80
  clc
@@ -623,6 +671,10 @@ gt_read
  bne :cga
  jmp eg_read
 :cga
+ jsr tdy_gm
+ bcc :cga1
+ jmp tdy_read
+:cga1
  lda >H_BDA+BDA_CURPOS
  jsr gt_cell
  bcc :cell
@@ -758,6 +810,10 @@ gt_setpix
  bne :cga
  jmp eg_setpix
 :cga
+ jsr tdy_gm
+ bcc :cga1
+ jmp tdy_setpix
+:cga1
  jsr gt_pixel
  bcc :ok
  rts
@@ -812,6 +868,10 @@ gt_getpix
  bne :cga
  jmp eg_getpix
 :cga
+ jsr tdy_gm
+ bcc :cga1
+ jmp tdy_getpix
+:cga1
  jsr gt_pixel
  bcc :ok
  lda #0

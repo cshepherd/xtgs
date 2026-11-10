@@ -15,8 +15,9 @@
 ; again shows. As it is, on page 7 after the BIOS set the mode, two
 ; palette registers changed and the pixels of a slanting line set by
 ; INT 10h. With the command line "P": the mode is entered from text by
-; the ports alone, with pages 6 and 7 the CPU's and 7 the screen's, so
-; the picture is written at BC00; the palette is turned round behind a
+; the ports alone (through mode 09h, which differs in a bit of 3D8h),
+; with pages 6 and 7 the CPU's and 7 the screen's, so the picture is
+; written at BC00; the palette is turned round behind a
 ; mask of 7; the CPU has pages 2 and 3 for a while and fills them while
 ; 7, in neither half of the window, is shown, and 7 comes back to be
 ; written over; and at the end page 6, at B800 and not shown, is filled.
@@ -271,7 +272,12 @@ start:  cld
         ARRAY 01h, 0Fh          ; the mask, the border, 16 colours,
         ARRAY 02h, 00h
         ARRAY 03h, 14h
-        mov dx, 3D8h            ; and graphics, 160 across, enabled
+        mov dx, 3D8h            ; and graphics, enabled: 320 across for
+        mov al, 2Bh             ; a frame, which is mode 09h, and then
+        out dx, al              ; 160
+        call tick
+        call tick
+        mov dx, 3D8h
         mov al, 2Ah
         out dx, al
         mov word [base], 4000h  ; (page 7 is at BC00)

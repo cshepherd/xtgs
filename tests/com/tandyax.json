@@ -1,0 +1,1 @@
+{"com": "tandya.asm", "name": "TANDYA.COM", "args": "X", "exit": 0, "stdout": "tandya.out", "video": "cga6", "cga_colours": [0, 15], "cmd": ["VIDEO=TANDY"], "tandy_pal": "000C0E030405060708090A0B0C0D0E0F"}

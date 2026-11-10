@@ -4,7 +4,7 @@ XT/GS renders CGA graphics on the IIGS Super Hi-Res screen:
 
 - **Mode 4/5** (`SCREEN 1`): 320x200, 4 colours. The IIGS 320 mode is 320x200
   at 4 bits a pixel, a strict superset of CGA's 2 bits a pixel.
-- **Mode 6** (`SCREEN 2`): 640x200, mono. Maps onto the IIGS 640 mode (the same
+- **Mode 6** (`SCREEN 2`): 640x200, black and one colour. Maps onto the IIGS 640 mode (the same
   mode the text screen uses).
 
 - **160x100, 16 colours**: the "text-cell" mode some CGA games use (Tunneler,
@@ -12,8 +12,11 @@ XT/GS renders CGA graphics on the IIGS Super Hi-Res screen:
   lines; see [its own section](#160x100-16-colours) below.
 
 The resolutions line up by design, not coincidence, so the work is repacking a
-bitmap, not scaling it. The CGA palette and background colour (the `COLOR`
-statement) are honoured in 320 mode.
+bitmap, not scaling it. The colours are the colour-select register's
+(`3D9h`, `INT 10h AH=0Bh`, the `COLOR` statement): the background and the
+three palettes of the 320 modes, and in mode 6 the colour of the pixels
+that are set. On a Tandy 1000 (`VIDEO=TANDY`) they go through the video
+array's palette as well (docs/tandy.md).
 
 ## How it works (`src/svc/video.s`, `src/core/ops_misc.s`)
 
@@ -22,11 +25,15 @@ statement) are honoured in 320 mode.
   the 16 KB CGA framebuffer; any other mode restores 640-mode text (`init_shr`
   + `vid_clear`). For 320 (4/5) it sets every SCB to `$00` and the palette from
   the CGA colour state (below). For 640 (6) it sets every SCB to `$80` and a
-  mono palette (`cga_setpal6`): `cga640_tab` emits pixel value 3 or 0, and in
-  640 mode the four pixel positions read palette groups based at entries
-  8/12/0/4, so entries 3/7/11/15 are white and the rest black. GW-BASIC's
-  `SCREEN 1` sets mode **5** (the burst-off 4-colour variant); `SCREEN 2` sets
-  mode 6.
+  two-colour palette (`cga_setpal6`): `cga640_tab` emits pixel value 3 or 0,
+  and in 640 mode the four pixel positions read palette groups based at
+  entries 8/12/0/4, so entries 3/7/11/15 are the foreground and the rest
+  black. GW-BASIC's `SCREEN 1` sets mode 4 (the tree's interpreter does
+  for `SCREEN 1,1` as well: the BDA's mode is 04h after either) and
+  `SCREEN 2` mode 6. The mode set leaves the two registers as
+  a PC's BIOS does: mode control (`3D8h`) `2Ah` in mode 4, `2Eh` in mode 5
+  and `1Eh` in mode 6, colour select (`3D9h`) `30h`, and `3Fh` in mode 6;
+  and their copies in the BDA at `40:65` and `40:66` (`cga_bda`).
 - **The guest draws itself.** GW-BASIC (like most CGA software) bypasses
   `INT 10h` for its drawing and writes pixels straight into the CGA
   framebuffer at B800:0000
@@ -42,15 +49,32 @@ statement) are honoured in 320 mode.
   structure is identical. `shr.py` understands both SHR modes, so the headless
   screenshot renders correctly.
 - **Palette / `COLOR`.** The CGA colour-select state (`cga_bg`, `cga_pal`,
-  `cga_int`) is fed by **both** `INT 10h AH=0Bh` (`v10_0B`: `BH=0` background,
-  `BH=1` palette) and a write to port **`3D9h`** (`port_out`: bits 0-3
-  background, bit 4 intensity, bit 5 palette), so GW-BASIC's `COLOR` statement
-  works whichever path it uses. A change sets `cga_pd`, and `gfx_flush` applies
-  it via `cga_setpal`, which writes SHR palette 0 entries 0-3: entry 0 =
-  `cga_rgb[background]`, entries 1-3 = the selected palette's three colours
-  (`fg_tab`: palette 0 = green/red/brown, palette 1 = cyan/magenta/white, dim
-  or intensified). The palette lives separately from the pixels, so a `COLOR`
-  change recolours the screen with no re-blit.
+  `cga_int`) is fed by **both** `INT 10h AH=0Bh` (`v10_0B`: `BH=0`, bits 0-3
+  of `BL` the background and bit 4 the intensity; `BH=1`, bit 0 of `BL` the
+  palette; `40:66` kept as the BIOS keeps it) and a write to port **`3D9h`**
+  (`port_out`: bits 0-3 background, bit 4 intensity, bit 5 palette), so
+  GW-BASIC's `COLOR` statement works whichever path it uses. A change sets
+  `cga_pd`, and `gfx_flush` applies it via `cga_setpal`, which writes SHR
+  palette 0 entries 0-3: entry 0 = `cga_rgb[background]`, entries 1-3 = the
+  selected palette's three colours (`fg_tab`: palette 0 = green/red/brown,
+  palette 1 = cyan/magenta/white, dim or intensified). The palette lives
+  separately from the pixels, so a `COLOR` change recolours the screen with
+  no re-blit.
+  - **Mode 5** (bit 2 of `3D8h`, the colour burst off) has one palette
+    whatever bit 5 of `3D9h` says: cyan, red and white (3, 4, 7, or 11, 12,
+    15 with the intensity bit). `3D8h` written again with only that bit
+    changed changes the colours and nothing else.
+  - **Mode 6**: a pixel that is clear is black and one that is set is the
+    colour in bits 0-3 of `3D9h`. The BIOS's mode set makes that white
+    (`3Fh`); a program that enters the mode by `3D8h` alone has whatever
+    `3D9h` held, as on a CGA (from text that is `30h`: black on black until
+    it writes the register, which such programs do).
+  - The BIOS's `30h` is palette 1 with the intensity bit: modes 4 and 5
+    start in the bright colours. `AH=0Bh` with `BH=0` and a `BL` below 16
+    clears the bit, so a program that sets a background that way gets the
+    dim ones, as on a PC.
+  - On a Tandy each of these colours is then a number put through the video
+    array's mask and palette registers (`cga_ent`, `tdy_col`): docs/tandy.md.
 - **`3DAh` status register** (`port_in8`): returns a free-running value so the
   guest's retrace/display-enable poll loops terminate instead of spinning on a
   constant open-bus read.
@@ -139,6 +163,9 @@ is why the headless test never showed the dashes.
 through its cases in modes 4 and 6 by what is in B800 afterwards, and ends
 on a picture that the judge compares with the SHR pixels (`tools/cgashr.py`,
 `"video": "cga4"` or `"cga6"`: all 200 lines rebuilt from the two fields).
+The same services draw in the EGA's mode 0Dh (docs/ega.md) and in a Tandy's
+modes 08h, 09h and 0Ah (docs/tandy.md), where `gtext.s` hands the cell and
+the glyph's bytes to those modes' routines.
 
 Limits: there is no cursor in a graphics mode (a PC has none either; a
 program draws its own). The font is the built-in one for all 256
@@ -197,6 +224,29 @@ then changes single cells and a row; the judge (`tools/t160shr.py`) rebuilds
 the expected SHR pixels from B800 and requires every cell to match.
 `t160x` enters the mode and leaves it again for text.
 
+## The colours' test
+
+What a pixel is shown in cannot be read back by a program, so
+`tests/com/cgapal.asm` checks what it can (the BIOS's copies of the two
+registers at `40:65` and `40:66` after each call) and the judge does the
+rest: for every `"video": "cga4"` or `"cga6"` test `tools/judge_com.py`
+works the colours out from the registers as the core and SVC hold them
+(`tools/cgashr.py`'s `colours`, written from the description of the
+hardware and not from `fg_tab`), prints them, and compares the SHR's
+palette with them; a manifest's `"cga_colours"` says what they must come
+to. Each run draws a picture, lets it be shown, and ends on a write that
+changes colours only.
+
+| Manifest | Mode | Ends on | Colours |
+| --- | --- | --- | --- |
+| `cgapal4` | 4 | `AH=0Bh` six times: a blue background with the bright bit and without, each palette; last palette 0, bright | 1, 10, 12, 14 |
+| `cgapal5` | 5 | `3D9h` = `06h`; `3D8h`'s bit 2 off (green, red, brown) and on again | 6, 3, 4, 7 |
+| `cgapal6` | 6 | the foreground by `AH=0Bh` and then by `3D9h` | 0, 10 |
+
+With mode 5's row of `fg_tab` made wrong, or a change of a Tandy's palette
+register not noticed by `gfx_flush`, the tests concerned fail on the
+palette.
+
 ## Status and limitations
 
 - **Modes 4/5/6 and the 160x100 text-cell mode only** (the EGA's mode 0Dh
@@ -204,8 +254,8 @@ the expected SHR pixels from B800 and requires every cell to match.
   4/5, 6 and (with R9) 160x100, without clearing B800; 1-2-3's graphics driver
   sets its mode that way. Other text settings written to `3D8h` (40 columns,
   blink) are not acted on: text modes come from `INT 10h AH=00`.
-- **Mode 6 is white-on-black.** `SCREEN 2`'s `COLOR` foreground selection is
-  ignored (the 320-mode `COLOR` path is fully honoured).
+- **The border** (the overscan, which on a CGA is `3D9h`'s colour in text
+  and in the 320 modes) is not drawn, so `3D9h` does nothing in 80x25 text.
 - **No composite artifact colour** (the NTSC-bleed trick some CGA games use);
   RGB-style CGA output is what renders.
 
@@ -219,4 +269,9 @@ string, so an unquoted `LOAD CGADEMO.BAS` is parsed as a numeric variable and
 errors `Type mismatch` (standard GW-BASIC, not an XT/GS limitation). Headless
 proof: `python3 -I tools/cga_test.py PROG.BAS 500` builds a floppy whose
 AUTOEXEC runs GW-BASIC on the given program and renders the SHR screen to
-`build/cgatest/PROG.png`.
+`build/cgatest/PROG.png`; in a CGA graphics mode it also prints the two
+registers and the colours they make, and judges B800 and the palette
+against the SHR. `CGADEMO.BAS` ends with `3D9h` = `30h`, the BIOS's
+(colours 0, 11, 13, 15: bright cyan, magenta and white on black); with a
+`COLOR 1,0` after its `SCREEN 1` GW-BASIC leaves `01h` there (1, 2, 4, 6:
+green, red and brown on blue).
