@@ -12,6 +12,11 @@
 *----------------------------------------------------------
 vbl_count  dw 0              ; frames seen (svc_vbl and vbl_check)
 key_pending dw 0             ; scan code owed after an extended key's 0
+kb_held    dw 0              ; Mode B: scancode of the key that is down (0 = none)
+kb_heldt   dw 0              ; vbl_count when its make code was queued
+kb_akdt    dw 0              ; vbl_count when any-key-down was last looked at
+kb_mods    dw 0              ; Mode B: the Shift and Control bits last sent
+KB_MINHOLD = 3               ; frames a key stays down at least
 
 * svc_vbl - from the core's slot on a VBL edge (Y saved by the core)
 svc_vbl
@@ -19,12 +24,7 @@ svc_vbl
  phb
  phk
  plb
- lda >CGA_MODECHG          ; a CGA mode-control (0x3D8) write is pending?
- beq :nomc
- lda #0
- sta >CGA_MODECHG
- jsr apply_cgamode
-:nomc
+ jsr mode_poll             ; a CGA mode-control or 6845 write is pending?
  jsr kb_poll
  jsr vbl_work
  plb
@@ -71,9 +71,23 @@ vbl_check
 :same
  rts
 
-* kb_poll - a key from the IIGS keyboard into the BDA buffer
+* kb_poll - a key from the IIGS keyboard into the BDA buffer.
+*
+* In Mode B the key also goes to the scancode ring as a key that
+* stays down (docs/keyboard.md): kb_scpush queues its make code and
+* notes it in kb_held, and the break code follows only when the
+* IIGS says no key is down any more (bit 7 of $C010, looked at
+* once a frame and not before KB_MINHOLD frames). The auto-repeat's
+* strobes are the typematic make codes. Reading $C010 also clears
+* the strobe, so a key that arrives between the $C000 read and
+* that one is lost: a few cycles a frame.
 kb_poll
  mx %00
+ lda vPCMODE
+ cmp #2
+ bne :key
+ jsr kb_modpoll
+:key
  sep #$20
  mx %10
  lda >KBD
@@ -90,11 +104,75 @@ kb_poll
  pha                       ; the key word (scan<<8 | ascii)
  jsr kb_push               ; -> BDA ring buffer (INT 16h path, unchanged)
  pla
- jsr kb_scpush             ; -> port-0x60 scancode ring (IRQ1/INT 09h path)
- rts
+ jmp kb_scpush             ; -> port-0x60 scancode ring (IRQ1/INT 09h path)
 :none
  rep #$20
  mx %00
+ lda kb_held               ; a key is down for the guest: still down here?
+ beq :out
+ lda vbl_count
+ cmp kb_akdt
+ beq :out                  ; looked this frame
+ sta kb_akdt
+ sec
+ sbc kb_heldt
+ cmp #KB_MINHOLD
+ bcc :out
+ sep #$20
+ mx %10
+ lda >KBDSTRB              ; bit 7: any key down
+ rep #$20
+ mx %00
+ bmi :out                  ; (REP leaves N alone)
+ lda kb_held
+ ora #$0080
+ jsr sc_enq                ; released: the break code
+ stz kb_held
+:out
+ rts
+
+* kb_modpoll - Mode B: Shift and Control are keys of their own on a
+* PC, with make and break codes ($2A, $1D) that a program reading
+* port 0x60 follows. $C025 shows them live, with or without another
+* key. Option is not sent as Alt: it is the function-key layer.
+kb_modpoll
+ mx %00
+ sep #$20
+ mx %10
+ lda >KEYMOD
+ rep #$20
+ mx %00
+ and #$0003
+ cmp kb_mods
+ beq :out
+ sta sv2                   ; now
+ eor kb_mods
+ sta sv0                   ; the bits that changed
+ lda sv2
+ sta kb_mods
+ lda sv0
+ and #$0001
+ beq :ctl
+ lda sv2
+ and #$0001
+ eor #$0001                ; up -> the break bit
+ xba
+ lsr
+ ora #$002A                ; left Shift
+ jsr sc_enq
+:ctl
+ lda sv0
+ and #$0002
+ beq :out
+ lda sv2
+ and #$0002
+ eor #$0002
+ xba
+ lsr
+ lsr
+ ora #$001D                ; Control
+ jsr sc_enq
+:out
  rts
 
 * kb_flags - $C025 modifiers -> BDA shift flags
@@ -257,10 +335,13 @@ kb_push
  rts
 
 * kb_scpush - A = key word (scancode in the high byte). Queue the make
-* and break codes into the hardware-keyboard scancode ring that the core
-* serves at port 0x60 and delivers as IRQ1/INT 09h. Mode B only (nothing
-* reads port 0x60 in the other modes). Programs with their own INT 09h
-* handler (Lotus 1-2-3's KB.DRV, many games) read keys this way.
+* code into the hardware-keyboard scancode ring that the core serves at
+* port 0x60 and delivers as IRQ1/INT 09h, and note the key as down
+* (kb_held); kb_poll queues the break code when it is released. The
+* IIGS reports one key, the latest, so a second key releases the first.
+* Mode B only (nothing reads port 0x60 in the other modes). Programs
+* with their own INT 09h handler (Lotus 1-2-3's KB.DRV, many games)
+* read keys this way.
 kb_scpush
  mx %00
  pha                       ; save the key word
@@ -272,10 +353,19 @@ kb_scpush
  and #$00FF                ; A = scancode (0 = none)
  beq :done
  sta sv2
+ lda kb_held
+ beq :make
+ cmp sv2
+ beq :make                 ; the auto-repeat: the make code again
+ ora #$0080                ; another key: the held one's break code
+ jsr sc_enq                ; (break = make | $80)
+:make
+ lda sv2
  jsr sc_enq                ; make code
  lda sv2
- ora #$0080                ; break code = make | $80
- jsr sc_enq
+ sta kb_held
+ lda vbl_count
+ sta kb_heldt
 :done
  rts
 :drop
@@ -354,6 +444,13 @@ kb_wait
  jsr vbl_check
  bra :loop
 :got
+ rts
+
+* kb_reset - Mode B start: no key is down, no modifier was sent
+kb_reset
+ mx %00
+ stz kb_held
+ stz kb_mods
  rts
 
 * kb_flush - empty the buffer

@@ -167,6 +167,30 @@ port_out                   ; A = port, tmp0 = value
  beq :mctl
  cmp #$03D9                ; CGA colour-select register
  beq :csel
+ cmp #$03D4                ; the 6845's register select
+ beq :cidx
+ cmp #$03D5                ; and the selected register
+ beq :creg
+ rts
+:cidx
+ lda tmp0
+ and #$001F
+ sta >CRTC_IDX
+ rts
+:creg
+ lda >CRTC_IDX
+ tax
+ sep #$20
+ mx %10
+ lda tmp0
+ sta >CRTC_REG,x
+ rep #$20
+ mx %00
+ cpx #9                    ; the maximum scan line: with 1, text is the 160x100
+ bne :cdone                ; mode (svc_vbl looks, as for a 0x3D8 write)
+ lda #1
+ sta >CGA_MODECHG
+:cdone
  rts
 :mctl
  lda tmp0
@@ -264,9 +288,25 @@ op_EE                      ; out DX, AL
  jmp (NEXTVEC)
 op_EF                      ; out DX, AX
  mx %00
+ lda rDX
+ cmp #$03D4
+ beq :crtc
  lda rAX
  sta tmp0
  lda rDX
+ jsr port_out
+ jmp (NEXTVEC)
+:crtc                      ; the 6845 in one word: AL selects, AH is the value
+ lda rAX
+ and #$00FF
+ sta tmp0
+ lda #$03D4
+ jsr port_out
+ lda rAX
+ xba
+ and #$00FF
+ sta tmp0
+ lda #$03D5
  jsr port_out
  jmp (NEXTVEC)
 

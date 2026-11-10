@@ -69,13 +69,19 @@ DIAG_FNMAP = RES_BASE+$810   ; 16 bytes: bit AH set for each unhandled/failed IN
 DIAG_INTMAP = RES_BASE+$820  ; 32 bytes: bit n set for each unhandled INT n
 * Hardware keyboard: a scancode ring the core serves at port 0x60 and the
 * slot check delivers as IRQ1/INT 09h. Shared by CORE (port read, IRQ) and
-* SVC (kb_poll enqueues make+break). 32 entries, head==tail = empty.
+* SVC (kb_poll: make when a key goes down, break when it is released). 32 entries, head==tail = empty.
 KBD_QHEAD  = RES_BASE+$844   ; u16 read index (0..31)
 KBD_QTAIL  = RES_BASE+$846   ; u16 write index (0..31)
 KBD_QBUF   = RES_BASE+$850   ; 32 scancode bytes
 KBD_QMASK  = $001F
 CGA_MODEREQ = RES_BASE+$870  ; last value written to CGA mode-control port 0x3D8
 CGA_MODECHG = RES_BASE+$872  ; nonzero: that write is pending (svc_vbl applies it)
+CRTC_IDX   = RES_BASE+$87C   ; u16 the 6845 register selected through port 0x3D4
+CRTC_REG   = RES_BASE+$880   ; 32 bytes: the 6845's registers as written through 0x3D5
+                             ; (only R9, the maximum scan line, is acted on)
+T160_SHD   = RES_BASE+$8000  ; 16,000 bytes: the cells the 160x100 screen shows
+T160_LEN   = 16000           ; 80 x 100 cells of two bytes
+GFX_T160   = 160             ; gfx_mode in the 160x100 mode (4-6 are the BIOS's)
 PIT_CTR    = RES_BASE+$874   ; free-running state for 8253 PIT reads (port 0x40/0x42)
 SPK_PORT   = RES_BASE+$876   ; the 8255's port B (61h) as last written
 DOC_IRQS   = RES_BASE+$878   ; u16 DOC timer interrupts taken (diagnostic)

@@ -8,6 +8,8 @@ run_guest                  ; until HLT; rIP = IP after it
  lda #0
  sta >CGA_MODECHG          ; no CGA mode-control (0x3D8) write pending yet
  sta >PIT_CTR              ; seed the free-running PIT state
+ lda #$0607                ; the 6845 as a text mode has it: 8 scan lines a row
+ sta >CRTC_REG+9           ; (R9 = 7), the cursor from line 6
  lda #run_done
  sta vHALTVEC
  lda #next

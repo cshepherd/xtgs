@@ -7,6 +7,8 @@ screen rows, against tests/com/NAME.json:
      "stdout": "hello.out",                       # tests/expected/, exact bytes
      "screen": {"10": {"col": 20, "text": "..."}},  # row 10 from column 20
                                                   # (and the SHR pixels must show the text buffer)
+     "video": "t160",                             # the screen it ends on: "text", or "t160"
+                                                  # (160x100: the pixels must show all of B800)
      "keys": [{"at": 90, "key": "xtgs"}, {"at": 150, "coded": "{ENTER}"}],
      "disk": {"LEFT.TMP": 5}}                     # a file's length on the volume afterwards
     {"bin": "third_party/msdos2/DEBUG.COM", "name": "DEBUG.COM",  # a real program
@@ -33,6 +35,7 @@ import mamerun  # noqa: E402
 import shr  # noqa: E402
 import symbols  # noqa: E402
 import textshr  # noqa: E402
+import t160shr  # noqa: E402
 
 RES_BASE = 0x050000
 CAP_LEN, DIAG_UNH, DIAG_UNHN, DIAG_LAST = RES_BASE + 0x800, RES_BASE + 0x802, RES_BASE + 0x804, RES_BASE + 0x806
@@ -74,7 +77,7 @@ def run_test(path, syms, workdir, seconds):
                     os.path.join(stage, "SVC#060000"), staged, cmd] + extra, check=True, capture_output=True)
     r = mamerun.run(image, waits=[(syms["mb_magic"], 0x5A5A)],
                     dumps=[("mb", syms["mb_stage"], 0x70), ("caplen", CAP_LEN, 8), ("cap", CAP_BUF, CAP_MAX),
-                           ("txt", TXT_BASE, 4000), ("shr", shr.SHR_BASE, shr.SHR_LEN),
+                           ("txt", TXT_BASE, t160shr.CELLS), ("shr", shr.SHR_BASE, shr.SHR_LEN),
                            ("maps", RES_BASE + 0x810, 48)],
                     seconds=seconds, settle=5, ready=(syms["mb_runidx"], 0xBE57), inputs=t.get("keys", []))
     if r["status"] == "no-output":
@@ -131,6 +134,15 @@ def run_test(path, syms, workdir, seconds):
         bad = textshr.mismatches(bytes.fromhex(r["dumps"]["txt"]["hex"]), shr_dump)
         if bad:
             problems.append(f"{len(bad)} screen cells do not show the text buffer (first row,col {bad[0]})")
+    elif t.get("video") == "text":
+        problems.append("the screen is not in text mode")
+    if t.get("video") == "t160":
+        if not t160shr.is_t160(shr_dump):
+            problems.append("the screen is not in the 160x100 mode (SHR 320, the CGA palette)")
+        else:
+            bad = t160shr.mismatches(bytes.fromhex(r["dumps"]["txt"]["hex"]), shr_dump)
+            if bad:
+                problems.append(f"{len(bad)} of the 8000 cells do not show B800 (first row,col {bad[0]})")
     png, _lines = shr.render(shr_dump)
     with open(os.path.join(workdir, name + ".png"), "wb") as f:
         f.write(png)

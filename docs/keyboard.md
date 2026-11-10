@@ -33,8 +33,50 @@ a spreadsheet like Lotus 1-2-3. Not yet: Alt+key codes beyond the function
 keys, Shift/Ctrl/Alt + function-key chords (WordPerfect's command set), and the
 keypad as a keypad.
 
-Besides this INT 16h / BDA-buffer path, `kb_poll` also feeds a **hardware
-keyboard**: it enqueues each key's make and break scancodes into a ring the
-core serves at port 0x60 and delivers as IRQ1/INT 09h, for programs that read
-the 8042 directly instead of calling INT 16h (see `docs/mode-b.md`). The INT
-16h ring is still filled unchanged, so INT 16h programs are unaffected.
+## The hardware keyboard: port 60h, held keys
+
+Besides this INT 16h / BDA-buffer path, in Mode B `kb_poll` also feeds a
+**hardware keyboard**: scancodes go into a ring the core serves at port 0x60
+and delivers as IRQ1/INT 09h, for programs that read the 8042 directly
+instead of calling INT 16h (see `docs/mode-b.md`). The INT 16h ring is still
+filled unchanged, so INT 16h programs are unaffected.
+
+A key is down for the guest for as long as it is down on the IIGS, so a game
+that keeps its own table of pressed keys (Tunneler does, from its INT 09h
+handler) sees a key held:
+
+- A key's **make** code is queued when its strobe arrives (`kb_scpush`), and
+  the key is remembered in `kb_held`.
+- Its **break** code is queued when the IIGS reports that no key is down:
+  bit 7 of `$C010`, looked at once a frame while a key is held, and not
+  before the key has been down for `KB_MINHOLD` (3) frames, so a tap is long
+  enough to be seen.
+- The IIGS auto-repeat's strobes are sent as make codes again, which is what
+  a PC keyboard's typematic repeat does.
+- **Shift and Control are keys of their own** (`kb_modpoll`): `$C025` shows
+  them live, with or without another key, and a change queues the make or
+  break code of left Shift (`2Ah`) or Ctrl (`1Dh`). Tunneler's fire button is
+  Ctrl.
+
+Limits, all from what `$C000`/`$C010` can say:
+
+- **One ordinary key at a time.** The IIGS reports the latest key only, so a
+  second key releases the first for the guest; Shift and Control are
+  independent of it and of each other. Two direction keys for a diagonal, or
+  two players on the letter keys and the arrows at once, do not work. Doing
+  better means reading key-up and key-down events from the ADB
+  microcontroller, which is not done.
+- When two keys are down and one is released, MAME's any-key-down bit goes
+  off, and the guest sees the held key released. What real hardware does
+  there has not been checked.
+- Reading `$C010` also clears the strobe, so a key that arrives in the few
+  cycles between the `$C000` read and that one is lost.
+- Option and Command are not sent as Alt make/break codes (Option is the
+  function-key layer), and Caps Lock sends none. Extended keys are sent
+  without the `E0h` prefix.
+- The break of a key released while a BIOS service is waiting for input in a
+  hypercall is queued then, but delivered only when the guest runs again.
+
+Verified in MAME with Tunneler (`D`, `X`, the right arrow and Control held
+through the harness's `press` input: the tanks move and fire) and with typing
+at the FreeDOS prompt. Not yet tried on a real IIGS.

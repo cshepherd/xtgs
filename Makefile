@@ -40,7 +40,7 @@ PO     := $(B)/xtgs$(if $(XTGS_FRONT),-$(XTGS_FRONT),)$(if $(XTGS_LAYOUT),-$(XTG
 # merlin32 has no dependency output: every PUT file is listed here.
 INCLUDES  := src/include/hw.s src/include/layout.s src/include/mailbox.s src/include/guest.s src/include/pc.s
 SYS_SRCS  := src/sys/xtgs.s $(INCLUDES)
-SVC_GEN   := src/svc/gen/font.s src/svc/gen/tables.s src/svc/gen/dostab.s
+SVC_GEN   := src/svc/gen/font.s src/svc/gen/tables.s src/svc/gen/dostab.s src/svc/gen/t160.s
 SVC_SRCS  := src/svc/svc.s src/svc/video.s src/svc/pcinit.s src/svc/bios.s src/svc/dos.s \
              src/svc/files.s src/svc/disk.s src/svc/keyboard.s src/svc/sound.s src/svc/capture.s $(SVC_GEN) $(INCLUDES)
 CORE_GEN  := src/core/gen/optab.s src/core/gen/eatab.s src/core/gen/alu.s src/core/gen/flagtab.s
@@ -129,7 +129,7 @@ $(B)/core: $(B)/core.bin $(RELOC_DEPS)
 # (make 3.81 has no grouped targets: the first output is the rule, the rest depend on it)
 src/svc/gen/font.s: tools/gen_tables.py third_party/font8x8/font8x8_basic.h
 	$(PY) tools/gen_tables.py
-src/svc/gen/tables.s src/svc/gen/dostab.s: src/svc/gen/font.s
+src/svc/gen/tables.s src/svc/gen/dostab.s src/svc/gen/t160.s: src/svc/gen/font.s
 
 src/core/gen/optab.s: tools/gen_cpu.py
 	$(PY) tools/gen_cpu.py

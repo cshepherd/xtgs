@@ -427,7 +427,8 @@ cur_on     dw 0              ; an underline cursor is drawn
 cur_at     dw 0              ; where: col | row<<8
 blink      dw 0              ; frame counter; bit 5 = cursor visible
 tty_attr   dw $FFFF          ; $FFFF: teletype keeps the cell's attribute
-gfx_mode   dw 0              ; 0 = text; 4/5 = CGA 320x200x4 graphics (SCREEN 1)
+gfx_mode   dw 0              ; 0 = text; 4/5 = CGA 320x200x4 graphics (SCREEN 1);
+                             ; 6 = 640x200 mono; GFX_T160 = 160x100x16 (text cells)
 
 mark_row                   ; A = row
  mx %00
@@ -544,6 +545,7 @@ svc_flush
  phb
  phk
  plb
+ jsr mode_poll             ; (the last frame of a program that ends at once)
  jsr flush
  plb
  rtl
@@ -551,7 +553,11 @@ flush
  mx %00
  lda gfx_mode
  beq :txt
+ cmp #GFX_T160
+ beq :t160
  jmp gfx_flush            ; CGA graphics: repack only dirty scanlines (rts)
+:t160
+ jmp t160_flush           ; 160x100: the changed cells of the dirty pages (rts)
 :txt
  jsr pages_to_rows
  lda dirty_any
@@ -1082,13 +1088,45 @@ CGA_ODD    = H_TXT+$2000         ; B800:2000, the odd field
 * there, and the text flush already consumed its dirty marks): set
 * gfx_mode, the SCBs and palette, and mark every dirty-page bit so the
 * next flush re-blits the whole screen from B800 over the stale text.
-* Text/blank writes are left to the INT 10h path. svc_vbl calls this
+* A text mode is acted on only for the 160x100 mode: text, enabled,
+* with the 6845's maximum scan line (R9) at 1 enters it, and text with
+* any other R9 leaves it for 80x25 (B800 kept either way). Other
+* text/blank writes are left to the INT 10h path. mode_poll calls this
 * with DBR=$04 before the flush. Clobbers A/X.
+mode_poll
+ mx %00
+ lda >CGA_MODECHG          ; a 0x3D8 or 6845 R9 write since the last look?
+ bne :go
+ rts
+:go
+ lda #0
+ sta >CGA_MODECHG
 apply_cgamode
  mx %00
  lda >CGA_MODEREQ
  and #$0002                ; bit 1 = graphics mode select
- beq :done
+ bne :gfx
+ lda >CGA_MODEREQ          ; text. Bit 3 clear: the screen is blanked while the
+ and #$0008                ; program sets things up; wait for what it enables
+ beq :out
+ lda >CRTC_REG+9           ; two scan lines a row: 100 rows, the 160x100 mode
+ and #$001F
+ cmp #1
+ beq :t160
+ lda gfx_mode              ; an 8-line text mode: leave 160x100 for it
+ cmp #GFX_T160
+ bne :out
+ stz gfx_mode
+ jsr init_shr              ; 640 mode, the text palette, pixels cleared
+ jmp mark_all              ; and every row drawn from B800 as it is (rts)
+:t160
+ lda gfx_mode
+ cmp #GFX_T160
+ beq :out
+ jmp t160_enter
+:out
+ rts
+:gfx
  lda >CGA_MODEREQ
  and #$0010                ; bit 4 = 640x200 hi-res
  beq :m4
@@ -1141,13 +1179,28 @@ apply_cgamode
 vid_setmode
  mx %00
  and #$00FF
+ pha
+ lda #$0607                ; a mode set reprograms the 6845 (8 scan lines a row;
+ sta >CRTC_REG+9           ; the 160x100 mode ends here) and the mode-control
+ lda #0                    ; register, so nothing written to them before it is
+ sta >CGA_MODECHG          ; still to be applied
+ pla
  cmp #4
  bcc :text                 ; 0-3: text
  cmp #7
  bcs :text                 ; 7+: text
  sta gfx_mode              ; 4/5 (320x200x4) or 6 (640x200 mono)
+ ldx #$002A                ; what the BIOS leaves in 0x3D8: 320 graphics,
+ cmp #6
+ bne :g
+ ldx #$001E                ; 640 graphics
+:g
+ txa
+ sta >CGA_MODEREQ
  jmp gfx_setup
 :text
+ lda #$0029                ; 80-column text, enabled, blink
+ sta >CGA_MODEREQ
  stz gfx_mode
  jsr init_shr              ; 640 text mode, text palette, pixels cleared
  jmp vid_clear             ; blank the text buffer, home the cursor (rts)
@@ -1525,6 +1578,191 @@ cga640_tab
  dw $C0FC,$C3FC,$CCFC,$CFFC,$F0FC,$F3FC,$FCFC,$FFFC
  dw $00FF,$03FF,$0CFF,$0FFF,$30FF,$33FF,$3CFF,$3FFF
  dw $C0FF,$C3FF,$CCFF,$CFFF,$F0FF,$F3FF,$FCFF,$FFFF
+
+*==========================================================
+* The 160x100 16-colour mode: 80-column text with the 6845's
+* maximum scan line (R9) set to 1, so a row is two scan lines
+* and there are 100 of them, 16,000 bytes at B800:0000. A cell
+* shows the top two rows of its glyph in its attribute's
+* colours (blink is off, so all 16 backgrounds): with $DD or
+* $DE, the half blocks, a cell is two pixels of any colour.
+*
+* Here it is SHR 320 mode with the 16 CGA colours in palette
+* 0: a cell is four pixels (two bytes) on two lines, half the
+* CGA's width, which is exact for the blocks and a dither for
+* everything else (tools/gen_tables.py t160_masks). Row r is
+* SHR lines 2r and 2r+1, so the cell at B800 offset x is at
+* SHR_PIX + r*160 + x and 160 beyond.
+*
+* The core marks 256-byte pages of B800 (VID_DIRTY); a page's
+* 128 cells are compared with T160_SHD, what the screen shows,
+* and only the ones that differ are drawn: a game that redraws
+* its whole view every frame costs 26 cycles a cell that did
+* not change against about 130 for one that did.
+*==========================================================
+
+* t160_enter - SHR to 320 mode with the CGA colours, black, and
+* every page to be looked at; B800 is kept. DBR=$04.
+t160_enter
+ mx %00
+ lda #GFX_T160
+ sta gfx_mode
+ ldx #0                    ; black pixels, and a shadow that says so (the cell
+ lda #0                    ; $0000 is black on black)
+:clr
+ sta >SHR_PIX,x
+ inx
+ inx
+ cpx #32000
+ bcc :clr
+ ldx #0
+:shd
+ sta >T160_SHD,x
+ inx
+ inx
+ cpx #T160_LEN
+ bcc :shd
+ ldx #0                    ; 320 mode, palette 0, every line
+:scb
+ sta >SHR_SCB,x
+ inx
+ inx
+ cpx #200
+ bcc :scb
+ ldx #0                    ; palette 0 = the 16 CGA colours
+:pal
+ lda cga_rgb,x
+ sta >SHR_PAL,x
+ inx
+ inx
+ cpx #32
+ bcc :pal
+ ldx #0
+ sep #$20
+ mx %10
+ lda #1
+:md
+ sta >VID_DIRTY,x
+ inx
+ cpx #64
+ bcc :md
+ rep #$20
+ mx %00
+ jmp shd_inval             ; the text pixels are gone (rts)
+
+* t160_flush - draw the cells of the dirty pages that are not
+* what the screen shows. DBR=$04. Clobbers A/X/Y, sv0, sv1,
+* pCELL and the g* scratch.
+t160_flush
+ mx %00
+ lda #^SHR_PIX
+ sta pCELL+2
+ sta gDST+2
+ stz gPG
+:pg
+ ldx gPG
+ lda >VID_DIRTY,x
+ and #$00FF
+ bne :dirty
+ jmp :next
+:dirty
+ lda #0                    ; consume the mark
+ sep #$20
+ mx %10
+ sta >VID_DIRTY,x
+ rep #$20
+ mx %00
+ lda gPG                   ; the page's cells are at offsets page*256 ...
+ xba
+ cmp #T160_LEN
+ bcc :in
+ jmp :next                 ; (the last page is past the 100th row)
+:in
+ sta gO
+ clc
+ adc #256
+ cmp #T160_LEN
+ bcc :pe
+ lda #T160_LEN
+:pe
+ sta gPAR                  ; ... up to here
+ lda t160_row,x            ; the row the page starts in, times 160
+ and #$00FF
+ asl
+ asl
+ asl
+ asl
+ asl
+ sta gROW                  ; row * 32
+ asl
+ asl
+ clc
+ adc gROW
+ sta gROW
+ ldx gO
+:seg                       ; the part of one row that is in this page
+ lda gROW
+ clc
+ adc #SHR_PIX
+ sta pCELL                 ; its first line: the cell at offset x is at this + x
+ clc
+ adc #160
+ sta gDST                  ; its second
+ lda gROW
+ clc
+ adc #160
+ sta gROW                  ; where the row ends and the next begins
+ cmp gPAR
+ bcc :se
+ lda gPAR
+:se
+ sta sv0
+:cell
+ lda >H_TXT,x              ; the character and its attribute
+ cmp >T160_SHD,x
+ beq :skip
+ sta >T160_SHD,x
+ stx sv1
+ sta gL
+ xba
+ and #$00FF
+ asl
+ tax
+ lda t160_d,x              ; foreground XOR background, in all four pixels
+ sta gE
+ lda t160_bg,x             ; the background in all four
+ sta gR1
+ lda gL
+ and #$00FF
+ asl
+ asl
+ tax
+ ldy sv1
+ lda t160_cm,x             ; the glyph's first row: where the foreground is
+ and gE
+ eor gR1
+ sta [pCELL],y
+ lda t160_cm+2,x           ; its second
+ and gE
+ eor gR1
+ sta [gDST],y
+ ldx sv1
+:skip
+ inx
+ inx
+ cpx sv0
+ bcc :cell
+ cpx gPAR
+ bcc :seg
+:next
+ lda gPG
+ inc
+ sta gPG
+ cmp #64
+ bcs :done
+ jmp :pg
+:done
+ rts
 
 * cga_rgb - the 16 CGA colours as IIGS $0RGB palette words.
 cga_rgb

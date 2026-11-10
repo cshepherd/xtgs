@@ -23,6 +23,7 @@ svc_bootinit
  lda #0
  sta >KBD_QHEAD            ; empty the hardware-keyboard scancode ring
  sta >KBD_QTAIL
+ jsr kb_reset              ; no key down, no modifier sent
  jsr build_stubs
  jsr build_ivt
  jsr build_bda

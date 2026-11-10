@@ -7,6 +7,10 @@ XT/GS renders CGA graphics on the IIGS Super Hi-Res screen:
 - **Mode 6** (`SCREEN 2`): 640x200, mono. Maps onto the IIGS 640 mode (the same
   mode the text screen uses).
 
+- **160x100, 16 colours**: the "text-cell" mode some CGA games use (Tunneler,
+  for one). It is 80-column text with the character rows cut to two scan
+  lines; see [its own section](#160x100-16-colours) below.
+
 The resolutions line up by design, not coincidence, so the work is repacking a
 bitmap, not scaling it. The CGA palette and background colour (the `COLOR`
 statement) are honoured in 320 mode.
@@ -79,19 +83,76 @@ actually changed are repacked each frame.
   the guest at all; that is why the first spike needed the ~1 Hz throttle, now
   removed.
 
+## 160x100, 16 colours
+
+The CGA has no 16-colour graphics mode, but its 80-column text mode has 16
+colours, and a program can shrink the character rows. With the 6845's maximum
+scan line register (R9) at 1 a row is two scan lines high, so 100 rows fit on
+the screen: 8,000 cells, 16,000 bytes at B800:0000. A cell then shows only the
+top two rows of its glyph. With the half-block characters `DDh` and `DEh` a
+cell is two pixels, one in the foreground colour and one in the background
+colour, and with blink turned off (mode-control bit 5 clear) both can be any
+of the 16 colours: 160x100 in 16 colours.
+
+Tunneler sets it this way, after `INT 10h` mode 3: `3D8h` = 01h (video off),
+6845 R4 = 7Fh, R6 = 64h, R7 = 70h, R9 = 01h, then `3D8h` = 09h (80-column
+text, video on, blink off).
+
+- **Detection** (`apply_cgamode` in `video.s`). `port_out` keeps the 6845's
+  registers as the guest writes them (`3D4h` index, `3D5h` data, also as one
+  word `OUT`; `CRTC_REG` in `pc.s`) and flags a write to R9 or to `3D8h`.
+  Once a frame, and before a flush, `mode_poll` looks: mode control saying
+  text with video enabled, and R9 = 1, enters the mode; text with video
+  enabled and any other R9 leaves it for 80x25. Nothing happens while video
+  is off, which is how a program brackets its register writes. `INT 10h
+  AH=00` puts R9 back to 7, so any BIOS mode set leaves the mode too. B800 is
+  not cleared either way.
+- **Display** (`t160_enter`). SHR 320 mode, with the 16 CGA colours as palette
+  0. Row r is SHR lines 2r and 2r+1, and a cell is four SHR pixels on each:
+  half the CGA's horizontal resolution in this mode (640), which is exact for
+  the half blocks, the full block and blanks - what such programs draw with.
+  Any other character is shown as its top two glyph rows squeezed to half
+  width, a pixel pair that is half set becoming a checkerboard of the two
+  colours (`t160_masks` in `tools/gen_tables.py`, which writes
+  `src/svc/gen/t160.s`).
+- **Drawing** (`t160_flush`). The core's dirty marks are per 256-byte page of
+  B800, 128 cells. For a dirty page each cell is compared with a shadow of
+  what the screen shows (`T160_SHD`, 16,000 bytes in the results bank) and
+  only the cells that differ are drawn, from three tables: the glyph's mask
+  for its two rows and the attribute's foreground-xor-background and
+  background as pixel words (pixels = mask AND d, XOR background). A game
+  that rewrites its whole view every frame pays about 26 cycles for a cell
+  that did not change and about 130 for one that did.
+- **Limits.** Blink is ignored (the attribute's high bit is always background
+  intensity). There is no cursor and no border colour in this mode. R9 is
+  known only from what the guest wrote, and the 40-column variant is not
+  distinguished. `INT 10h` text services still write cells, as on a CGA.
+
+`tests/com/t160.asm` sets the mode through the ports, fills all 100 rows and
+then changes single cells and a row; the judge (`tools/t160shr.py`) rebuilds
+the expected SHR pixels from B800 and requires every cell to match.
+`t160x` enters the mode and leaves it again for text.
+
 ## Status and limitations
 
-- **Modes 4/5/6 only.** EGA/VGA modes are out of scope. The mode-control port
-  `3D8h` is still open-bus - the mode comes from `INT 10h AH=00`, which
-  GW-BASIC uses; a program that sets the mode by banging `3D8h` directly would
-  not switch.
+- **Modes 4/5/6 and the 160x100 text-cell mode only.** EGA/VGA modes are out
+  of scope. A write to the mode-control port `3D8h` switches between modes
+  4/5, 6 and (with R9) 160x100, without clearing B800; 1-2-3's graphics driver
+  sets its mode that way. Other text settings written to `3D8h` (40 columns,
+  blink) are not acted on: text modes come from `INT 10h AH=00`.
 - **Mode 6 is white-on-black.** `SCREEN 2`'s `COLOR` foreground selection is
   ignored (the 320-mode `COLOR` path is fully honoured).
 - **No composite artifact colour** (the NTSC-bleed trick some CGA games use);
   RGB-style CGA output is what renders.
-- **One stray dotted row** at screen y~=96 (magenta dots every 8 px) appears
-  under GW-BASIC. It is present before the program's own drawing, so it is a
-  GW-BASIC graphics-init quirk, not the blit; cosmetic and uninvestigated.
+- **A faint stipple on the top half** (dots every 8 px on alternate lines,
+  down to y~=98) appears under GW-BASIC after `SCREEN 1` or `SCREEN 2`, with
+  or without a `CLS`. The dots are in B800 itself, not made by the blit: one
+  byte in two over the first 4,000, which is what blank text cells look like
+  as pixels, so the likely source is the BIOS text services, which still
+  write text cells in graphics modes (README, Known limits). A program that
+  paints its own background (`LINE (0,0)-(319,199),0,BF`) covers it. The
+  160x100 mode and held-key changes did not cause it: the build before them
+  draws the same picture, pixel for pixel.
 
 ## Try it
 
@@ -100,5 +161,6 @@ write your own `SCREEN 1` program. To load it from inside the interpreter,
 quote the name: `LOAD "CGADEMO.BAS"` then `RUN`. GW-BASIC's `LOAD` takes a
 string, so an unquoted `LOAD CGADEMO.BAS` is parsed as a numeric variable and
 errors `Type mismatch` (standard GW-BASIC, not an XT/GS limitation). Headless
-proof: the `tools/cga_*` harnesses build a floppy whose AUTOEXEC runs a given
-`.BAS` and render the SHR to PNG.
+proof: `python3 -I tools/cga_test.py PROG.BAS 500` builds a floppy whose
+AUTOEXEC runs GW-BASIC on the given program and renders the SHR screen to
+`build/cgatest/PROG.png`.

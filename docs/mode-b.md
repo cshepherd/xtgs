@@ -130,15 +130,17 @@ guest programs into 8253 channel 0 (18.2 Hz by default). The once-a-frame work
 Besides the BDA buffer / INT 16h path, XT/GS now presents a hardware keyboard,
 for programs that install their own INT 09h handler and read scancodes from the
 8042 data port (many DOS games). `kb_poll` (`keyboard.s`) enqueues each key's
-make and break codes into a scancode ring (`KBD_Q*` in `pc.s`); the slot check
+make code into a scancode ring (`KBD_Q*` in `pc.s`) when it goes down and its
+break code when the IIGS reports no key down any more, so a key can be held;
+Shift and Control are sent as keys of their own (`docs/keyboard.md`). The slot check
 (`cpu.s`) delivers one as IRQ1/INT 09h (after any IRQ0 owed, so the timer
 keeps priority), and the core serves port 0x60 (pop a scancode)
 and 0x64 (status) in `port_in8`. The default INT 09h handler is `PUSH AX; IN
 AL,60h; POP AX; IRET`, so the ring still drains when nothing hooks the vector.
 `kb_poll` keeps filling the INT 16h ring too, so INT 16h programs are
-unaffected (verified: GW-BASIC and FreeDOS still take input). Note this is a
-make/break stream for the translated key; it does not yet inject separate
-Shift/Ctrl make/break for shifted characters.
+unaffected (verified: GW-BASIC and FreeDOS still take input). The IIGS
+reports one ordinary key at a time, so a second key releases the first; Alt
+(Option) and Caps Lock send no scancodes.
 
 **Lotus 1-2-3 1A, as it happens, reads the keyboard through INT 16h** (its
 `KB.DRV` calls INT 16h, not port 0x60), and our INT 16h is byte-exact (Enter

@@ -14,6 +14,8 @@ with CGA graphics and sound, and Lotus 1-2-3 Release 1A.
 | GW-BASIC `SCREEN 1` (CGA 320x200, four colours): `LINE`, `CIRCLE`, `COLOR 1,1` | Lotus 1-2-3 1A: labels, values and `@SUM(B1..B3)` |
 | ![Lotus 1-2-3 graph menu](assets/lotus-menu.png) | ![Lotus 1-2-3 bar graph](assets/lotus-graph.png) |
 | 1-2-3's `/Graph` menu | `/Graph View`: the bar graph of that worksheet, drawn by 1-2-3's CGA driver |
+| ![Tunneler in the 160x100 16-colour mode](assets/tunneler.png) | |
+| Tunneler: CGA's 160x100 16-colour mode, the blue tank firing with Control held | |
 
 The screenshots are the emulated IIGS's Super Hi-Res screen, captured from
 headless MAME runs and doubled in height (the SHR screen is 640x200 or
@@ -39,10 +41,12 @@ on a stock machine. Disk writes stay in memory and are lost at power-off. See
 - **Text video:** 80x25 on the IIGS's 640x200 SHR screen with an 8x8 CP437
   font. Colours become four grey levels; there is no colour text.
 - **CGA graphics:** modes 4 and 5 (320x200, four colours, both palettes and
-  the background colour) and mode 6 (640x200 mono).
+  the background colour), mode 6 (640x200 mono) and the 160x100 16-colour
+  mode some games make out of text cells two scan lines high.
 - **Keyboard:** the IIGS keyboard as a PC keyboard, through `INT 16h`, the
   BIOS data area's buffer, and port 60h with IRQ1 for programs that hook
-  `INT 09h`. Function keys are Option+digit.
+  `INT 09h`: a key held down stays down for them, and Shift and Control are
+  keys of their own. Function keys are Option+digit.
 - **Timer and sound:** the Ensoniq DOC is both the 8253's IRQ0 tick (18.2 Hz,
   or whatever rate the guest programs) and the PC speaker (`docs/sound.md`).
 - **Disk:** one floppy image (320 KB to 1.44 MB), held in RAM and served
@@ -157,10 +161,16 @@ Two that have been checked end to end:
 - **Lotus 1-2-3:** Option+1 is Help, Option+2 Edit, Option+5 GoTo, Option+9
   Calc, Option+0 Graph. Edit and GoTo were verified.
 
+A program that reads the keyboard itself (port 60h, as games do) sees a key
+go down and stay down until it is released, and sees Shift and Control as
+keys, alone or with another key. The IIGS reports only its latest key,
+though, so one ordinary key is down at a time: pressing a second releases
+the first, and releasing either one releases both. A game gets one direction
+plus Shift or Control, not a diagonal. This has been tried in MAME only.
+
 Not there yet: Shift, Ctrl or Alt with a function key (WordPerfect's command
-set), Alt+letter codes, the numeric keypad as a keypad, and held keys. A key
-is delivered as a press followed at once by its release, so a game cannot see
-a key held down. Control+H reads as Left, because the IIGS left arrow *is*
+set), Alt+letter codes, the numeric keypad as a keypad, and two ordinary keys
+down together. Control+H reads as Left, because the IIGS left arrow *is*
 Control+H. Details in `docs/keyboard.md`.
 
 ## Compatibility
@@ -178,7 +188,7 @@ DOS) booted from a floppy image; "Mode A" means under the built-in DOS.
 | FreeDOS 1.3 `TREE.COM`, `DEBUG.COM` | A | **Work** |
 | FreeDOS 1.3 `FIND.COM` | A | Exits without output after checking the DOS version |
 | MS-DOS 2.0 `SORT.EXE` | A | Fails: prints memory garbage and never finishes |
-| Tunneler (1991, CGA game) | B | Title and menus work; stalls at "creating world". Not playable |
+| Tunneler (1991, CGA game) | B | **Runs, far too slowly to play.** Title and menu work; F1 starts a game, "(creating world)" takes a minute or three more at stock speed, and the game then draws in CGA's 160x100 16-colour mode. The tanks turn, move and fire while a key is held (tried in MAME), but at stock speed a tank crosses about three pixels in eight seconds. One direction key at a time: no diagonals, and two players cannot both hold a key |
 | WordPerfect | | Untried; it needs the function-key chords that are not mapped yet |
 
 `docs/compatibility-matrix.md` has the Mode A programs in detail and
@@ -239,7 +249,8 @@ hook and chain them the usual way.
 store that lands in the bank holding `B800` marks its 256-byte page dirty;
 once a frame the dirty parts are redrawn onto the SHR screen. In text mode a
 shadow copy means only the character cells that changed are redrawn; in
-graphics modes only the changed scanlines are converted (`docs/cga.md`).
+graphics modes only the changed scanlines are converted, and in the 160x100
+mode only the changed cells (`docs/cga.md`).
 
 **Interrupts.** Every 16 guest instructions the core checks for work: a timer
 tick owed becomes `INT 08h`, a waiting scancode becomes `INT 09h` (both only
@@ -297,9 +308,10 @@ suite: all 324 opcode files, 2,883,807 vectors after the exclusions listed in
 - In CGA graphics modes the BIOS text services (`INT 10h` write character,
   teletype, scroll) do not draw. Programs that draw their own text, as 1-2-3
   does, are fine; GW-BASIC's `PRINT` in `SCREEN 1` or `SCREEN 2` shows nothing
-  useful, and its `CLS` there leaves a faint stipple on the top half of the
-  screen. Clear with `LINE (0,0)-(319,199),0,BF` instead.
-- Keys cannot be held, and several key combinations are missing (above).
+  useful, and `SCREEN` and `CLS` there leave a faint stipple on the top half
+  of the screen. Clear with `LINE (0,0)-(319,199),0,BF` instead.
+- One ordinary key can be held at a time (plus Shift and Control), and
+  several key combinations are missing (above).
 - The interrupt controller has no mask or end-of-interrupt handling, there is
   no A20 or extended memory, and `INT 15h` is nearly empty.
 - The timer tick tops out at 583 Hz. GW-BASIC's background music runs its
