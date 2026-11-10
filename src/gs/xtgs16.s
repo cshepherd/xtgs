@@ -1248,7 +1248,7 @@ filecall
  plb
  rtl
 fc_tab   da fc_create,fc_destroy,fc_rename,fc_setinfo
-         da fc_getinfo,fc_bad,fc_bad,fc_getprefix
+         da fc_getinfo,fc_bad,fc_setprefix,fc_getprefix
          da fc_open,fc_bad,fc_read,fc_write
          da fc_close,fc_ok,fc_setmark,fc_getmark
          da fc_seteof,fc_geteof
@@ -1445,6 +1445,25 @@ fc_setinfo                 ; (the MLI's leaves the creation date alone)
  dw $0005                  ; SET_FILE_INFO
  adrl fc_blk
 :out
+ rts
+
+* SET_PREFIX: prefix 1, the one a partial pathname is read
+* against here (fc_setpath) -- the shared drive's directory
+* (redir.s). GS/OS sets it again for the next program.
+fc_setprefix
+ mx %00
+ lda p+1
+ ldx #0
+ jsr fc_setpath
+ lda #1
+ sta fc_blk
+ lda #fc_path
+ sta fc_blk+2
+ lda #^fc_path
+ sta fc_blk+4
+ jsl GSOS
+ dw $0009                  ; SET_PREFIX
+ adrl fc_blk
  rts
 
 * GET_PREFIX: prefix 1, spelled the MLI's way ("/VOL/DIR/")

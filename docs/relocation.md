@@ -162,7 +162,9 @@ other; this is the whole of what the two images need from either.
   returns the MLI's error in A and `MB_MLI_RES` (0 = done), preserving D,
   DBR and P. `SVC` (`src/svc/files.s`, the only caller) builds ordinary
   MLI lists - `CREATE`, `OPEN`, `READ`, `WRITE`, `CLOSE`, `GET_MARK`,
-  `SET_EOF`, `GET_EOF`, `SET_FILE_INFO` and the like - whose pointers are
+  `SET_EOF`, `GET_EOF`, `SET_FILE_INFO` and the like, and for the shared
+  drive (`src/svc/redir.s`, `docs/share.md`) `SET_PREFIX` and `FLUSH` as
+  well - whose pointers are
   bank-`$00` addresses in `PATH` (pathnames), `XFER` (data) and `IOB` (the
   buffer `OPEN` wants). A front end without an MLI under it has to honour
   those lists; the buffers are where it is told, not where ProDOS likes.
@@ -237,7 +239,8 @@ MAME (with a CFFA card; GS/OS 6.0.1 does not start from MAME's SCSI card):
    and the 80x25 test frame.
 
 Under GS/OS 6.0.1 on 8 MB, `CORE`, `SVC` and `RES` land in `$07`-`$09`; the
-guest and the disk image still get `$20` and `$50`. A FreeDOS boot from that
+guest and the disk image still get `$20` and `$50` (command `S`, the boot
+from a folder, claims no disk region at all). A FreeDOS boot from that
 launch (command `D`, the disk image in the `XTGS` folder) reaches the same
 FreeCom prompt as the direct boot; that was run by hand, not by a make
 target. (This is `XTGS.SYSTEM` launched from GS/OS. The native application
@@ -290,6 +293,8 @@ contract above and owns only what it is given:
   directory, which `SVC` reads as ProDOS 8 blocks of 13 entries, is read
   raw where GS/OS allows it (the ProDOS FST does) and otherwise built
   from `GetDirEntry`; `+` forces the built kind so that it is tested.
+  `SET_PREFIX` (the shared drive's folder) sets prefix 1, and a partial
+  pathname is resolved against it.
 - **Leaving.** `QuitGS` with no pathname. Both front ends close whatever
   the guest left open when the core returns, before the key wait: until
   then a file's length is not on the disk (`tests/com/leaveopen.asm`).
@@ -304,11 +309,18 @@ XTGS_FRONT=s16 python3 -I tools/boot_dos.py third_party/freedos/fd/freedos.img
 ```
 
 `tools/make_image.sh` then calls `tools/gsos_image.sh`: ProDOS and the
-System folder of the System 6 volume (`SYSTEM6=`) on a fresh 8 MB volume,
-the files in a folder `XTGS`, and `tests/gsos/start16.s` as
-`System/Start`, so the volume boots into XT/GS with no Finder. To install
+System folder of the System 6 volume (`SYSTEM6=`) on a fresh 8 MB volume
+named `XTGS` (`GSOS_VOL=` for another name), the files in a folder `XTGS`,
+and `tests/gsos/start16.s` as `System/Start`, so the volume boots into XT/GS
+with no Finder. The System 6 volume has another name, and a file of its
+System folder may hold that name in a full pathname: GS/OS then stops at
+startup and waits for the disk of the old name. (The one met was DeskMaker's
+`System/DeskConfig`, the pathname of the desktop picture; the boot hung
+before the Finder.) `tools/gsos_volname.py` gives such pathnames the new
+volume name in the copy, and prints each one it changes. To install
 it by hand, put `XTGS` (S16, `build/xtgs16`), `CORE`, `SVC` and `XTGS.CMD`
-in one folder, with whatever the command names (`DISK`, a `.COM` file).
+in one folder, with whatever the command names (the folder `SHARED`, `DISK`,
+a `.COM` file).
 `build/xtgs16` is the data fork alone; the icon is in the resource fork
 (below), so to keep it copy the folder `XTGS` under GS/OS from a volume
 built here, `make finder`'s for one.
@@ -371,19 +383,24 @@ them unchanged:
 `make finder` builds `build/xtgs-finder.po`: the folder on a volume that
 keeps System 6's own `Start` and its `Icons/FType.*` (the Finder refuses
 to start without a file type descriptor file), so it boots to the Finder.
-The folder there is the one a user wants: `XTGS`, `CORE`, `SVC`, the
-FreeDOS floppy as `DISK` (docs/mode-b.md; `GWBASIC.EXE`, `HELLO.BAS` and
-`CGADEMO.BAS` on it) and an `XTGS.CMD` of `D`, so opening `XTGS` boots
-FreeDOS. GW-BASIC is not fetched: the rule fails without
+The volume is named `XTGS`. The folder there is the one a user wants:
+`XTGS`, `CORE`, `SVC`, a folder `SHARED` with FreeDOS in it
+(docs/share.md; `KERNEL.SYS`, `COMMAND.COM`, `GWBASIC.EXE`, `HELLO.BAS` and
+`CGADEMO.BAS`) and an `XTGS.CMD` of `S` and `C=SHARED`, so opening `XTGS`
+boots FreeDOS from that folder as drive `C:`, with no disk image to read
+in. GW-BASIC is not fetched: the rule fails without
 `third_party/gwbasic/GWBASIC.EXE`.
 
 There, in MAME under System 6.0.1: the folder `XTGS` shows the
 application under the DOS icon (red D, yellow O, green S, blue shadow) in
 the icon and small-icon views; Icon Info shows the icon, `XT/GS 0.1` and
-the `rVersion`'s second line. Open boots FreeDOS to FreeCOM's date
-prompt, about 200 seconds of emulated time after the click (the boot is
-as slow as it is from ProDOS 8), and after two Returns `A:\>`; `GWBASIC`
-gives `Ok` and computes, `GWBASIC CGADEMO` draws in 320 mode. With an
+the `rVersion`'s second line. Open boots FreeDOS from the folder to
+FreeCOM's date prompt, about two minutes of emulated time after the click
+(the boot from the floppy image took about 200 seconds), and after two
+Returns `C:\>`; `DIR` lists the folder, `GWBASIC` gives `Ok` and computes
+(seen with the floppy image), `GWBASIC CGADEMO` draws in 320 mode. The
+desktop picture of the System 6 volume used here is still there, which is
+`gsos_volname.py`'s doing (above). With an
 `XTGS.CMD` of `P` instead, Open runs the probe and a key returns to the
 Finder. Nothing checks any of this in `make test-s16`: it was looked at
 (screenshots driven through `tools/mame/mamerun.py`'s inputs).

@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
-"""Build the FreeDOS boot floppy image for Mode B, reproducibly.
+"""Build FreeDOS for Mode B, reproducibly: the folder DOS boots from (the S
+command, docs/share.md) and the boot floppy image (the D command).
 
-    build_freedos.py            -> third_party/freedos/fd/freedos.img
+    build_freedos.py            -> third_party/freedos/fd/SHARED/
+                                   third_party/freedos/fd/freedos.img
 
 Needs the FreeDOS kernel, shell and boot-sector source fetched by
-tools/fetch_dos.py (kernel.zip, freecom.zip), and nasm. Assembles the
-FreeDOS FAT12 boot sector, then lays down KERNEL.SYS (the 8086 kernel
-KERNL86.SYS), COMMAND.COM, FDCONFIG.SYS and AUTOEXEC.BAT with
-tools/make_fat12.py.
+tools/fetch_dos.py (kernel.zip, freecom.zip), and nasm. The folder holds
+KERNEL.SYS (the 8086 kernel KERNL86.SYS), COMMAND.COM, SETVER.SYS, an
+FDCONFIG.SYS that names them on C:, the demo .BAS files and GW-BASIC when
+it is there, each under cadius's NAME#TTAAAA name: tools/make_image.sh
+takes the folder as it is. The floppy has the same files, named on A:,
+behind the FreeDOS FAT12 boot sector (tools/make_fat12.py).
 """
 import os
+import shutil
 import subprocess
 import sys
 import zipfile
@@ -76,6 +81,20 @@ def main():
         files.append("GWBASIC.EXE=" + gwbasic)
     else:
         print("note: " + gwbasic + " absent; image built without GW-BASIC")
+    # The folder: the same files for a ProDOS volume, DOS's drive C:.
+    shared = os.path.join(OUT, "SHARED")
+    shutil.rmtree(shared, ignore_errors=True)
+    os.makedirs(shared)
+    for f in files:
+        name, path = f.split("=", 1)
+        with open(path, "rb") as g:
+            data = g.read()
+        if name == "FDCONFIG.SYS":
+            data = data.replace(b"A:\\", b"C:\\")
+        text = name.endswith((".SYS", ".BAS")) and name not in ("KERNEL.SYS", "SETVER.SYS")
+        with open(os.path.join(shared, name + ("#040000" if text else "#060000")), "wb") as g:
+            g.write(data)
+    print(f"built {shared}")
     img = os.path.join(OUT, "freedos.img")
     subprocess.run([sys.executable, "-I", os.path.join(HERE, "make_fat12.py"),
                     os.path.join(OUT, "boot.bin"), img] + files, check=True)

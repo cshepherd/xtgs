@@ -9,16 +9,35 @@
 * The guest's own DOS kernel then installs INT 20h-2Fh; our
 * stubs keep serving INT 10h/13h/16h/1Ah/11h/12h and the
 * IRQ0 timer (INT 08h).
+*
+* Under the S command there is no image: the shared folder
+* is the boot drive (redir.s). svc_bootinit loads its
+* KERNEL.SYS the way FreeDOS's boot sector would and
+* returns 1 for the core to enter it (2: there is none),
+* the PC has no disk drive, and INT 13h says so.
 *----------------------------------------------------------
 disk_lba   ds 4              ; working LBA (SVC bank)
 disk_cnt   dw 0              ; sectors this call
 cur_spt    dw 18             ; sectors/track, from the booted disk's BPB
+disk_have  dw 1              ; 0: no image (the S command)
+boot_res   dw 0              ; what svc_bootinit returns
 
 svc_bootinit
  mx %00
  phb
  phk
  plb
+ stz rd_boot
+ stz boot_res
+ lda #1
+ sta disk_have
+ lda >MB_CMD+1
+ and #$00FF
+ cmp #'S'
+ bne :img
+ sta rd_boot
+ stz disk_have
+:img
  jsr init_diag
  lda #0
  sta >KBD_QHEAD            ; empty the hardware-keyboard scancode ring
@@ -27,9 +46,28 @@ svc_bootinit
  jsr build_stubs
  jsr build_ivt
  jsr build_bda
+ lda disk_have
+ bne :fd
+ lda >H_BDA+BDA_EQUIP      ; no floppy drive
+ and #$FF3E
+ sta >H_BDA+BDA_EQUIP
+:fd
+ jsr rd_setup              ; a shared ProDOS directory? (redir.s)
  lda #0
  sta >MB_INT13N
  sta >MB_BOOTTRC
+ lda disk_have
+ bne :sector
+ lda #1                    ; S: the kernel from the share
+ sta boot_res
+ jsr rd_kernel
+ bcc :loaded
+ inc boot_res
+:loaded
+ lda >GUEST_BASE+KERNEL_LIN
+ sta >MB_BOOTTRC
+ bra :screen
+:sector
 * Load sector 0 (the boot sector) to guest 0000:7C00.
  stz disk_lba
  stz disk_lba+2
@@ -48,12 +86,19 @@ svc_bootinit
  sta cur_spt
  lda >GUEST_BASE+$7DFE     ; boot sector signature (AA55) -> boot trace
  sta >MB_BOOTTRC
+:screen
  jsr init_shr
  jsr vid_clear
  jsr post_banner          ; PC-style BIOS sign-on at the top of the screen
+ jsr rd_banner            ; the shared drive's line, and the blank one
+ lda boot_res
+ cmp #2
+ bne :show
+ jsr rd_nokernel
+:show
  jsr flush
  plb
- lda #0
+ lda >boot_res
  rtl
 
 * disk_copy_in - copy disk_cnt sectors from LBA disk_lba into
@@ -127,6 +172,28 @@ int_13
  lda >MB_INT13N                   ; count served calls (diagnostic)
  inc
  sta >MB_INT13N
+ lda disk_have
+ bne :disk
+ jsr ah_val                ; no drive at all: a reset is fine, the questions
+ cmp #$00                  ; get "none", anything else "not ready"
+ beq :reset
+ cmp #$01
+ beq :status
+ cmp #$08
+ beq :none
+ cmp #$15
+ beq :none
+ lda #$80
+ jsr set_ah
+ jmp set_cf
+:none                      ; AH=08: no drives, type 0; AH=15h: AH=0, no such drive
+ stz rAX
+ stz rBX
+ stz rCX
+ stz rDX
+ stz rDI
+ jmp clr_cf
+:disk
  jsr ah_val
  cmp #$00
  beq :reset

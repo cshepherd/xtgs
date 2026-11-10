@@ -790,7 +790,7 @@ post_dec
 post_msg  asc 'XT/GS 65816 Native BIOS Active'
           hex 0D0A00
 post_kb   asc ' KB RAM OK'
-          hex 0D0A0D0A00
+          hex 0D0A00              ; (rd_banner ends the banner)
 post_pow  dw 10000,1000,100,10
           dw $FFFF
 

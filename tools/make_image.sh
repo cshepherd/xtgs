@@ -4,8 +4,9 @@
 # Build a bootable ProDOS volume (name XTGS): PRODOS, then every FILE,
 # whose basename must carry cadius's NAME#TTAAAA suffix so it gets the
 # right ProDOS type and aux type (the loader is XTGS.SYSTEM#FF2000, the
-# bank images NAME#060000). VOLSIZE (environment, default 8192KB) sets
-# the volume size; not "32MB", which cadius makes 65536 blocks, one past
+# bank images NAME#060000); a FILE that is a directory becomes a folder
+# of that name with what it holds (the folder DOS boots from). VOLSIZE
+# (environment, default 8192KB) sets the volume size; not "32MB", which cadius makes 65536 blocks, one past
 # ProDOS's 16-bit block count.
 #
 # XTGS_LAYOUT=alt (environment) asks the loader for its test layout: a '+'
@@ -26,7 +27,12 @@ rm -f "$image"
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
 files=()
+dirs=()
 for f in "$@"; do
+    if [ -d "$f" ]; then
+        dirs+=("$f")
+        continue
+    fi
     name="$(basename "$f")"
     if [ "${XTGS_FRONT:-}" = s16 ] && [ "$name" = "XTGS.SYSTEM#FF2000" ]; then
         name="XTGS#B30000"
@@ -45,7 +51,7 @@ done
 if [ "${XTGS_FRONT:-}" = s16 ]; then
     sys6="${SYSTEM6:-$here/../../ddiigs/assets/system6.hdv}"
     [ -f "$sys6" ] || { echo "make_image: no System 6 volume at $sys6 (set SYSTEM6=)" >&2; exit 1; }
-    "$here/gsos_image.sh" "$sys6" "$image" "$here/../build/gsos/Start16" "${files[@]}"
+    "$here/gsos_image.sh" "$sys6" "$image" "$here/../build/gsos/Start16" "${files[@]}" ${dirs[@]+"${dirs[@]}"}
     exit 0
 fi
 "$CADIUS" CREATEVOLUME "$image" XTGS "${VOLSIZE:-8192KB}" --quiet >/dev/null
@@ -53,5 +59,8 @@ cp "$here/../res/PRODOS" "$stage/PRODOS#FF0000"
 "$CADIUS" ADDFILE "$image" /XTGS/ "$stage/PRODOS#FF0000" --quiet >/dev/null
 for f in "${files[@]}"; do
     "$CADIUS" ADDFILE "$image" /XTGS/ "$f" --quiet >/dev/null
+done
+for d in ${dirs[@]+"${dirs[@]}"}; do
+    "$CADIUS" ADDFOLDER "$image" "/XTGS/$(basename "$d")" "$d" --quiet >/dev/null
 done
 "$CADIUS" CATALOG "$image" | grep -E "XTGS|CORE|SVC|VEC|CMD|COM|Free"

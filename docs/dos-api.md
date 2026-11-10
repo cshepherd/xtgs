@@ -7,6 +7,10 @@ working; the handlers live in `src/svc/bios.s` and `src/svc/dos.s` and read
 and write the guest registers directly. Flags returned to the caller are set
 in the FLAGS word the `IRET` restores.
 
+(This is Mode A's DOS. In Mode B the DOS is the one that boots from the
+disk image; the file layer here, `src/svc/files.s`, also serves that DOS's
+shared drive, `docs/share.md`.)
+
 Unlisted functions do nothing but are counted: the judge reports them
 ("unhandled calls", first one named), which is how M3's list is built.
 

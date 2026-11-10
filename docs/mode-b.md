@@ -23,6 +23,16 @@ GWBASIC.EXE + HELLO.BAS + CGADEMO.BAS.
 `tools/boot_dos.py` stages it as the `DISK` file, boots with command `D`,
 and reports the guest state, INT 13h count and screen.
 
+`XTGS.CMD` may name a ProDOS folder to share as a DOS drive, on a line
+after the `D` (`C=/VOL/DIR`): `docs/share.md`.
+
+FreeDOS also boots with no disk image at all, from a ProDOS folder that is
+its drive `C:` (command `S`; `make boot-shared`, and what `make dos-image`
+and `make finder` build). Nothing below about the image, its banks, the boot
+sector or `INT 13h` applies then: `svc_bootinit` loads `KERNEL.SYS` from the
+folder, `INT 13h` reports no drives, and every file call goes through the
+redirector. `docs/share.md`, "Booting from the folder".
+
 ## What works
 
 - The loader claims 23 host banks ($50-$66) at startup and loads the disk
@@ -64,8 +74,8 @@ and reports the guest state, INT 13h count and screen.
   Microsoft's open-sourced source; it is FreeDOS-compatible, unlike the
   Microsoft 3.23 binary which errors "You can not SHELL to BASIC" when run
   interactively on FreeDOS (its SHELL recursion guard). The volume carries
-  `GWBASIC.EXE`, `HELLO.BAS` and `CGADEMO.BAS`; at the `A:\>` prompt
-  (`make run-dos`) run `GWBASIC` for the live `Ok` interpreter, or
+  `GWBASIC.EXE`, `HELLO.BAS` and `CGADEMO.BAS`; at the prompt (`C:\>` under
+  `make run-dos`, which boots from the folder) run `GWBASIC` for the live `Ok` interpreter, or
   `GWBASIC HELLO.BAS`. FreeDOS **SETVER** (`SETVER.SYS`) is on the floppy and
   loaded via `DEVICE=A:\SETVER.SYS` in FDCONFIG.SYS, for faking the DOS version
   to older programs. (The CGA headless tests build their own floppy with a
@@ -168,4 +178,5 @@ worksheet receives is dropped.
   only, with synthetic counter reads.
 - A20, and INT 15h beyond AH=84h (the joystick, answered "none"); the rest
   return CF set, AH=86h.
-- Writes persist only to the in-memory image (no write-back to the volume).
+- Writes to the disk image persist only in memory (no write-back to the
+  volume). The shared drive (`docs/share.md`) writes to ProDOS directly.

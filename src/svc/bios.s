@@ -9,7 +9,8 @@ stop_flag  dw 0
 exit_code  dw 0
 cur_vec    dw 0
 
-* svc_hypercall - A = number. 0-255: interrupt vector stub.
+* svc_hypercall - A = number. 0-255: interrupt vector stub;
+* 256 up: the shared drive's calls (rd_tab).
 * Returns C=1 to stop the program with A = exit code.
 svc_hypercall
  mx %00
@@ -18,8 +19,13 @@ svc_hypercall
  plb
  stz stop_flag
  cmp #256
- bcs :cont
+ bcs :redir
  sta cur_vec
+ ldx rd_early              ; DOS boots from the shared folder: its INT 21h
+ beq :call                 ; is hooked from here, at once (rd_poll)
+ jsr rd_poll
+ lda cur_vec
+:call
  asl
  tax
  jsr (int_tab,x)
@@ -34,6 +40,15 @@ svc_hypercall
  plb
  sec
  rtl
+:redir                     ; 256..: the shared drive's (redir.s)
+ sec
+ sbc #256
+ cmp #RD_NCALLS
+ bcs :cont
+ asl
+ tax
+ jsr (rd_tab,x)
+ bra :cont
 
 * int_default - an unserviced vector: note it, return (IRET)
 int_default

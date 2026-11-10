@@ -26,6 +26,7 @@ svc_vbl
  plb
  jsr mode_poll             ; a CGA mode-control or 6845 write is pending?
  jsr kb_poll
+ jsr rd_poll               ; the shared drive: DOS is up?
  jsr vbl_work
  plb
  rtl

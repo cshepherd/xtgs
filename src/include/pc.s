@@ -32,6 +32,11 @@ VID_DIRTY  = RES_BASE+$900       ; 64 bytes: a 256-byte page of the B800 bank wa
 * DISK_BASE; INT 13h serves sectors from there. A 1.44 MB floppy is 23
 * banks ($50-$66).
 BOOT_LIN   = $7C00               ; the boot sector loads to 0000:7C00
+KERNEL_SEG = $0060               ; the S command: KERNEL.SYS of the shared folder
+KERNEL_LIN = $0600               ; loads to 0060:0000, as FreeDOS's boot sector
+KERNEL_MAX = $40000              ; puts it (256 KB of it at most), and is entered
+BOOTSTK_SEG = $1FE0              ; there with BL = 80h and that sector's stack,
+BOOTSTK_SP = $7BA0               ; 1FE0:7BA0
 DISK_SPT   = 18                  ; 1.44 MB floppy geometry
 DISK_HEADS = 2
 DISK_CYLS  = 80
@@ -87,5 +92,13 @@ SPK_PORT   = RES_BASE+$876   ; the 8255's port B (61h) as last written
 DOC_IRQS   = RES_BASE+$878   ; u16 DOC timer interrupts taken (diagnostic)
 DOC_DROPS  = RES_BASE+$87A   ; u16 of those, dropped with vTICK at TICK_MAX
 TICK_OFF   = $0510           ; F000:0510, INT 08h: hypercall 8 / int 1Ch / iret
+RD_OFF     = $0540           ; F000:0540, the shared drive's stubs (redir.s)
+RD_STATE   = RES_BASE+$8A0   ; u16 the shared drive: 0 none, 1-3 on the way,
+                             ; 4 there, 5 it could not be installed
+RD_DIAG    = RES_BASE+$8A2   ; u16 why not: 1 DOS before 4, 2 past LASTDRIVE, 3 taken
+RD_CALLS   = RES_BASE+$8A4   ; u16 redirector calls seen
+RD_LAST    = RES_BASE+$8A6   ; u16 the last one: function | DOS error << 8
+RD_LOG     = RES_BASE+$8C0   ; 32 x u16: the last calls, the same way ($FF: passed on),
+                             ; at index RD_CALLS mod 32
 CAP_BUF    = RES_BASE+$1000
 CAP_MAX    = $7000

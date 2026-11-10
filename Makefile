@@ -5,6 +5,8 @@
 #                    80x25 test frame (build/m0.png)
 #   make test-cpu OP=xx   SingleStepTests vectors; make test-com   nasm .COM programs
 #   make test-dos         independently sourced DOS utilities (third_party/)
+#   make test-share       FreeDOS with a ProDOS folder as drive C: (docs/share.md);
+#                         BOOT=1: FreeDOS booted from that folder, no disk image
 #   make test-layout      the tests again with every bank and bank-$00 page moved
 #   make test-gsos        launch XTGS.SYSTEM from GS/OS (needs a System 6 volume: SYSTEM6=)
 #   make test-s16         the GS/OS application XTGS (src/gs): probe, .COM programs and
@@ -12,9 +14,12 @@
 #                         XTGS_FRONT=s16 does the same for any other target or tool
 #   make finder           build/xtgs-finder.po: a System 6 volume that boots to the Finder,
 #                         with the application and its icon in the folder XTGS, set to
-#                         boot the FreeDOS disk (GW-BASIC on it) when opened
+#                         boot FreeDOS from the folder SHARED beside it (GW-BASIC in
+#                         it) when opened
+#   make boot-dos         boot the FreeDOS floppy image headless (command D);
+#   make boot-shared      the same from the folder SHARED (command S)
 #   make run         boot the image in Ample's MAME with the claudebridge plugin
-#   make run-dos     boot FreeDOS (Mode B) interactively in Ample's MAME
+#   make run-dos     boot FreeDOS from the folder SHARED interactively in Ample's MAME
 #   make clean
 #
 # Toolchain: merlin32 (Brutal Deluxe, 1.1.10), cadius, Homebrew mame + Ample's
@@ -42,13 +47,13 @@ INCLUDES  := src/include/hw.s src/include/layout.s src/include/mailbox.s src/inc
 SYS_SRCS  := src/sys/xtgs.s $(INCLUDES)
 SVC_GEN   := src/svc/gen/font.s src/svc/gen/tables.s src/svc/gen/dostab.s src/svc/gen/t160.s
 SVC_SRCS  := src/svc/svc.s src/svc/video.s src/svc/pcinit.s src/svc/bios.s src/svc/dos.s \
-             src/svc/files.s src/svc/disk.s src/svc/keyboard.s src/svc/sound.s src/svc/capture.s $(SVC_GEN) $(INCLUDES)
+             src/svc/files.s src/svc/disk.s src/svc/redir.s src/svc/keyboard.s src/svc/sound.s src/svc/capture.s $(SVC_GEN) $(INCLUDES)
 CORE_GEN  := src/core/gen/optab.s src/core/gen/eatab.s src/core/gen/alu.s src/core/gen/flagtab.s
 CORE_SRCS := src/core/core.s src/core/probe.s src/core/run.s src/core/jit.s src/core/jit2.s src/core/cpu.s src/core/flags.s \
              src/core/ops_mov.s src/core/ops_ctrl.s src/core/ops_grp.s src/core/ops_str.s \
              src/core/ops_misc.s src/core/harness.s $(CORE_GEN) $(INCLUDES)
 
-.PHONY: all image finder test-m0 test-cpu test-com test-dos test-layout test-gsos test-s16 check-s16 bench boot-dos run run-dos dos-image clean lint
+.PHONY: all image finder test-m0 test-cpu test-com test-dos test-share test-layout test-gsos test-s16 check-s16 bench boot-dos boot-shared run run-dos dos-image clean lint
 
 all: $(PO)
 
@@ -97,9 +102,11 @@ $(B)/xtgs16: $(GS_SRCS)
 # Empty for the records exactly as they are.
 XTGS_VERSION := 0.1
 ICONS        := icon/dos_32x32.qdicon.bin icon/dos_16x16.qdicon.bin
-# The FreeDOS floppy of Mode B (its rule is with boot-dos) and the GW-BASIC
-# that tools/build_freedos.py puts on it when it is there.
+# FreeDOS for Mode B (the rule is with boot-dos): the floppy image, the
+# folder with the same files that DOS boots from as C: (made with the image),
+# and the GW-BASIC that tools/build_freedos.py puts in both when it is there.
 FDIMG        := third_party/freedos/fd/freedos.img
+FDDIR        := third_party/freedos/fd/SHARED
 GWBASIC      := third_party/gwbasic/GWBASIC.EXE
 ICON_REMAP   := 9=4
 $(B)/xtgs16.rfork: $(ICONS) tools/gsos_rfork.py Makefile
@@ -150,25 +157,26 @@ $(PO): $(B)/xtgs $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/gsos/Start16 $(B)/core $(B)/
 
 image: $(PO)
 
-# The same folder on a System 6 volume that boots to the Finder, as a user
-# has it: the application with its icon, to be double-clicked, and the
-# FreeDOS floppy as DISK (command D), so opening XTGS boots FreeDOS to A:\>
-# with GWBASIC.EXE and the demo .BAS files on the disk (docs/mode-b.md).
-# GW-BASIC is not fetched: without third_party/gwbasic/GWBASIC.EXE there is
-# no FreeDOS disk with it, and this fails rather than leave it out.
+# The same folder on a System 6 volume (named XTGS) that boots to the
+# Finder, as a user has it: the application with its icon, to be
+# double-clicked, and FreeDOS in the folder SHARED beside it (command S),
+# so opening XTGS boots FreeDOS to C:\> with GWBASIC.EXE and the demo .BAS
+# files there (docs/share.md): no disk image to load, and what DOS writes
+# are ProDOS files. GW-BASIC is not fetched: without
+# third_party/gwbasic/GWBASIC.EXE this fails rather than leave it out.
 finder: $(B)/xtgs-finder.po
 $(B)/xtgs-finder.po: $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/core $(B)/svc $(FDIMG) tools/gsos_image.sh tools/gsos_rfork.py
 	@[ -f "$(SYSTEM6)" ] || { echo "finder: no System 6 volume at $(SYSTEM6) (set SYSTEM6=)"; exit 1; }
-	@[ -f $(GWBASIC) ] || { echo "finder: no $(GWBASIC) for the FreeDOS disk"; exit 1; }
+	@[ -f $(GWBASIC) ] || { echo "finder: no $(GWBASIC) for the FreeDOS folder"; exit 1; }
 	@mkdir -p $(B)/finder
 	cp $(B)/xtgs16 $(B)/finder/XTGS\#B30000
 	cp $(B)/xtgs16.rfork $(B)/finder/XTGS\#B30000_ResourceFork.bin
 	cp $(B)/core $(B)/finder/CORE\#060000
 	cp $(B)/svc  $(B)/finder/SVC\#060000
-	cp $(FDIMG)  $(B)/finder/DISK\#060000
-	printf 'D\r' > $(B)/finder/XTGS.CMD\#040000
+	rm -f $(B)/finder/DISK\#060000
+	printf 'S\rC=SHARED\r' > $(B)/finder/XTGS.CMD\#040000
 	tools/gsos_image.sh "$(SYSTEM6)" $@ - $(B)/finder/XTGS\#B30000 $(B)/finder/CORE\#060000 \
-	    $(B)/finder/SVC\#060000 $(B)/finder/DISK\#060000 $(B)/finder/XTGS.CMD\#040000
+	    $(B)/finder/SVC\#060000 $(B)/finder/XTGS.CMD\#040000 $(FDDIR)
 
 # ---- tests ------------------------------------------------------------------
 
@@ -238,39 +246,51 @@ check-s16: $(PO)
 bench: $(PO)
 	$(PY) tools/bench.py
 
-# Mode B: boot a real FreeDOS kernel from a disk image (docs/mode-b.md).
-# Builds the FreeDOS floppy (tools/build_freedos.py), then boots it headless.
+# Mode B: boot a real FreeDOS kernel (docs/mode-b.md). Builds the FreeDOS
+# floppy and the folder with the same files (tools/build_freedos.py), then
+# boots headless: boot-dos the floppy image (command D), boot-shared the
+# folder as drive C: with no image (command S, docs/share.md).
 $(FDIMG): tools/build_freedos.py tools/make_fat12.py $(wildcard $(GWBASIC))
 	$(PY) tools/fetch_dos.py
 	$(PY) tools/build_freedos.py
 boot-dos: $(PO) $(FDIMG)
 	VOLSIZE=4096KB $(PY) tools/boot_dos.py $(FDIMG) --seconds 120
+boot-shared: $(PO) $(FDIMG)
+	VOLSIZE=4096KB $(PY) tools/boot_dos.py $(FDDIR) --seconds 120
+
+# The shared drive (docs/share.md): FreeDOS with the folder SHARE of the
+# volume as C:, a batch file that reads, writes, renames and deletes there,
+# and the volume checked afterwards. LETTER=E for another drive, FULL=1 to
+# name the folder by its full pathname. BOOT=1 has no floppy: FreeDOS and
+# the batch file are in the folder SHARED and DOS boots from it (command S).
+test-share: $(PO) $(FDIMG)
+	$(PY) tools/share_test.py $(if $(BOOT),--boot) $(if $(LETTER),--letter $(LETTER)) $(if $(FULL),--full)
 
 # ---- interactive ------------------------------------------------------------
 
 run: $(PO)
 	tools/mame/run-mame.sh $<
 
-# dos-image: build/boot/boot.po, a bootable 4 MB ProDOS 8 volume that boots
-# XT/GS, loads the FreeDOS floppy (Mode B, command D) to the A:\> prompt, with
-# GW-BASIC 3.23 and the demos on it. This is image-build only (no emulator), so
-# it also serves a real IIGS - put the .po on a FloppyEmu/CFFA/SCSI volume.
-# GW-BASIC 3.23 is included when third_party/gwbasic/GWBASIC.EXE is present;
-# AUTOEXEC runs a demo, then at A:\> type GWBASIC for the live Ok interpreter.
+# dos-image: build/boot/boot.po, a bootable 4 MB ProDOS 8 volume (named
+# XTGS) that boots XT/GS and FreeDOS from its folder SHARED (Mode B, command
+# S) to the C:\> prompt, with GW-BASIC 3.23 and the demos there: type GWBASIC
+# for the Ok prompt. No disk image is loaded, and DOS's files are ProDOS
+# files in that folder. This is image-build only (no emulator), so it also
+# serves a real IIGS - put the .po on a FloppyEmu/CFFA/SCSI volume.
+# GW-BASIC 3.23 is included when third_party/gwbasic/GWBASIC.EXE is present.
 dos-image: $(B)/boot/boot.po
 $(B)/boot/boot.po: $(B)/xtgs $(B)/core $(B)/svc $(FDIMG) tools/make_image.sh
 	@mkdir -p $(B)/boot
+	rm -f $(B)/boot/DISK\#060000
 	cp $(B)/xtgs $(B)/boot/XTGS.SYSTEM\#FF2000
 	cp $(B)/core $(B)/boot/CORE\#060000
 	cp $(B)/svc  $(B)/boot/SVC\#060000
-	cp $(FDIMG)  $(B)/boot/DISK\#060000
-	printf 'D\r' > $(B)/boot/XTGS.CMD\#040000
-	VOLSIZE=4096KB tools/make_image.sh $(B)/boot/boot.po \
+	printf 'S\rC=SHARED\r' > $(B)/boot/XTGS.CMD\#040000
+	VOLSIZE=4096KB tools/make_image.sh $@ \
 	    $(B)/boot/XTGS.SYSTEM\#FF2000 $(B)/boot/CORE\#060000 $(B)/boot/SVC\#060000 \
-	    $(B)/boot/DISK\#060000 $(B)/boot/XTGS.CMD\#040000
+	    $(B)/boot/XTGS.CMD\#040000 $(FDDIR)
 
-# Boot that image (Mode B) interactively in Ample's MAME. Kernel init is slow
-# (~15K guest IPS): the A:\> prompt takes a while to appear. See docs/mode-b.md.
+# Boot that image (Mode B) interactively in Ample's MAME. See docs/mode-b.md.
 run-dos: $(B)/boot/boot.po
 	tools/mame/run-mame.sh $(B)/boot/boot.po
 

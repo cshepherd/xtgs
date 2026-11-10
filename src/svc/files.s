@@ -131,7 +131,6 @@ dos_path
  cmp #':'
  bne :nodrive
  iny
- iny
  bra :start
 :nodrive
  ldy #0

@@ -6,6 +6,10 @@
 Stages the image as DISK on a ProDOS volume with command D, boots headless,
 and dumps the guest CPU state, the INT 13h call count, the text screen and a
 SHR screenshot. With --trace it also samples guest CS:IP over time.
+
+IMAGE may be a folder instead (cadius NAME#TTAAAA names in it, as
+tools/build_freedos.py makes third_party/freedos/fd/SHARED): it goes on the
+volume as the folder SHARED and DOS boots from it, command S (docs/share.md).
 """
 import argparse
 import os
@@ -32,14 +36,20 @@ def main():
     ap.add_argument("--trace", action="store_true")
     args = ap.parse_args()
 
-    work = os.path.join(ROOT, "build", "boot")
+    work = os.path.join(ROOT, "build", "bootdos")    # (build/boot is make dos-image's)
     os.makedirs(work, exist_ok=True)
-    disk = os.path.join(work, "DISK#060000")
-    with open(args.image, "rb") as f, open(disk, "wb") as g:
-        g.write(f.read())
+    folder = os.path.isdir(args.image)
+    if folder:
+        disk = os.path.join(work, "SHARED")
+        subprocess.run(["rm", "-rf", disk], check=True)
+        subprocess.run(["cp", "-R", args.image, disk], check=True)
+    else:
+        disk = os.path.join(work, "DISK#060000")
+        with open(args.image, "rb") as f, open(disk, "wb") as g:
+            g.write(f.read())
     cmd = os.path.join(work, "XTGS.CMD#040000")
     with open(cmd, "w") as f:
-        f.write("D\r")
+        f.write("S\rC=SHARED\r" if folder else "D\r")
     stage = os.path.join(ROOT, "build", "stage")
     po = os.path.join(work, "boot.po")
     subprocess.run([os.path.join(HERE, "make_image.sh"), po,

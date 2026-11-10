@@ -39,6 +39,7 @@
  put dos.s
  put files.s
  put disk.s
+ put redir.s
  put keyboard.s
  put sound.s
  put capture.s

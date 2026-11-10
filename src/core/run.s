@@ -81,18 +81,23 @@ com_run
 * load the image's boot sector to 0000:7C00, and run it as an
 * XT would, delivering the IRQ0 timer. The guest's own DOS
 * kernel installs INT 20h-2Fh; we keep serving the BIOS.
+*
+* The S command has no image: svc_bootinit returns 1 with
+* FreeDOS's KERNEL.SYS from the shared folder at 0060:0000,
+* entered as its boot sector would with BL = 80h (drive C:),
+* or 2 when there is none, and nothing runs.
 boot_run
  mx %00
  jsl SVC_BASE+24           ; svc_bootinit: stubs/IVT/BDA, sector 0 -> 0000:7C00
+ cmp #2
+ bcc :ok
+ lda #$FFFF
+ rts
+:ok
  stz rCS
  stz rDS
  stz rES
  stz rSS
- jsr set_all_bases
- lda #BOOT_LIN
- sta rIP
- lda #$7C00                ; stack just below the boot sector
- sta rSP
  stz rAX
  stz rBX
  stz rCX
@@ -100,6 +105,24 @@ boot_run
  stz rSI
  stz rDI
  stz rBP
+ ldx #BOOT_LIN
+ stx rIP
+ ldx #$7C00                ; stack just below the boot sector
+ stx rSP
+ cmp #1
+ bne :bases
+ lda #KERNEL_SEG
+ sta rCS
+ stz rIP
+ lda #BOOTSTK_SEG
+ sta rSS
+ lda #BOOTSTK_SP
+ sta rSP
+ lda #$0080                ; BL (and DL): the first hard disk
+ sta rBX
+ sta rDX
+:bases
+ jsr set_all_bases
  lda #F_FIXED+F_IF         ; interrupts enabled
  jsr flags_set
  stz vEXIT

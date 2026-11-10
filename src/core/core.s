@@ -57,6 +57,8 @@ core_entry
  beq :com
  cmp #'D'
  beq :boot
+ cmp #'S'                  ; DOS from the shared folder, no disk image
+ beq :boot
  cmp #'J'
  beq :jit
  cmp #'K'

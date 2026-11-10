@@ -2,14 +2,15 @@
 
 An IBM PC/XT for the Apple IIGS. XT/GS is an 8086/8088 real-mode interpreter
 and a PC-compatible BIOS, written in 65816 assembly (Merlin32) for an 8 MB
-Apple IIGS and booted straight from ProDOS 8. It boots FreeDOS from a floppy
-image to the `A:\>` prompt and runs real DOS software on top of it: GW-BASIC
-with CGA graphics and sound, and Lotus 1-2-3 Release 1A.
+Apple IIGS and booted straight from ProDOS 8. It boots FreeDOS, from a
+folder of the ProDOS volume or from a floppy image, and runs real DOS
+software on top of it: GW-BASIC with CGA graphics and sound, and Lotus 1-2-3
+Release 1A.
 
 | | |
 | --- | --- |
-| ![FreeDOS booted to the A: prompt](assets/freedos.png) | ![GW-BASIC: a program typed, listed with F1 and run with F2](assets/gwbasic-text.png) |
-| FreeDOS: the XT/GS POST banner, the kernel, FreeCOM and `DIR /W` | GW-BASIC: three lines typed in, `LIST` from F1, `RUN` from F2 |
+| ![FreeDOS booted from a ProDOS folder to the C: prompt](assets/freedos.png) | ![GW-BASIC: a program typed, listed with F1 and run with F2](assets/gwbasic-text.png) |
+| FreeDOS booted from a ProDOS folder: the kernel, FreeCOM and `DIR /W` of drive `C:` | GW-BASIC: three lines typed in, `LIST` from F1, `RUN` from F2 |
 | ![GW-BASIC SCREEN 1 drawing in four colours](assets/gwbasic-cga.png) | ![Lotus 1-2-3 worksheet with an @SUM](assets/lotus-worksheet.png) |
 | GW-BASIC `SCREEN 1` (CGA 320x200, four colours): `LINE`, `CIRCLE`, `COLOR 1,1` | Lotus 1-2-3 1A: labels, values and `@SUM(B1..B3)` |
 | ![Lotus 1-2-3 graph menu](assets/lotus-menu.png) | ![Lotus 1-2-3 bar graph](assets/lotus-graph.png) |
@@ -29,8 +30,9 @@ The screenshots, test results and speed figures in this file are from MAME.
 It is slow: a stock 2.8 MHz IIGS runs the guest at about 15,600 instructions
 a second, roughly 1/19 of a 4.77 MHz XT, and a 16 MHz ZipGS at about 87,000
 (1/3 of an XT). FreeDOS takes about four emulated minutes to reach its prompt
-on a stock machine. Disk writes stay in memory and are lost at power-off. See
-[Known limits](#known-limits).
+on a stock machine. A ProDOS folder is drive `C:`, and what DOS writes there
+are ProDOS files that stay; writes to a floppy image stay in memory and are
+lost at power-off. See [Known limits](#known-limits).
 
 ## What it does
 
@@ -49,10 +51,13 @@ on a stock machine. Disk writes stay in memory and are lost at power-off. See
   keys of their own. Function keys are Option+digit.
 - **Timer and sound:** the Ensoniq DOC is both the 8253's IRQ0 tick (18.2 Hz,
   or whatever rate the guest programs) and the PC speaker (`docs/sound.md`).
-- **Disk:** one floppy image (320 KB to 1.44 MB), held in RAM and served
+- **Shared drive:** a folder of the ProDOS volume as a DOS drive in Mode B,
+  read and written in place, and the drive FreeDOS boots from
+  (`docs/share.md`).
+- **Disk:** or one floppy image (320 KB to 1.44 MB), held in RAM and served
   through `INT 13h`.
-- **Two ways to run a program:** *Mode B* boots a real DOS from the floppy
-  image, with XT/GS supplying only the BIOS and hardware. *Mode A* runs a
+- **Two ways to run a program:** *Mode B* boots a real DOS, from the shared
+  folder or a floppy image, with XT/GS supplying only the BIOS and hardware. *Mode A* runs a
   single `.COM` or `.EXE` from the ProDOS volume under a small built-in DOS
   (`INT 21h` implemented in 65816, reporting DOS 3.30), with no DOS kernel
   to boot.
@@ -66,25 +71,29 @@ with `tools/mame/install-plugin.sh`.
 
 ```
 make              # build/xtgs.po: XTGS.SYSTEM + CORE + SVC
-make dos-image    # build/boot/boot.po: the same plus a FreeDOS 1.44 MB floppy
+make dos-image    # build/boot/boot.po: the same plus FreeDOS in the folder SHARED
 make run-dos      # boot that in Ample's MAME
 ```
 
 `make dos-image` downloads the FreeDOS kernel and FreeCOM into `third_party/`
-and builds the floppy. GW-BASIC is not downloaded: put a `GWBASIC.EXE` (the
-rebuild from gitlab.com/tkchia/GW-BASIC is the one that works) at
-`third_party/gwbasic/GWBASIC.EXE` and it goes on the floppy too, with
-`HELLO.BAS` and `CGADEMO.BAS`. The `.po` is an ordinary 4 MB ProDOS volume that
-boots to XT/GS, so it also serves a real IIGS from a hard-disk-class device.
+and puts them in a folder `SHARED` of the volume (named `XTGS`), which
+FreeDOS boots from as drive `C:`. There is no disk image: the kernel, the
+shell and whatever DOS writes are ordinary ProDOS files in that folder, so
+files go in and out with any ProDOS tool. GW-BASIC is not downloaded: put a
+`GWBASIC.EXE` (the rebuild from gitlab.com/tkchia/GW-BASIC is the one that
+works) at `third_party/gwbasic/GWBASIC.EXE` and it goes in the folder too,
+with `HELLO.BAS` and `CGADEMO.BAS`. The `.po` is an ordinary 4 MB ProDOS
+volume that boots to XT/GS, so it also serves a real IIGS from a
+hard-disk-class device.
 
 XT/GS can be launched from GS/OS as well, two ways. Copy `XTGS.SYSTEM`,
-`CORE`, `SVC`, `XTGS.CMD` and `DISK` from that volume into one folder on a
-GS/OS disk and open `XTGS.SYSTEM`: GS/OS shuts down into ProDOS 8 to run it
+`CORE`, `SVC`, `XTGS.CMD` and the folder `SHARED` from that volume into one
+folder on a GS/OS disk and open `XTGS.SYSTEM`: GS/OS shuts down into ProDOS 8 to run it
 and comes back when XT/GS quits. Or put the native application in that folder
 instead of `XTGS.SYSTEM` - `build/xtgs16`, as a file `XTGS` of type S16
 (`$B3`) - and open that: it runs the same `CORE` and `SVC` without leaving
-GS/OS. `make finder` builds a volume that boots to the Finder with that
-folder on it, the FreeDOS floppy and GW-BASIC included
+GS/OS. `make finder` builds a volume named `XTGS` that boots to the Finder
+with that folder on it, `SHARED` with FreeDOS and GW-BASIC inside it
 (`build/xtgs-finder.po`; it needs a System 6 volume, `SYSTEM6=path`, and
 the `GWBASIC.EXE` above). `XTGS` has its own icon there (`icon/`), and
 opening it boots FreeDOS; copy the folder from there with the Finder and
@@ -98,18 +107,22 @@ real IIGS yet; `docs/relocation.md`.
 ![The XTGS folder in the Finder](assets/finder-icon.png)
 
 Booting FreeDOS takes a few minutes of emulated time (MAME's throttle can be
-turned off to shorten the wait). The floppy has no `AUTOEXEC.BAT`, so FreeCOM
+turned off to shorten the wait). The folder has no `AUTOEXEC.BAT`, so FreeCOM
 asks for the date and the time first: press Return twice. Then:
 
 ```
-A:\>GWBASIC
+C:\>GWBASIC
 ```
 
-### Booting your own floppy image
+### Booting a floppy image
 
-No commercial software is included. To boot another disk, put a raw sector
+No commercial software is included. To boot a disk of your own (or
+anything that is not FreeDOS, or needs a drive `A:`), put a raw sector
 image (320 KB, 720 KB, 1.2 MB or 1.44 MB; the geometry is read from its boot
-sector) on the volume as `DISK`, with an `XTGS.CMD` that says `D`:
+sector) on the volume as `DISK`, with an `XTGS.CMD` that says `D`. The whole
+image is read into memory before the PC starts, and takes 23 banks
+(1.44 MB) of the IIGS's memory whatever its size; `make boot-dos` boots
+FreeDOS that way, from `third_party/freedos/fd/freedos.img`:
 
 ```
 mkdir -p build/my
@@ -121,18 +134,46 @@ VOLSIZE=4096KB tools/make_image.sh build/my/my.po \
 tools/mame/run-mame.sh build/my/my.po
 ```
 
+### The ProDOS folder that is drive C:
+
+A second line in `XTGS.CMD` names the folder of the ProDOS volume that is a
+drive of DOS: its files are read and written in place, so this is how files
+get into and out of the PC, and they are still there after the run.
+
+```
+S
+C=/HARD1/DOSFILES
+```
+
+The rest of the line is a ProDOS pathname: a full one, or one below the
+folder XT/GS was started from (`C=SHARED`, which is also what `S` alone
+means). The folder has to exist. The sign-on screen says
+`Drive C: is /HARD1/DOSFILES` when it was found. DOS sees the files whose
+ProDOS names are also DOS names (8.3) and can create only names ProDOS
+accepts (a letter first, then letters, digits and dots).
+
+Under `S` FreeDOS boots from that folder, which has to hold its
+`KERNEL.SYS` and `COMMAND.COM` (`third_party/freedos/fd/SHARED` after
+`make dos-image` is one to copy). Under `D` DOS boots from the floppy image
+and the folder is one more drive, with the letter the line gives (`C` to
+`Z`). `docs/share.md` has the details and the limits.
+
 ### The command file
 
-`XTGS.SYSTEM` reads one line from `XTGS.CMD` and does what it says:
+`XTGS.SYSTEM` reads the first line of `XTGS.CMD` and does what it says:
 
 | Command | What it does |
 | --- | --- |
+| `S` | Mode B: boot FreeDOS from the shared folder (`SHARED` unless a later line names another) |
 | `D` | Mode B: boot the floppy image in the file `DISK` |
 | `C NAME args` | Mode A: run the `.COM`/`.EXE` file `NAME` under the built-in DOS (`docs/dos-api.md`) |
 | `P` | memory probe and an 80x25 test screen |
 | `V` | run the CPU test vectors in the file `VEC` |
 | `B` | run the benchmark program in `BENCH` until it halts |
 | `J`, `K` | the JIT experiments (`docs/jit.md`) |
+
+A later line `letter=pathname` is a setting for commands `S` and `D`: the
+shared drive, above.
 
 ## Keyboard and function keys
 
@@ -176,11 +217,11 @@ Control+H. Details in `docs/keyboard.md`.
 ## Compatibility
 
 What has actually been run. "Mode B" means under FreeDOS (or the title's own
-DOS) booted from a floppy image; "Mode A" means under the built-in DOS.
+DOS on its floppy image); "Mode A" means under the built-in DOS.
 
 | Title | Mode | Result |
 | --- | --- | --- |
-| FreeDOS (8086 kernel 2043, FreeCOM 0.85a) | B | **Works.** Boots to `A:\>`; `DIR`, `VER`, running programs |
+| FreeDOS (8086 kernel 2043, FreeCOM 0.85a) | B | **Works.** Boots to `C:\>` from a ProDOS folder and to `A:\>` from a floppy image; `DIR`, `VER`, running programs |
 | GW-BASIC (tkchia's MIT-licensed rebuild of Microsoft's source) | B | **Works.** Editor, `LIST`/`RUN`/`LOAD`, function keys, `SCREEN 1` and `SCREEN 2` drawing, `COLOR`, `SOUND`/`PLAY`/`BEEP`. `PRINT` does not show in the graphics screens (see limits) |
 | GW-BASIC 3.23 (Microsoft's binary) | B | Runs a program given on the command line; interactively it refuses with "You can not SHELL to BASIC" on FreeDOS. Use the rebuild |
 | Lotus 1-2-3 Release 1A (1983), System disk | B | **Partly.** The disk boots its own PC-DOS and the Lotus Access System menu works. The disk is copy-protected and a sector image cannot satisfy the check, so an unmodified `123.EXE` exits back to the menu. With that check bypassed in a private copy, 1-2-3 runs: worksheet entry, formulas, recalculation, F-keys, and graphs in CGA. The stock `AUTOEXEC.BAT`'s clock utility hangs, and the first keystroke in a new worksheet is dropped |
@@ -199,8 +240,8 @@ DOS) booted from a floppy image; "Mode A" means under the built-in DOS.
 Three pieces are loaded from the ProDOS volume:
 
 - **`XTGS.SYSTEM`** (`src/sys/`), the ProDOS 8 loader. It claims memory from
-  the Memory Manager, reads `XTGS.CMD`, loads the other two pieces and the
-  disk image, and starts the core. **`XTGS`** (`src/gs/`) is the same thing
+  the Memory Manager, reads `XTGS.CMD`, loads the other two pieces (and the
+  disk image, for command `D`), and starts the core. **`XTGS`** (`src/gs/`) is the same thing
   as a native GS/OS application.
 - **`CORE`** (`src/core/`, bank `$03`), the CPU.
 - **`SVC`** (`src/svc/`, bank `$04`), the PC around it: video, BIOS, the
@@ -210,7 +251,8 @@ The bank numbers here and below are the ones the code is assembled for. The
 loader takes each region wherever the Memory Manager has room and fixes the
 bank bytes of `CORE` and `SVC` to match (`docs/relocation.md`), so
 `XTGS.SYSTEM` can also be launched from GS/OS, where those banks are taken:
-keep `CORE`, `SVC`, `XTGS.CMD` and the disk image in the same folder. The
+keep `CORE`, `SVC`, `XTGS.CMD` and the folder `SHARED` (or the disk image)
+in the same folder. The
 bank-`$00` addresses the two use (the direct page, the mailbox, the file
 buffers) are relocated the same way, and they reach files only through one
 entry the loader provides, so nothing in them is tied to ProDOS 8. The GS/OS
@@ -276,7 +318,12 @@ make test-cpu OP="00 01"
                   SingleStepTests 8088 vectors for those opcodes
 make test-dos     the Mode A programs in the compatibility table (exits non-zero:
                   the two known failures are part of the set)
-make boot-dos     boot FreeDOS headless and report the screen
+make boot-dos     boot FreeDOS from the floppy image headless and report the
+                  screen; make boot-shared the same from the folder SHARED
+make test-share   a ProDOS folder as drive C: under FreeDOS: DIR, COPY both
+                  ways, MD/REN/DEL, programs and GW-BASIC run from it, and
+                  the volume compared afterwards (LETTER=E, FULL=1 vary it;
+                  BOOT=1: FreeDOS booted from that folder, no disk image)
 make test-layout  the probe, .COM and sampled CPU tests with every part of
                   XT/GS in a different bank, and every bank-$00 page it uses
                   at a different address, than it was assembled for
@@ -303,7 +350,12 @@ suite: all 324 opcode files, 2,883,807 vectors after the exclusions listed in
 ## Known limits
 
 - Speed, as above. Eager flag computation is the largest remaining cost.
-- Disk writes are kept in RAM and never written back to the ProDOS volume.
+- Writes to a floppy image are kept in RAM and never written back to the
+  ProDOS volume. Files that should last go on the shared drive.
+- The shared drive shows only files with DOS-shaped names, keeps ProDOS's
+  dates, and has been run under FreeDOS only, in MAME (`docs/share.md`).
+- Booting from the shared folder is for FreeDOS's kernel only and has been
+  run in MAME only. The PC has no floppy drive then: `A:` is "not ready".
 - Text is monochrome (four greys). There is no MDA, Hercules, EGA or VGA.
 - In CGA graphics modes the BIOS text services (`INT 10h` write character,
   teletype, scroll) do not draw. Programs that draw their own text, as 1-2-3
@@ -323,6 +375,7 @@ suite: all 324 opcode files, 2,883,807 vectors after the exclusions listed in
 | File | Subject |
 | --- | --- |
 | `docs/mode-b.md` | booting DOS from a disk image; application notes |
+| `docs/share.md` | a ProDOS folder as a DOS drive, and as the drive FreeDOS boots from |
 | `docs/dos-api.md` | the built-in DOS and BIOS services of Mode A |
 | `docs/keyboard.md` | the key mapping |
 | `docs/cga.md` | CGA graphics |
