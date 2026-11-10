@@ -69,8 +69,8 @@ The oscillator's interrupt arrives through the firmware's sound vector
 oscillator-interrupt register until it is empty) and counts it in `vTICK` in
 the guest direct page. Nothing else happens at interrupt time. Then:
 
-- **Mode B**: the core's slot check (`cpu.s`, every `SLOT_N` = 16 guest
-  instructions) delivers one INT 08h per count when the guest's IF is set.
+- **Mode B**: the core's slot check (`cpu.s`, every `SLOT_N` = 4 control
+  transfers of the guest) delivers one INT 08h per count when the guest's IF is set.
   The default INT 08h (`disk.s`) increments the BDA tick count and calls
   INT 1Ch, as a PC BIOS does.
 - **Mode A**: nothing is delivered to the guest; `vbl_work` drains `vTICK`

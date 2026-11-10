@@ -43,7 +43,7 @@ MB_DBG_SIZE = MB_BASE+$56    ; u32 its size
 MB_MLI_CMD  = MB_BASE+$5A    ; u16 file call: the ProDOS 8 MLI command byte
 MB_MLI_RES  = MB_BASE+$5C    ; u16 its result (error code, 0 = ok)
 MB_MLI_PARMS = MB_BASE+$5E   ; 32 bytes: its parameter list
-MB_ICOUNT   = MB_BASE+$7E    ; u32 instructions retired (bench; in SLOT_N units)
+MB_ICOUNT   = MB_BASE+$7E    ; u32 slots run, times SLOT_N (bench)
 MB_LAYOUT   = MB_BASE+$82    ; RG_COUNT words: the bank of each region, the page of each bank-$00 area (0 = not claimed)
 MB_LAYALT   = RG_COUNT*2+MB_LAYOUT ; u16 nonzero: the '+' test layout was asked for
 MB_END      = MB_LAYALT+2

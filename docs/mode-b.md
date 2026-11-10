@@ -130,9 +130,11 @@ guest programs into 8253 channel 0 (18.2 Hz by default). The once-a-frame work
 
 One more of the kind turned up with the clock (`docs/clock.md`): a loop
 that polls `INT 1Ah` and is a divisor of 16 instructions long met the slot
-check only inside the BIOS stub, with interrupts off, and never got its
-IRQ0. `IRET`, `POPF` and `STI` now bring the slot forward when an interrupt
-is owed (`irq_chk`, `src/core/cpu.s`).
+check (every 16 instructions then; every fourth control transfer since
+`docs/benchmarks.md`'s fifth change) only inside the BIOS stub, with
+interrupts off, and never got its IRQ0. `IRET`, `POPF` and `STI` now bring
+the slot forward when an interrupt is owed (`irq_soon`, `irq_sti`,
+`src/core/cpu.s`).
 
 ## Real applications
 

@@ -90,9 +90,91 @@ changes:
 | SVC (the text screen, mostly) | 5% |
 | everything else, no routine over 3% | 41% |
 
-So the next candidates are the string instructions without `REP` or outside
-the `MVN` case, which work out both host pointers for every element, and the
-count in `next`.
+So the next candidates were the string instructions without `REP` or outside
+the `MVN` case, which worked out both host pointers for every element, and
+the count in `next`: the next section.
+
+## Two more: the slot count and the string instructions (2026-11-10)
+
+The two candidates the profile above named, in the order they were done,
+stock clock (`strs` is a new program, below; the whole SingleStepTests sweep
+was run after the second, with the same 173 failures):
+
+| | reg IPS | mem IPS | jmp IPS | strs IPS | FreeDOS from the folder |
+|---|---:|---:|---:|---:|---:|
+| after the four changes | 26,501 | 21,353 | 32,244 | 4,774 | 90.3 s |
+| 5. the slot counted on control transfers | 28,251 | 22,664 | 33,913 | | 87.2 s |
+| 6. the string instructions | 28,238 | 22,664 | 33,913 | 15,635 | 72.9 s |
+
+5. **The slot count.** Every instruction used to retire through `next`,
+   `dec vSLOT / bne fetch`, so that the interrupt lines and the frame's work
+   were looked at every `SLOT_N` instructions. The retire vector is now
+   `fetch` itself, and only what can close a loop counts: a taken jump, a
+   call, a return, `LOOP`, `INT`, `IRET`, a `REP` string instruction, the
+   hypercall and `HLT` retire through `next_ct` (three lines, inline in the
+   common ones), and the slot runs every fourth of them. Straight-line code
+   pays nothing. `STI` with an interrupt waiting makes the instruction after
+   it retire through the slot (`next_owed`), as the 8086 does.
+6. **The string instructions** (`src/core/ops_str.s`). Each element used to
+   be a call that worked out both host pointers from the segment bases,
+   with or without `REP`; `MVN` was taken only by a `REP MOVSW` that stayed
+   inside one 64K block. Counted over a FreeDOS boot from the folder:
+
+   | | alone | under `REP` | elements under `REP` |
+   |---|---:|---:|---:|
+   | `MOVSB` | 17,846 | 13,638 | 99,037 (7.3 a run) |
+   | `MOVSW` | 30 | 781 | 83,241 (8 runs hold 77,851) |
+   | `STOSB` | 155 | 4 | 364 |
+   | `STOSW` | 0 | 55 | 17,309 |
+   | `LODSB` | 1,863 | 0 | |
+   | `SCASB` | 0 | 226 | 1,526 |
+   | `CMPSB` | 0 | 18 | 66 |
+
+   So the work is in short `REP MOVSB` runs, `MOVSB` alone and a few long
+   `REP MOVSW` runs that cross a block's end. Now an instruction alone adds
+   the offset to the segment's base once for each pointer (the bank word
+   worked out only when that add carries) and tests DF once; under `REP`,
+   `MOVS` is `MVN` or `MVP` and `STOS` an overlapping `MVN`, in runs that
+   end where SI, DI or either host pointer would wrap, with the old element
+   routine for a word that lies across a wrap; `REPE`/`REPNE` `SCASB` and
+   `CMPSB` are loops on `[ptr],y`. The rest (`LODS` under `REP`, the word
+   compares, DF set for a fill or a compare) still go an element at a time.
+
+`tests/com/strrep.asm` was written for this: 211 cases of every string
+instruction, alone and under `REP`, each run twice from the same memory, as
+the instruction and by a routine of ordinary instructions, then eight long
+runs and five strips of the text screen. Three faults of the old code came
+out of the work, none of which a SingleStepTests vector or a boot had shown.
+The test fails the old core on the first two; the counts above showed the
+third.
+
+- `REP MOVSW` upwards with the destination one byte above the source went
+  to `MVN`, which is a byte move: every byte became the first, where the
+  8086 moves words (cases 101 and 109).
+- The `MVN` path marked only the first 256-byte page of a run into the text
+  buffer, so a scroll done with one `REP MOVSW` could leave rows undrawn
+  until something else touched them (160 cells of the test's strips).
+- `REP MOVSB` never took `MVN`: the test for it read the Z flag of the
+  wrong load. Correct, and slow.
+
+From power-on the test takes 111 emulated seconds on the old core and 74 on
+the new.
+
+CORE is 49 KB of its bank. Emulated seconds from power-on at the stock
+clock, before the two and after: FreeDOS from the folder to FreeCOM's date
+prompt 90.3 -> 72.9; from the floppy image 138 -> 113.7; Minix to its shell 303 -> 264 (16 MHz: 39 -> 35).
+PC samples of the FreeDOS boot from the folder, one a frame, now:
+
+| where | share |
+|---|---:|
+| `fetch` | 14% |
+| bank `$00` and the ROM: firmware and ProDOS (file reads, interrupts) | 14% |
+| string instructions | 5% (was 17%) |
+| `push16`/`pop16` | 5% |
+| `jcc_taken` (with its count) | 4.5% |
+| the slot (`next_due`, `slot`) | 2.4% |
+| SVC (the text screen, mostly) | 7% |
+| everything else, no routine over 4% | 48% |
 
 ## Throughput
 
@@ -101,27 +183,31 @@ setting. OUTER=4 (65,536 iterations a loop).
 
 | program | what an iteration is | instructions | stock IPS | Zip 16 MHz IPS |
 |---|---|---:|---:|---:|
-| reg | `add ax,bx / sub bx,1 / dec cx / jnz` | 1,048,576 | 26,500 | 148,000 |
-| mem | `add [bx],ax / mov ax,[si+2] / mov [bx+4],ax / dec cx / jnz` | 1,310,720 | 21,400 | 119,200 |
-| jmp | `test cx,1 / jz / inc ax / dec cx / jnz` | 1,310,720 | 32,200 | 180,000 |
-| str | `rep movsw` (MVN fast path) | 32,768 | **197,000-218,000** | **983,000** |
+| reg | `add ax,bx / sub bx,1 / dec cx / jnz` | 1,048,576 | 28,200 | 158,100 |
+| mem | `add [bx],ax / mov ax,[si+2] / mov [bx+4],ax / dec cx / jnz` | 1,310,720 | 22,700 | 126,600 |
+| jmp | `test cx,1 / jz / inc ax / dec cx / jnz` | 1,310,720 | 33,900 | 189,500 |
+| str | `rep movsw` of 16 KB (`MVN`) | 32,768 | **197,000-218,000** | (a frame or two) |
+| strs | short string instructions, as a DOS kernel's: `rep movsb` of 7, `lodsb`/`stosb` twice, `rep movsw` of 16, `repne scasb` of 8, `rep stosw` of 32, and the loop | 655,360 | 15,600 | 87,400 |
 
 (`str` runs for nine or ten frames at the stock clock, so its figure moves by
-a frame from run to run.) Before the four changes above the rows read
-15,600 / 87,100, 15,300 / 85,200 and 23,000 / 128,500.
+a frame from run to run, and at 16 MHz it is over in one or two. `strs`
+counts a `REP` instruction as one: 20 instructions an iteration, 9 of them
+string instructions on 115 bytes; before the string instructions were
+rewritten it read 4,800 / 26,700.) Before any of the six changes above the
+first three rows read 15,600 / 87,100, 15,300 / 85,200 and 23,000 / 128,500.
 
 The MVN fast path made `REP MOVSW` 23x faster (was 9,400 / 53,000 IPS). It
 helps memory copies and screen scrolls.
 
 Reading the compute rows: a stock IIGS retires a register instruction every
-~105 65816 cycles and one with a memory operand every ~130, between 1/11 and
-1/14 of a 4.77 MHz 8088 on this kind of code; a 16 MHz Zip is about half an
+~100 65816 cycles and one with a memory operand every ~125, between 1/11 and
+1/13 of a 4.77 MHz 8088 on this kind of code; a 16 MHz Zip is about half an
 XT on register code and 2/5 on memory operands.
 
 ## What the M5 gate asks
 
 A DOS kernel's boot runs a few million instructions; measured, FreeDOS is at
-its prompt 90 emulated seconds after a stock machine starts it from a folder
+its prompt 73 emulated seconds after a stock machine starts it from a folder
 (above). The plan's own gate (is a measured speed sufficient to pursue a full
 boot) was met at 15,600 IPS for an accelerated machine, and the boot has been
 done since (`docs/mode-b.md`, `docs/share.md`).

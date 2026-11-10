@@ -38,16 +38,17 @@ It is slow. Emulated seconds from power-on, in MAME:
 
 | | boot menu | date prompt | `login:` | first `#` |
 | --- | --- | --- | --- | --- |
-| stock IIGS, 2.8 MHz | 18 | 205 | 279 | 303 |
-| ZipGS, 16 MHz | 4 | 26 | 35 | 39 |
+| stock IIGS, 2.8 MHz | 18 | 182 | 244 | 264 |
+| ZipGS, 16 MHz | 4 | 24 | 32 | 35 |
 
 (The last two include the test's typing.) Loading the 192K RAM disk is most
 of it, and on a stock machine about a third of all the time goes to Minix's
 clock interrupt: it asks for 60 a second, each costs about 130 guest
-instructions, and a stock IIGS runs 21,000 to 26,000 guest instructions a
+instructions, and a stock IIGS runs 23,000 to 28,000 guest instructions a
 second. (Before the interpreter's changes of 2026-11-10,
-`docs/benchmarks.md`, the stock row read 18, 327, 452, 493, and `ls -l` of
-the root directory took a minute; that command has not been timed since.)
+`docs/benchmarks.md`, the stock row read 18, 327, 452, 493, and after the
+first four of them 18, 205, 279, 303; `ls -l` of the root directory took a
+minute then, and that command has not been timed since.)
 
 ## What Minix asks of the PC
 

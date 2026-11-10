@@ -483,9 +483,10 @@ def gen_alu():
     # reaches it. IP + 1 + rel8 as (rel8 ^ $80) + IP - $7F.
     tails = ["jcc_taken                  ; IP += sign-extended rel8", " mx %00", " lda [bCS],y",
              " and #$00FF", " eor #$0080", " sty tmp0", " clc", " adc tmp0", " sec", " sbc #$007F",
-             " tay", " jmp (NEXTVEC)"]
+             " tay", " dec vSLOT               ; a transfer taken counts the slot (next_ct)",
+             " beq :due", " jmp (NEXTVEC)", ":due", " jmp next_due"]
     for cc, (name, body) in enumerate(JCC):
-        if cc == 10:
+        if cc == 11:
             lines += tails
         lines += [f"op_{hx(0x70 + cc)}       ; {name} rel8", " mx %00"] + body
     return "\n".join(lines) + "\n"

@@ -117,8 +117,9 @@ and its DOS answers `2Ah/2Ch` from the clock itself.
 ## An interrupt the guest never took
 
 The test for this found a fault in the core that had nothing to do with
-clocks. The core looks for interrupts every 16 guest instructions (the
-slot). A program that waits for the tick count to change by polling
+clocks. The core looked for interrupts every 16 guest instructions then (the
+slot; it is every fourth control transfer now, `docs/benchmarks.md`, and
+the same can happen). A program that waits for the tick count to change by polling
 `INT 1Ah` in a loop whose length divides 16 - eight instructions, the BIOS's
 `IRET` among them - met the slot at the same instruction every time, and that
 instruction was inside the BIOS's stub, where interrupts are off. IRQ0 was

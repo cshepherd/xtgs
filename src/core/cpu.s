@@ -4,18 +4,71 @@
 * Conventions (BOOTSTRAP.md section 5): native mode, M=0
 * X=0 at fetch and at retire, D = GUEST_DP, DBR = K = CORE,
 * Y = IP. A handler ends with JMP (NEXTVEC): normally
-* `next`, which counts the slot and falls into `fetch`; the
-* harness points it at step_done. A prefix handler JMPs
-* fetch directly, so a prefixed instruction retires as one,
-* and points the vector at `next_pfx` first: only an
-* instruction that had a prefix pays for clearing them.
-* vnext0 is the vector an unprefixed instruction retires
-* through (whoever sets vNEXT for a run sets it too).
+* `fetch` itself; the harness points it at step_done. A
+* prefix handler JMPs fetch directly, so a prefixed
+* instruction retires as one, and points the vector at
+* `next_pfx` first: only an instruction that had a prefix
+* pays for clearing them. vnext0 is the vector an
+* unprefixed instruction retires through (whoever sets
+* vNEXT for a run sets it too).
+*
+* The slot (the interrupt lines, the VBL work) is counted
+* by the instructions that can close a loop, not by every
+* one: a control transfer that is taken, a REP string
+* instruction, INT, the hypercall and HLT retire through
+* next_ct (or its three lines inline), which counts vSLOT
+* down and goes to the slot at 0. Nothing else pays for
+* the count. A new handler that changes IP or CS must do
+* the same, or a loop through it never meets the slot.
 *----------------------------------------------------------
  err NEXTVEC-GUEST_DP-vNEXT
  err HALTVEC-GUEST_DP-vHALTVEC
 
-*--- retire, then fetch and dispatch the next instruction
+*--- retire a control transfer: count the slot
+next_ct
+ mx %00
+ dec vSLOT
+ beq next_due
+ jmp (NEXTVEC)
+* next_due - the count ran out. A prefix is retired here; then the
+* slot, when this run has one: under the harness, the JIT's fallback
+* and the trace it is their vector again (the trace's `next` counts
+* every instruction and finds vSLOT at 1).
+next_due
+ mx %00
+ lda vNEXT
+ cmp vnext0
+ beq :plain
+ stz vSEGOVR
+ stz vOVR
+ stz vREP
+ lda vnext0
+ sta vNEXT
+:plain
+ cmp #fetch
+ bne :other
+ jmp slot
+:other
+ lda #1
+ sta vSLOT
+ jmp (NEXTVEC)
+* next_owed - the instruction after an STI that found an interrupt
+* waiting retires here, whatever it is (irq_sti): the run's vector
+* goes back and the slot looks.
+next_owed
+ mx %00
+ lda vnextb
+ sta vNEXT
+ sta vnext0
+ cmp #fetch
+ bne :trace
+ jmp slot
+:trace
+ lda #1
+ sta vSLOT
+ jmp (NEXTVEC)
+vnextb dw fetch            ; the vector run_guest gave this run
+*--- retire with the count (the trace: every instruction)
 next
  mx %00
  dec vSLOT
@@ -31,7 +84,7 @@ next_pfx
  lda vnext0
  sta vNEXT
  jmp (NEXTVEC)
-vnext0 dw next
+vnext0 dw fetch
 * next_trace - `next` with vTRACE set (run_guest): record CS,
 * IP(Y), opcode byte, FLAGS to the ring.
 next_trace
@@ -66,8 +119,8 @@ fetch
  tax
  jmp (optab,x)
 
-*--- every SLOT_N instructions: the counters; later the VBL
-* tick, the keyboard and interrupt delivery.
+*--- every SLOT_N control transfers (next_ct): the counter, the
+* interrupt lines, the VBL work.
 slot
  mx %00
  lda #SLOT_N
@@ -140,40 +193,54 @@ slot
  jmp fetch
 
 *--- an instruction that can turn interrupts on retires here (Mode B).
-* The slot looks every SLOT_N instructions, and a loop whose length
-* divides SLOT_N meets it at the same instruction every time. When that
-* one is inside a BIOS stub (IF is clear from the INT to its IRET) no
-* interrupt was ever delivered: a program polling INT 1Ah for the tick it
-* was waiting for waited for ever. So with an IRQ owed the slot looks at
-* once after IRET and POPF, and after STI one instruction later, which is
-* when the 8088 takes it.
-irq_sti
+* The slot looks every SLOT_N transfers, and a loop with a number of
+* them that divides SLOT_N meets it at the same instruction every time.
+* When that one is inside a BIOS stub (IF is clear from the INT to its
+* IRET) no interrupt was ever delivered: a program polling INT 1Ah for
+* the tick it was waiting for waited for ever. So with an IRQ owed the
+* slot looks at once after IRET and POPF, and after STI one instruction
+* later, which is when the 8088 takes it.
+irq_owed                   ; C set: Mode B and an interrupt waiting
  mx %00
- lda #2
- bra irq_chk
-irq_soon
- mx %00
- lda #1
-irq_chk
- mx %00
- ldx vPCMODE
- cpx #2
+ lda vPCMODE
+ cmp #2
  bne :no
- ldx vTICK                 ; IRQ0
+ lda vTICK                 ; IRQ0
  bne :yes
- tax
  lda >PIC_IRQ6             ; IRQ6
- bne :some
+ bne :yes
  lda >KBD_QHEAD            ; IRQ1
  and #KBD_QMASK
  cmp >KBD_QTAIL
  beq :no
-:some
- txa
 :yes
+ sec
+ rts
+:no
+ clc
+ rts
+irq_soon                   ; IRET, POPF
+ mx %00
+ jsr irq_owed
+ bcc :no
+ lda #1
  sta vSLOT
 :no
+ jmp next_ct
+irq_sti                    ; STI: the next instruction retires through next_owed
+ mx %00
+ jsr irq_owed
+ bcs :yes
  jmp (NEXTVEC)
+:yes
+ stz vSEGOVR               ; (an STI with a prefix: retired here)
+ stz vOVR
+ stz vREP
+ lda #next_owed
+ sta vNEXT
+ sta vnext0
+ ldx #0
+ jmp (vnextb,x)
 
 *--- prefixes: note it and fetch the next byte
 op_26
@@ -633,6 +700,37 @@ stk_split                  ; pSTK = SS:FFFF, pSTK2 = SS:0000
  sta pSTK2
  lda bSS+2
  sta pSTK2+2
+ rts
+
+* vid_mark_rng - vid_mark for a run of bytes (a REP string
+* instruction): the pages of host offsets tmp0..tmp1 in that bank.
+vid_mark_rng
+ mx %00
+ lda vPCMODE
+ beq :out
+ lda tmp1
+ xba
+ and #$00FF
+ sta tmp1                  ; the last page
+ lda tmp0
+ xba
+ and #$00FF
+:pg
+ pha
+ and #$003F
+ tax
+ sep #$20
+ mx %10
+ lda #1
+ sta >VID_DIRTY,x
+ rep #$20
+ mx %00
+ pla
+ cmp tmp1
+ beq :out
+ inc
+ bra :pg
+:out
  rts
 
 *--- do_int: A = vector. rIP holds the return IP (the caller

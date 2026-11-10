@@ -10980,6 +10980,16 @@ op_79       ; jns rel8
  beq jcc_taken
  iny
  jmp (NEXTVEC)
+op_7A       ; jp rel8
+ mx %00
+ lda vLRES
+ and #$00FF
+ tax
+ lda parity,x
+ and #F_PF
+ bne jcc_taken
+ iny
+ jmp (NEXTVEC)
 jcc_taken                  ; IP += sign-extended rel8
  mx %00
  lda [bCS],y
@@ -10991,17 +11001,11 @@ jcc_taken                  ; IP += sign-extended rel8
  sec
  sbc #$007F
  tay
+ dec vSLOT               ; a transfer taken counts the slot (next_ct)
+ beq :due
  jmp (NEXTVEC)
-op_7A       ; jp rel8
- mx %00
- lda vLRES
- and #$00FF
- tax
- lda parity,x
- and #F_PF
- bne jcc_taken
- iny
- jmp (NEXTVEC)
+:due
+ jmp next_due
 op_7B       ; jnp rel8
  mx %00
  lda vLRES

@@ -16,13 +16,14 @@ run_guest                  ; until HLT; rIP = IP after it
  sta >CRTC_CUR
  lda #run_done
  sta vHALTVEC
- lda #next
+ lda #fetch                ; (the slot is counted by next_ct, cpu.s)
  ldx vTRACE
  beq :plain
  lda #next_trace
 :plain
  sta vNEXT
  sta vnext0
+ sta vnextb
  stz vSEGOVR
  stz vOVR
  stz vREP

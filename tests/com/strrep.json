@@ -1,0 +1,18 @@
+{
+ "com": "strrep.asm",
+ "name": "STRREP.COM",
+ "args": "",
+ "exit": 0,
+ "stdout": "strrep.out",
+ "video": "text",
+ "screen": {
+  "17": {
+   "col": 0,
+   "text": "********************"
+  },
+  "23": {
+   "col": 60,
+   "text": "++++++++++++++++++++"
+  }
+ }
+}

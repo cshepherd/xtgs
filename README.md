@@ -28,10 +28,10 @@ headless MAME runs and doubled in height (the SHR screen is 640x200 or
 XT/GS is developed and tested in MAME's `apple2gs` driver (ROM 03, 8 MB), and
 it has been **verified to run properly on a real IIGS accelerated to 8 MHz**.
 The screenshots, test results and speed figures in this file are from MAME.
-It is slow: a stock 2.8 MHz IIGS runs the guest at 21,000 to 26,500
+It is slow: a stock 2.8 MHz IIGS runs the guest at 22,700 to 28,200
 instructions a second on arithmetic code, roughly 1/12 of a 4.77 MHz XT, and
-a 16 MHz ZipGS at 119,000 to 148,000 (somewhat under half an XT). FreeDOS,
-booted from a ProDOS folder, takes a minute and a half of emulated time to
+a 16 MHz ZipGS at 126,600 to 158,100 (about half an XT). FreeDOS,
+booted from a ProDOS folder, takes 73 seconds of emulated time to
 reach its prompt on a stock machine. A ProDOS folder is drive `C:`, and what DOS writes there
 are ProDOS files that stay; writes to a floppy image stay in memory and are
 lost at power-off. See [Known limits](#known-limits).
@@ -178,8 +178,8 @@ MAME:
 
 | | boot menu | date prompt | `login:` | first `#` |
 | --- | --- | --- | --- | --- |
-| stock IIGS, 2.8 MHz | 18 | 205 | 279 | 303 |
-| ZipGS, 16 MHz | 4 | 26 | 35 | 39 |
+| stock IIGS, 2.8 MHz | 18 | 182 | 244 | 264 |
+| ZipGS, 16 MHz | 4 | 24 | 32 | 35 |
 
 Minix is the guest that takes the PC at its word. Once its kernel is up it
 never calls the BIOS: it moves the 8259's interrupt vectors and masks its
@@ -350,9 +350,14 @@ The common instructions with a ModR/M byte decode it themselves. A
 register-to-register form jumps through a table of its own to a routine that
 has both operands as direct-page addresses; a memory form calls one of 48
 effective-address routines, one for each addressing mode and operand size,
-with the default segment built in. A forward `REP MOVS` that stays within
-one bank becomes a single `MVN` block move, which is 23 times faster than
-the loop.
+with the default segment built in.
+
+The string instructions work on host pointers. One alone adds its offset to
+the segment's base once; under `REP`, `MOVS` is the 65816's block move
+(`MVN`, or `MVP` with the direction flag set), `STOS` a block move that
+overlaps itself, and `SCASB` and `CMPSB` short loops, each in runs that end
+where an offset or a host pointer would wrap. A long `REP MOVSW` is 23 times
+faster than a loop of single moves.
 
 **The BIOS.** Interrupt vectors point at small stubs in segment `F000`, each
 an undefined opcode that the core treats as a call into the 65816 service
@@ -366,7 +371,9 @@ shadow copy means only the character cells that changed are redrawn; in
 graphics modes only the changed scanlines are converted, and in the 160x100
 mode only the changed cells (`docs/cga.md`).
 
-**Interrupts.** Every 16 guest instructions the core checks for work: a timer
+**Interrupts.** The core checks for work at every fourth control transfer (a
+taken jump, a call, a return, a `REP` string instruction), so straight-line
+code pays nothing for it and no loop escapes it: a timer
 tick owed becomes `INT 08h`, a waiting scancode becomes `INT 09h` (both only
 while the guest has interrupts enabled; `IRET`, `POPF` and `STI` bring the
 check forward when one is owed), and on each vertical blank it polls the
@@ -406,8 +413,8 @@ make test-share   a ProDOS folder as drive C: under FreeDOS: DIR, COPY both
                   BOOT=1: FreeDOS booted from that folder, no disk image)
 make test-minix   boot the Minix 1.5 demonstration diskette
                   (third_party/minix/demo_dsk.ibm) to its shell, type a
-                  command line and judge the screen (ZIP=1: at 16 MHz, 60
-                  emulated seconds instead of 446)
+                  command line and judge the screen (ZIP=1: at 16 MHz, 53
+                  emulated seconds instead of 378)
 make test-layout  the probe, .COM and sampled CPU tests with every part of
                   XT/GS in a different bank, and every bank-$00 page it uses
                   at a different address, than it was assembled for
@@ -427,17 +434,19 @@ suite: all 324 opcode files, 2,883,807 vectors after the exclusions listed in
 
 | Benchmark (`docs/benchmarks.md`) | Stock 2.8 MHz | ZipGS 16 MHz |
 | --- | ---: | ---: |
-| register arithmetic loop | 26,500 IPS | 148,000 IPS |
-| memory-operand loop | 21,400 IPS | 119,200 IPS |
-| test-and-branch loop | 32,200 IPS | 180,000 IPS |
-| `rep movsw` | 197,000-218,000 IPS | 983,000 IPS |
-| FreeDOS from a folder, to FreeCOM's date prompt | 90 s | |
+| register arithmetic loop | 28,200 IPS | 158,100 IPS |
+| memory-operand loop | 22,700 IPS | 126,600 IPS |
+| test-and-branch loop | 33,900 IPS | 189,500 IPS |
+| short string instructions, a `REP` counted as one | 15,600 IPS | 87,400 IPS |
+| `rep movsw` of 16 KB, a word counted as one | 197,000-218,000 IPS | |
+| FreeDOS from a folder, to FreeCOM's date prompt | 73 s | |
+| FreeDOS from a floppy image, the same | 114 s | |
 
 ## Known limits
 
 - Speed, as above. What is left is spread thin: in a FreeDOS boot, fetching
-  and retiring instructions is about a fifth of the time and the string
-  instructions one at a time another fifth (`docs/benchmarks.md`).
+  the opcode is a seventh of the time, ProDOS and the firmware an eighth,
+  and no handler has as much as a twentieth (`docs/benchmarks.md`).
 - Writes to a floppy image are kept in RAM and never written back to the
   ProDOS volume. Files that should last go on the shared drive.
 - The shared drive shows only files with DOS-shaped names, keeps ProDOS's
@@ -458,7 +467,7 @@ suite: all 324 opcode files, 2,883,807 vectors after the exclusions listed in
   empty.
 - The diskette controller answers at once and has one drive; there is no
   hard disk, serial port or printer port. Minix and the hardware it drives
-  have been run in MAME only, and Minix spends about half of a stock IIGS's
+  have been run in MAME only, and Minix spends a large part of a stock IIGS's
   time on its 60 Hz clock interrupt (`docs/minix.md`).
 - The guest reads the IIGS's clock and cannot set it: `DATE` and `TIME`
   under DOS last until the next boot. Run in MAME only (`docs/clock.md`).

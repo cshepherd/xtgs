@@ -41,8 +41,8 @@ tmp2       DS 2              ; $40
 tmp3       DS 2              ; $42
 vINTPEND   DS 1              ; $44  pending hardware interrupt vector + 1, 0 none
 vHALT      DS 1              ; $45
-vSLOT      DS 2              ; $46  instructions until the next slot check
-vICOUNT    DS 4              ; $48  retired instructions
+vSLOT      DS 2              ; $46  control transfers until the next slot check (next_ct)
+vICOUNT    DS 4              ; $48  slots run, times SLOT_N
 vLP        DS 2              ; $4C  lazy flags: the 65816's P after the last flag-setting operation (LP_*)
 vLRES      DS 2              ; $4E  lazy flags: that operation's result (the low byte gives PF)
 pSRC       DS 4              ; $50  string source pointer
@@ -121,7 +121,7 @@ vTICK      DS 2              ; $FE  IRQ0s owed: the DOC timer's interrupts not y
 * cpu.s asserts them against vNEXT and vHALTVEC.)
 NEXTVEC    = GUEST_DP+$3A
 HALTVEC    = GUEST_DP+$AA
-SLOT_N     = 16              ; instructions between slot checks (VBL polling)
+SLOT_N     = 4               ; control transfers between slot checks (interrupts, VBL polling)
 
 * FLAGS bits
 F_CF       = $0001

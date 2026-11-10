@@ -1,5 +1,5 @@
-; str.asm - REP MOVSW of 16 KB, OUTER times (the generic per-element path
-; until the MVN fast path exists). Counted as one "instruction" per word.
+; str.asm - REP MOVSW of 16 KB, OUTER times: one MVN (src/core/ops_str.s).
+; Counted as one "instruction" per word. strs.asm is the short runs.
         org 0x100
         mov dx, OUTER
         cld

@@ -27,6 +27,7 @@ PROGRAMS = {          # name: (instructions an iteration, iterations a loop)
     "mem": (5, 65536),
     "jmp": (5, 65536),   # the taken-every-other-time JZ is one of the five
     "str": (1, 0x2000),  # one word an "instruction"
+    "strs": (20, 8192),  # short string instructions; a REP is one
 }
 XT_IPS = 300_000      # a 4.77 MHz 8088 on typical code; context only
 
