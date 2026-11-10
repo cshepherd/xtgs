@@ -18,14 +18,16 @@ Unlisted functions do nothing but are counted: the judge reports them
 
 | AH | Function | Notes |
 | --- | --- | --- |
-| 00 | set mode | text modes only; clears unless bit 7 of AL |
+| 00 | set mode | text, or CGA graphics 4/5/6 (docs/cga.md); clears unless bit 7 of AL; sets the BDA's columns (40 in modes 4/5) |
 | 01 | cursor shape | stored |
 | 02 / 03 | set / get cursor position | page ignored |
-| 06 / 07 | scroll window up / down | AL lines (0 clears), BH attribute |
-| 08 | read char/attr at cursor | |
-| 09 / 0A | write char (+attr) CX times | cursor stays |
-| 0E | teletype | BEL BS CR LF, wrap, scroll; attribute kept |
-| 0F | get mode | AL mode, AH 80, BH 0 |
+| 06 / 07 | scroll window up / down | AL lines (0 clears), BH attribute (in graphics: the byte the freed lines are filled with) |
+| 08 | read char/attr at cursor | in graphics: the cell's pixels matched against the font, 0 for none |
+| 09 / 0A | write char (+attr) CX times | cursor stays; in graphics BL is the colour, bit 7 XOR |
+| 0B | background / palette | CGA colour select (docs/cga.md) |
+| 0C / 0D | write / read pixel | graphics modes: CX, DX, AL (bit 7 XOR) |
+| 0E | teletype | BEL BS CR LF, wrap, scroll; attribute kept (in graphics BL is the colour) |
+| 0F | get mode | AL mode, AH columns, BH 0 |
 | 13 | write string | ES:BP, CX, DH/DL; AL bit 0 moves the cursor, bit 1 inline attributes |
 
 Direct writes to `B800:0000` are stored (the buffer is real guest memory)

@@ -241,12 +241,12 @@ int_10
  lda #$10
  jmp note_unhandled
 v10_tab da v10_00,v10_01,v10_02,v10_03,v10_nop,v10_nop,v10_06,v10_07
- da v10_08,v10_09,v10_0A,v10_0B,v10_nop,v10_nop,v10_0E,v10_0F
+ da v10_08,v10_09,v10_0A,v10_0B,v10_0C,v10_0D,v10_0E,v10_0F
  da v10_nop,v10_nop,v10_nop,v10_13
 v10_nop
  mx %00
  rts
-v10_00                     ; set mode: text, or CGA 320 graphics (4/5)
+v10_00                     ; set mode: text, or CGA graphics (4/5, 6)
  mx %00
  lda rAX
  and #$007F
@@ -257,6 +257,19 @@ v10_00                     ; set mode: text, or CGA 320 graphics (4/5)
  sta >H_BDA+BDA_VMODE
  rep #$20
  mx %00
+ ldx #80                   ; the BDA's columns: 40 in the 320 modes, where
+ lda sv8                   ; the text services draw 40 (gtext.s). (Modes 0
+ cmp #4                    ; and 1 are shown as 80-column text and say so.)
+ beq :c40
+ cmp #5
+ bne :cols
+:c40
+ ldx #40
+:cols
+ txa
+ sta >H_BDA+BDA_COLS
+ lda #0
+ sta >H_BDA+BDA_CURPOS     ; the cursor home in every mode
  lda sv8
  jsr vid_setmode
  rts
@@ -311,6 +324,16 @@ scroll_args
  jmp vid_scroll_win
 v10_08                     ; read char/attr at the cursor
  mx %00
+ jsr gt_on
+ beq :text
+ jsr gt_read               ; graphics: the character the pixels spell
+ sep #$20
+ mx %10
+ sta rAX
+ rep #$20
+ mx %00
+ rts
+:text
  lda >H_BDA+BDA_CURPOS
  jsr cell_off
  clc
@@ -321,6 +344,10 @@ v10_08                     ; read char/attr at the cursor
  rts
 v10_09                     ; write char + attr CX times at the cursor
  mx %00
+ jsr gt_on
+ beq :text
+ jmp gt_write              ; graphics: drawn, BL the colour
+:text
  lda rBX
  and #$00FF
  xba
@@ -349,6 +376,10 @@ v10_09                     ; write char + attr CX times at the cursor
  jmp mark_run
 v10_0A                     ; write char only CX times at the cursor
  mx %00
+ jsr gt_on
+ beq :text
+ jmp gt_write              ; graphics: as 09h
+:text
  lda >H_BDA+BDA_CURPOS
  jsr cell_off
  clc
@@ -407,18 +438,47 @@ v10_0B                     ; set palette: BH=0 background (BL 0-15),
  lda #1
  sta cga_pd
  rts
+v10_0C                     ; write pixel: AL at CX, DX (graphics only)
+ mx %00
+ jsr gt_on
+ beq :out
+ jmp gt_setpix
+:out
+ rts
+v10_0D                     ; read pixel: AL = the one at CX, DX
+ mx %00
+ jsr gt_on
+ beq :out
+ jmp gt_getpix
+:out
+ rts
 v10_0E                     ; teletype AL
  mx %00
  lda rAX
  and #$00FF
  jsr cap_putc
+ jsr gt_on
+ beq :text
+ lda rBX                   ; graphics: BL is the colour
+ and #$00FF
+ sta tty_attr
+ lda rAX
+ jsr vid_tty
+ lda #$FFFF
+ sta tty_attr
+ rts
+:text
  lda rAX
  jmp vid_tty
 v10_0F                     ; get mode: AL = mode, AH = columns, BH = page
  mx %00
+ lda >H_BDA+BDA_COLS
+ xba
+ and #$FF00
+ sta sv0
  lda >H_BDA+BDA_VMODE
  and #$00FF
- ora #80*256
+ ora sv0
  sta rAX
  lda rBX
  and #$00FF

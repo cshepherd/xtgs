@@ -28,11 +28,13 @@ statement) are honoured in 320 mode.
   `SCREEN 1` sets mode **5** (the burst-off 4-colour variant); `SCREEN 2` sets
   mode 6.
 - **The guest draws itself.** GW-BASIC (like most CGA software) bypasses
-  `INT 10h` and writes pixels straight into the CGA framebuffer at B800:0000
+  `INT 10h` for its drawing and writes pixels straight into the CGA
+  framebuffer at B800:0000
   (host `$2B:8000`) - the same 16 KB aperture as text, but as a bitmap, 80
   bytes a scanline, with the **CGA interleave** (even scanlines at B800:0000,
   odd at B800:2000). Mode 4/5 is 2 bits a pixel (4 px/byte); mode 6 is 1 bit a
-  pixel (8 px/byte).
+  pixel (8 px/byte). Its text is another matter: that goes through the BIOS
+  ([below](#text-in-the-graphics-modes)).
 - **Repack.** Each frame `gfx_flush` repacks only the scanlines that changed
   (see below); `gfx_blit_line` de-interleaves one screen line and expands each
   CGA byte into two SHR bytes - through `cga320_tab` in 320 mode or `cga640_tab`
@@ -82,6 +84,68 @@ actually changed are repacked each frame.
   speedup** on the identical workload. The full-screen version barely advances
   the guest at all; that is why the first spike needed the ~1 Hz throttle, now
   removed.
+
+## Text in the graphics modes
+
+In modes 4, 5 and 6 B800 holds pixels, and a PC's BIOS draws its characters
+into them from an 8x8 font. `src/svc/gtext.s` does the same for every text
+service of `INT 10h`; `bios.s` and `video.s` go there when `gt_on` says the
+screen is CGA graphics (the 160x100 mode is text cells and does not).
+
+GW-BASIC depends on all of it. In `SCREEN 1` it clears the screen with
+`AH=06h` (`AL=0`, `BH=0`, the window 0,0 to 24,79), writes every character
+of a `PRINT`, of a typed line and of the function-key line with `AH=09h`
+(`CX=1`, `BL=3`) after putting the cursor in the BDA, reads the line under
+the cursor back with `AH=08h` when Return is pressed, and takes the width of
+the screen from the BDA.
+
+- **A cell** is 8x8 pixels: four lines of the even field and the same four
+  of the odd one, `row*320 + column*2` into each in the 320 modes (40
+  columns, two bytes a cell) and `row*320 + column` in mode 6 (80 columns, a
+  byte a cell). `v10_00` sets `BDA_COLS` to 40 or 80 with the mode, and
+  `AH=0Fh` answers from it.
+- **Write character** (`AH=09h`, `0Ah`: `gt_write`, `gt_draw`). In the 320
+  modes a font bit becomes a pixel of colour `BL` (0-3) through `exp_tab`,
+  the table the text screen uses; in mode 6 the font byte is the pixels.
+  Bit 7 of `BL` XORs the glyph into the screen. `CX` characters from the
+  cursor, which stays; the run stops at the end of its row.
+- **Teletype** (`AH=0Eh`, and DOS's console output: `gt_tty`). Colour `BL`
+  from `INT 10h`, 3 from DOS. CR, LF, BS and BEL as in text; past the last
+  column the cursor wraps, and past row 24 the screen moves up a row.
+- **Scroll and clear** (`AH=06h`, `07h`: `gt_scroll`). The window is clamped
+  to the screen, its rows are moved a field line at a time in both fields
+  (`MVN`) and the freed lines are filled with the byte in `BH`, which in a
+  graphics mode is pixels, not an attribute.
+- **Read character** (`AH=08h`: `gt_read`). The cell's pixels, any colour but
+  the background a set bit, are compared with the font from character 0 up;
+  `AL` is the first match and 0 when there is none (a blank cell is
+  character 0).
+- **Pixels** (`AH=0Ch` write, bit 7 of `AL` XOR; `AH=0Dh` read).
+
+Every byte these write sets its page's mark in `VID_DIRTY`, as a guest store
+does, so `gfx_flush` draws them with the frame.
+
+Before `gtext.s` the text services stored character cells whatever the mode.
+In `SCREEN 1` that put a faint stipple on the top half of the screen (the
+blank cells of a cleared 80x25 screen: `20h 00h` over the first 4,000
+bytes) and, when the function-key line was on, a row of dashes across the
+middle (text row 24 at offset `F00h`, which as pixels is scanlines 96 and
+98), and `PRINT` showed nothing readable. GW-BASIC draws the key line when
+it is started alone and a program is then loaded and run; `GWBASIC
+PROG.BAS` from the DOS prompt runs the program with the key line off, which
+is why the headless test never showed the dashes.
+
+`tests/com/gtext.asm` (manifests `gtext` and `gtext6`) puts each service
+through its cases in modes 4 and 6 by what is in B800 afterwards, and ends
+on a picture that the judge compares with the SHR pixels (`tools/cgashr.py`,
+`"video": "cga4"` or `"cga6"`: all 200 lines rebuilt from the two fields).
+
+Limits: there is no cursor in a graphics mode (a PC has none either; a
+program draws its own). The font is the built-in one for all 256
+characters: `INT 1Fh`'s table for characters 80h-FFh is not consulted, and
+the font is not in the guest's ROM at `F000:FA6E`. Characters 01h-1Fh have
+no glyphs in it (nor in text mode), so the arrows on GW-BASIC's key line
+are blank. In mode 6 the colour in `BL` is ignored but for the XOR bit.
 
 ## 160x100, 16 colours
 
@@ -144,21 +208,13 @@ the expected SHR pixels from B800 and requires every cell to match.
   ignored (the 320-mode `COLOR` path is fully honoured).
 - **No composite artifact colour** (the NTSC-bleed trick some CGA games use);
   RGB-style CGA output is what renders.
-- **A faint stipple on the top half** (dots every 8 px on alternate lines,
-  down to y~=98) appears under GW-BASIC after `SCREEN 1` or `SCREEN 2`, with
-  or without a `CLS`. The dots are in B800 itself, not made by the blit: one
-  byte in two over the first 4,000, which is what blank text cells look like
-  as pixels, so the likely source is the BIOS text services, which still
-  write text cells in graphics modes (README, Known limits). A program that
-  paints its own background (`LINE (0,0)-(319,199),0,BF`) covers it. The
-  160x100 mode and held-key changes did not cause it: the build before them
-  draws the same picture, pixel for pixel.
 
 ## Try it
 
-`make run-dos`, then at `A:\>` run `GWBASIC CGADEMO.BAS` (on the floppy) or
+`make run-dos`, then at `C:\>` run `GWBASIC CGADEMO.BAS` (in the folder) or
 write your own `SCREEN 1` program. To load it from inside the interpreter,
-quote the name: `LOAD "CGADEMO.BAS"` then `RUN`. GW-BASIC's `LOAD` takes a
+quote the name: `LOAD "CGADEMO.BAS"` then `RUN` (the function-key line then
+stays on the last row of the picture; `KEY OFF` removes it). GW-BASIC's `LOAD` takes a
 string, so an unquoted `LOAD CGADEMO.BAS` is parsed as a numeric variable and
 errors `Type mismatch` (standard GW-BASIC, not an XT/GS limitation). Headless
 proof: `python3 -I tools/cga_test.py PROG.BAS 500` builds a floppy whose

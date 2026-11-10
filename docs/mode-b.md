@@ -92,7 +92,9 @@ redirector. `docs/share.md`, "Booting from the folder".
   `LINE`/`CIRCLE`/etc. draw straight into the B800 bitmap and XT/GS repacks it
   onto the SHR screen in 320 mode. `GWBASIC CGADEMO.BAS` draws an X, a box and
   a circle. Modes 4/5 (`SCREEN 1`, 320x200x4) and 6
-  (`SCREEN 2`, 640x200 mono); the `COLOR` palette/background is honoured. The
+  (`SCREEN 2`, 640x200 mono); the `COLOR` palette/background is honoured, and
+  `PRINT` and the rest of GW-BASIC's text there are drawn by the BIOS from
+  its font (`src/svc/gtext.s`). The
   repack is per-scanline dirty-region (only changed lines each frame), ~26x the
   guest throughput of blitting the whole screen every frame.
 

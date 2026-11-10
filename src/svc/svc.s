@@ -36,6 +36,7 @@
  jmp svc_portin            ; $040027  Mode B: a read of port A the core has not -> A
 
  put video.s
+ put gtext.s
  put pcinit.s
  put bios.s
  put dos.s

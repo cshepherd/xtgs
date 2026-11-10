@@ -916,6 +916,11 @@ vid_tty
  mx %00
  and #$00FF
  sta sv0
+ jsr gt_on                 ; CGA graphics: the character is drawn (gtext.s)
+ beq :text
+ lda sv0
+ jmp gt_tty
+:text
  lda >H_BDA+BDA_CURPOS
  and #$00FF
  sta sv1                   ; col
@@ -1017,6 +1022,10 @@ vid_scroll_all
 * sv5 = right, sv6 = 0 up / 1 down.
 vid_scroll_win
  mx %00
+ jsr gt_on                 ; CGA graphics: pixel rows, BH the filling byte
+ beq :text
+ jmp gt_scrollsv
+:text
  lda sv4
  cmp #25
  bcc :b1

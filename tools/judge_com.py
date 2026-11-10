@@ -8,7 +8,8 @@ screen rows, against tests/com/NAME.json:
      "screen": {"10": {"col": 20, "text": "..."}},  # row 10 from column 20
                                                   # (and the SHR pixels must show the text buffer)
      "video": "t160",                             # the screen it ends on: "text", or "t160"
-                                                  # (160x100: the pixels must show all of B800)
+                                                  # (160x100: the pixels must show all of B800),
+                                                  # or "cga4"/"cga6" (CGA graphics, the same)
      "keys": [{"at": 90, "key": "xtgs"}, {"at": 150, "coded": "{ENTER}"}],
      "disk": {"LEFT.TMP": 5}}                     # a file's length on the volume afterwards
     {"bin": "third_party/msdos2/DEBUG.COM", "name": "DEBUG.COM",  # a real program
@@ -36,6 +37,7 @@ import shr  # noqa: E402
 import symbols  # noqa: E402
 import textshr  # noqa: E402
 import t160shr  # noqa: E402
+import cgashr  # noqa: E402
 
 RES_BASE = 0x050000
 CAP_LEN, DIAG_UNH, DIAG_UNHN, DIAG_LAST = RES_BASE + 0x800, RES_BASE + 0x802, RES_BASE + 0x804, RES_BASE + 0x806
@@ -77,7 +79,7 @@ def run_test(path, syms, workdir, seconds):
                     os.path.join(stage, "SVC#060000"), staged, cmd] + extra, check=True, capture_output=True)
     r = mamerun.run(image, waits=[(syms["mb_magic"], 0x5A5A)],
                     dumps=[("mb", syms["mb_stage"], 0x70), ("caplen", CAP_LEN, 8), ("cap", CAP_BUF, CAP_MAX),
-                           ("txt", TXT_BASE, t160shr.CELLS), ("shr", shr.SHR_BASE, shr.SHR_LEN),
+                           ("txt", TXT_BASE, cgashr.LEN), ("shr", shr.SHR_BASE, shr.SHR_LEN),
                            ("maps", RES_BASE + 0x810, 48)],
                     seconds=seconds, settle=5, ready=(syms["mb_runidx"], 0xBE57), inputs=t.get("keys", []))
     if r["status"] == "no-output":
@@ -92,6 +94,7 @@ def run_test(path, syms, workdir, seconds):
     caplen, unh, unhn, last = struct.unpack_from("<HHHH", bytes.fromhex(r["dumps"]["caplen"]["hex"]), 0)
     cap = bytes.fromhex(r["dumps"]["cap"]["hex"])[:caplen]
     rows = text_rows(bytes.fromhex(r["dumps"]["txt"]["hex"]))
+    cga = {"cga4": 4, "cga6": 6}.get(t.get("video"))
     maps = bytes.fromhex(r["dumps"]["maps"]["hex"])
     fns = [f"{i:02X}" for i in range(128) if maps[i >> 3] >> (i & 7) & 1]
     ints = [f"{i:02X}" for i in range(256) if maps[16 + (i >> 3)] >> (i & 7) & 1]
@@ -126,11 +129,18 @@ def run_test(path, syms, workdir, seconds):
         got = rows[int(row)][spec.get("col", 0):spec.get("col", 0) + len(spec["text"])]
         if got != spec["text"]:
             problems.append(f"screen row {row}: {got!r} != {spec['text']!r}")
-    for i, row in enumerate(rows):
+    for i, row in enumerate(rows if not cga else []):
         if row.strip():
             print(f"  {i:2d}|{row.rstrip()}")
     shr_dump = bytes.fromhex(r["dumps"]["shr"]["hex"])
-    if textshr.is_text(shr_dump):                    # the pixels are the text buffer's
+    if cga:                                          # the pixels are B800's two fields
+        if not cgashr.is_cga(shr_dump, cga):
+            problems.append(f"the screen is not in CGA mode {cga} (SHR {640 if cga == 6 else 320})")
+        else:
+            bad = cgashr.mismatches(bytes.fromhex(r["dumps"]["txt"]["hex"]), shr_dump, cga)
+            if bad:
+                problems.append(f"{len(bad)} of the 16000 bytes of B800 are not on the screen (first line,byte {bad[0]})")
+    elif textshr.is_text(shr_dump):                  # the pixels are the text buffer's
         bad = textshr.mismatches(bytes.fromhex(r["dumps"]["txt"]["hex"]), shr_dump)
         if bad:
             problems.append(f"{len(bad)} screen cells do not show the text buffer (first row,col {bad[0]})")

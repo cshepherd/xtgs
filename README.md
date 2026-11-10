@@ -279,7 +279,7 @@ DOS on its floppy image); "Mode A" means under the built-in DOS.
 | Title | Mode | Result |
 | --- | --- | --- |
 | FreeDOS (8086 kernel 2043, FreeCOM 0.85a) | B | **Works.** Boots to `C:\>` from a ProDOS folder and to `A:\>` from a floppy image; `DIR`, `VER`, running programs |
-| GW-BASIC (tkchia's MIT-licensed rebuild of Microsoft's source) | B | **Works.** Editor, `LIST`/`RUN`/`LOAD`, function keys, `SCREEN 1` and `SCREEN 2` drawing, `COLOR`, `SOUND`/`PLAY`/`BEEP`. `PRINT` does not show in the graphics screens (see limits) |
+| GW-BASIC (tkchia's MIT-licensed rebuild of Microsoft's source) | B | **Works.** Editor, `LIST`/`RUN`/`LOAD`, function keys, `SCREEN 1` and `SCREEN 2` drawing with `PRINT`, `LOCATE` and the key line in them, `COLOR`, `SOUND`/`PLAY`/`BEEP` |
 | GW-BASIC 3.23 (Microsoft's binary) | B | Runs a program given on the command line; interactively it refuses with "You can not SHELL to BASIC" on FreeDOS. Use the rebuild |
 | Lotus 1-2-3 Release 1A (1983), System disk | B | **Partly.** The disk boots its own PC-DOS and the Lotus Access System menu works. The disk is copy-protected and a sector image cannot satisfy the check, so an unmodified `123.EXE` exits back to the menu. With that check bypassed in a private copy, 1-2-3 runs: worksheet entry, formulas, recalculation, F-keys, and graphs in CGA. The stock `AUTOEXEC.BAT`'s clock utility hangs, and the first keystroke in a new worksheet is dropped |
 | Minix 1.5, 360K demonstration diskette (in the tree) | B | **Works, slowly.** Boot menu, kernel, RAM disk loaded through Minix's own diskette driver, date prompt, login as `root`, the shell; `ls -l`, `date`, `df`, `mkfs /dev/fd0` and the scrolling console were tried, in MAME. A stock IIGS takes five and a half minutes to the date prompt and eight to the shell, a 16 MHz ZipGS under a minute (`docs/minix.md`) |
@@ -454,11 +454,10 @@ suite: all 324 opcode files, 2,883,807 vectors after the exclusions listed in
 - Booting from the shared folder is for FreeDOS's kernel only and has been
   run in MAME only. The PC has no floppy drive then: `A:` is "not ready".
 - Text is monochrome (four greys). There is no MDA, Hercules, EGA or VGA.
-- In CGA graphics modes the BIOS text services (`INT 10h` write character,
-  teletype, scroll) do not draw. Programs that draw their own text, as 1-2-3
-  does, are fine; GW-BASIC's `PRINT` in `SCREEN 1` or `SCREEN 2` shows nothing
-  useful, and `SCREEN` and `CLS` there leave a faint stipple on the top half
-  of the screen. Clear with `LINE (0,0)-(319,199),0,BF` instead.
+- In CGA graphics modes the BIOS draws text from its own 8x8 font
+  (`docs/cga.md`): there is no cursor, characters 01h-1Fh (the arrows on
+  GW-BASIC's key line among them) are blank, as they are in text mode, and
+  a program's own font for characters 80h-FFh (`INT 1Fh`) is not used.
 - One ordinary key can be held at a time (plus Shift and Control), and
   several key combinations are missing (above).
 - The interrupt controller is its vector base and its mask: no priorities,
