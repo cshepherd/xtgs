@@ -59,13 +59,13 @@ INCLUDES  := src/include/hw.s src/include/layout.s src/include/mailbox.s src/inc
 SYS_SRCS  := src/sys/xtgs.s $(INCLUDES)
 SVC_GEN   := src/svc/gen/font.s src/svc/gen/tables.s src/svc/gen/dostab.s src/svc/gen/t160.s src/svc/gen/egatab.s src/svc/gen/tdytab.s
 SVC_SRCS  := src/svc/svc.s src/svc/video.s src/svc/gtext.s src/svc/ega.s src/svc/tandy.s src/svc/pcinit.s src/svc/bios.s src/svc/dos.s \
-             src/svc/files.s src/svc/disk.s src/svc/ports.s src/svc/redir.s src/svc/keyboard.s src/svc/sound.s src/svc/clock.s src/svc/capture.s $(SVC_GEN) $(INCLUDES)
+             src/svc/files.s src/svc/disk.s src/svc/ports.s src/svc/redir.s src/svc/keyboard.s src/svc/sound.s src/svc/clock.s src/svc/joystick.s src/svc/serial.s src/svc/capture.s $(SVC_GEN) $(INCLUDES)
 CORE_GEN  := src/core/gen/optab.s src/core/gen/eatab.s src/core/gen/alu.s src/core/gen/flagtab.s src/core/gen/egaw.s
 CORE_SRCS := src/core/core.s src/core/probe.s src/core/run.s src/core/jit.s src/core/jit2.s src/core/cpu.s src/core/flags.s \
              src/core/ops_mov.s src/core/ops_ctrl.s src/core/ops_grp.s src/core/ops_str.s \
              src/core/ops_misc.s src/core/ega.s src/core/harness.s $(CORE_GEN) $(INCLUDES)
 
-.PHONY: all image finder test-m0 test-cpu test-com test-dos test-share test-clock test-minix test-psg test-layout test-gsos test-s16 check-s16 bench boot-dos boot-shared run run-dos dos-image tandy-image run-tandy release run-release test-release disk-image run-disk clean lint minix-image run-minix
+.PHONY: all image finder test-m0 test-cpu test-com test-dos test-share test-clock test-minix test-psg test-layout test-gsos test-s16 check-s16 bench boot-dos boot-shared run run-dos dos-image tandy-image run-tandy release run-release test-release test-joy test-serial disk-image run-disk clean lint minix-image run-minix
 
 all: $(PO)
 
@@ -262,7 +262,7 @@ bench: $(PO)
 # floppy and the folder with the same files (tools/build_freedos.py), then
 # boots headless: boot-dos the floppy image (command D), boot-shared the
 # folder as drive C: with no image (command S, docs/share.md).
-$(FDIMG): tools/build_freedos.py tools/make_fat12.py tests/demo/egademo.asm tests/demo/tdydemo.asm tests/demo/tdysnd.asm $(wildcard $(GWBASIC))
+$(FDIMG): tools/build_freedos.py tools/make_fat12.py tests/demo/egademo.asm tests/demo/tdydemo.asm tests/demo/tdysnd.asm tests/demo/joytest.asm $(wildcard $(GWBASIC))
 	$(PY) tools/fetch_dos.py
 	$(PY) tools/build_freedos.py
 boot-dos: $(PO) $(FDIMG)
@@ -356,13 +356,23 @@ run-tandy: $(B)/boot/tandy.po
 RELEASE := $(B)/release/xtgs-$(XTGS_VERSION).po
 release: $(RELEASE)
 $(RELEASE): $(B)/xtgs $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/core $(B)/svc $(FDIMG) tools/release_image.py \
-            tools/gsos_rfork.py res/PRODOS release/READ.ME $(wildcard release/shared/*) Makefile
+            tools/gsos_rfork.py res/PRODOS release/READ.ME $(shell find release/shared -type f) Makefile
 	@[ -f $(GWBASIC) ] || { echo "release: no $(GWBASIC) for the FreeDOS folder"; exit 1; }
 	@mkdir -p $(B)/release
 	$(PY) tools/release_image.py $@ $(XTGS_VERSION)
 
 run-release: $(RELEASE)
 	tools/mame/run-mame.sh $(RELEASE)
+
+# test-joy: the IIGS's joystick as the PC's game port (docs/joystick.md):
+# JOYTEST under FreeDOS, MAME's joystick moved by the harness (tools/joy_test.py).
+test-joy: $(PO) $(FDIMG)
+	$(PY) tools/joy_test.py
+
+# test-serial: the IIGS's serial ports as COM1 and COM2 (docs/serial.md):
+# COMTEST under FreeDOS with MAME's two ports looped back (tools/com_test.py).
+test-serial: $(PO) $(FDIMG)
+	$(PY) tools/com_test.py
 
 test-release: $(RELEASE)
 	$(PY) tools/release_test.py $(RELEASE)

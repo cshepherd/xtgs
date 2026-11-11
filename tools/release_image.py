@@ -13,14 +13,22 @@ a 3.5-inch disk), that a IIGS boots from and that GS/OS can launch from:
                           third_party/freedos/fd/SHARED (the kernel,
                           FreeCOM, GW-BASIC, the demos) without
                           EGADEMO.BAS, which the GW-BASIC here cannot run,
-                          and with release/shared/ (AUTOEXEC.BAT, more
-                          demos; text, given DOS's line ends)
+                          and with release/shared/ and the folders in
+                          it, to any depth (AUTOEXEC.BAT, more demos,
+                          programs). A file there is text, and given
+                          DOS's line ends and the ProDOS type TXT, when
+                          its extension says so (TEXT_EXT) and its bytes
+                          are text; any other goes as it is, type BIN.
+                          A name must be one that both ProDOS and DOS
+                          can hold: a letter, then letters and digits, 8
+                          at most, and an extension of 3 at most
     Icons/Desktop         names the application for the Finder, so that
                           its icon shows before the first launch
 
 It takes the built files from build/ (the Makefile's rule sees to them).
 """
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -35,6 +43,43 @@ REL = os.path.join(ROOT, "release")
 VOL = "XTGS"
 LEFT_OUT = {"EGADEMO.BAS"}
 NEEDED = {"KERNEL.SYS", "COMMAND.COM", "FDCONFIG.SYS", "GWBASIC.EXE"}
+TEXT_EXT = {"BAT", "BAS", "TXT", "ME", "DOC", "INI", "CFG", "SYS"}
+NAME = re.compile(r"[A-Z][A-Z0-9]{0,7}(\.[A-Z0-9]{1,3})?$")
+SKIP = {".DS_Store"}
+
+
+def is_text(name, data):
+    """A text file by its extension, and nothing in it that text does not have
+    (a tokenized .BAS and a device driver named .SYS are not)."""
+    ext = name.rsplit(".", 1)[1] if "." in name else ""
+    return ext in TEXT_EXT and all(b in (9, 10, 13) or 32 <= b < 127 for b in data)
+
+
+def add_tree(src, dst):
+    """release/shared and what is below it, into the staged folder."""
+    for entry in sorted(os.listdir(src)):
+        if entry in SKIP:
+            continue
+        path, name = os.path.join(src, entry), entry.upper()
+        if not NAME.match(name):
+            sys.exit(f"release_image: {path}: not a name ProDOS and DOS can both hold "
+                     "(a letter, then letters and digits: 8, and 3 after one dot)")
+        if os.path.isdir(path):
+            os.makedirs(os.path.join(dst, name), exist_ok=True)
+            add_tree(path, os.path.join(dst, name))
+            continue
+        with open(path, "rb") as f:
+            data = f.read()
+        for old in os.listdir(dst):                 # it replaces the FreeDOS folder's file of the name
+            if old.split("#")[0] == name:
+                os.remove(os.path.join(dst, old))
+        if is_text(name, data):
+            data = data.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+            name += "#040000"
+        else:
+            name += "#060000"
+        with open(os.path.join(dst, name), "wb") as f:
+            f.write(data)
 
 
 def cadius(*args):
@@ -77,11 +122,7 @@ def main():
         missing = NEEDED - have
         if missing:
             sys.exit(f"release_image: {FD} lacks {', '.join(sorted(missing))}")
-        for name in sorted(os.listdir(os.path.join(REL, "shared"))):
-            with open(os.path.join(REL, "shared", name)) as f:
-                text = f.read()
-            with open(os.path.join(shared, name.upper() + "#040000"), "w", newline="") as f:
-                f.write(text.replace("\n", "\r\n"))
+        add_tree(os.path.join(REL, "shared"), shared)
 
         if os.path.exists(image):
             os.remove(image)

@@ -3,7 +3,10 @@
 
 Without --gsos: a copy of the volume boots from ProDOS 8 as a IIGS's disk;
 FreeDOS must come up from the folder SHARED, run its AUTOEXEC.BAT and reach
-C:\\>, and GWBASIC HELLO, typed there, must run and leave.
+C:\\>; then, in a second boot, GWBASIC HELLO, typed there, must run and
+leave (GW-BASIC clears the screen, and with NANSI.SYS as the console the
+BIOS teletype's capture does not have what DOS printed: so two boots, each
+judged by its screen).
 
 With --gsos: a System 6 volume (SYSTEM6 in the environment; named GSBOOT
 here) boots GS/OS with a copy of the release volume as the second disk, and
@@ -76,19 +79,26 @@ def main():
         env.pop("XTGS_FRONT", None)
         subprocess.run([os.path.join(HERE, "gsos_image.sh"), sys6, boot, launcher(work)],
                        check=True, env=env, stdout=subprocess.DEVNULL)
-        r = mamerun.run(boot, waits=waits, dumps=dumps, seconds=330, settle=5, image2=copy)
-        want = [BANNER, "TDYDEMO  TDYSND"]
+        runs = [(dict(seconds=330, image2=copy), [BANNER, "TDYDEMO  TDYSND"], boot)]
         what = "launched from GS/OS on the second disk"
     else:
-        r = mamerun.run(copy, waits=waits, dumps=dumps, seconds=170, settle=5,
-                        inputs=[{"at": 7200, "after": "start", "coded": "GWBASIC HELLO{ENTER}"}])
-        want = [BANNER, "C:\\>GWBASIC HELLO", "HELLO FROM GW-BASIC", "2 + 2 = 4"]
+        runs = [(dict(seconds=125), [BANNER, "TDYDEMO  TDYSND"], copy),
+                (dict(seconds=170, inputs=[{"at": 7200, "after": "start", "coded": "GWBASIC HELLO{ENTER}"}]),
+                 ["HELLO FROM GW-BASIC", "2 + 2 = 4"], copy)]
         what = "booted from ProDOS 8"
+    for kw, want, disk in runs:
+        r = mamerun.run(disk, waits=waits, dumps=dumps, settle=5, **kw)
+        judge(r, want, what)
+    print(f"PASS release, {what}: FreeDOS from SHARED, AUTOEXEC.BAT, C:\\>" +
+          ("" if GSOS else ", GWBASIC HELLO") + f" (frame {r['frame']})")
+
+
+def judge(r, want, what):
     if r["status"] == "no-output":
         print(r.get("mame_output", ""))
         sys.exit("release_test: MAME produced no result")
     rows = screen(r)
-    # what the BIOS teletype printed as well: GW-BASIC clears the screen
+    # (and what the BIOS teletype printed: the kernel's lines, before a console driver loads)
     n = int.from_bytes(bytes.fromhex(r["dumps"]["caplen"]["hex"]), "little")
     text = "\n".join(rows) + "\n" + bytes.fromhex(r["dumps"]["cap"]["hex"])[:n].decode("cp437")
     if "--show" in sys.argv:                 # the teletype's capture and the screen
@@ -100,8 +110,6 @@ def main():
     if bad:
         print("\n".join("  | " + row for row in rows if row))
         sys.exit(f"FAIL release, {what}: the screen lacks " + "; ".join(bad))
-    print(f"PASS release, {what}: FreeDOS from SHARED, AUTOEXEC.BAT, C:\\>" +
-          ("" if GSOS else ", GWBASIC HELLO") + f" (frame {r['frame']})")
 
 
 if __name__ == "__main__":

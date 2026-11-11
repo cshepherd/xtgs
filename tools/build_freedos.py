@@ -9,7 +9,8 @@ Needs the FreeDOS kernel, shell and boot-sector source fetched by
 tools/fetch_dos.py (kernel.zip, freecom.zip), and nasm. The folder holds
 KERNEL.SYS (the 8086 kernel KERNL86.SYS), COMMAND.COM, SETVER.SYS, an
 FDCONFIG.SYS that names them on C:, the demo .BAS files, EGADEMO.COM,
-TDYDEMO.COM and TDYSND.COM (tests/demo/egademo.asm, tdydemo.asm, tdysnd.asm)
+TDYDEMO.COM, TDYSND.COM and JOYTEST.COM (tests/demo/egademo.asm, tdydemo.asm,
+tdysnd.asm, joytest.asm)
 and GW-BASIC when it is there, each under cadius's NAME#TTAAAA name: tools/make_image.sh
 takes the folder as it is. The floppy has the same files, named on A:,
 behind the FreeDOS FAT12 boot sector (tools/make_fat12.py).
@@ -77,6 +78,9 @@ def main():
     # and its sound chip (docs/sound.md): a round for the three voices.
     subprocess.run(["nasm", "-f", "bin", "-o", os.path.join(OUT, "TDYSND.COM"),
                     os.path.join(ROOT, "tests", "demo", "tdysnd.asm")], check=True)
+    # and the joystick as a PC program reads it (docs/joystick.md).
+    subprocess.run(["nasm", "-f", "bin", "-o", os.path.join(OUT, "JOYTEST.COM"),
+                    os.path.join(ROOT, "tests", "demo", "joytest.asm")], check=True)
     with open(os.path.join(OUT, "EGADEMO.BAS"), "w", newline="\r\n") as f:
         f.write('10 REM SCREEN 7 needs a GW-BASIC with the EGA modes (Microsoft 3.2x)\n'
                 '20 SCREEN 7\n'
@@ -101,6 +105,7 @@ def main():
         "EGADEMO.COM=" + os.path.join(OUT, "EGADEMO.COM"),
         "TDYDEMO.COM=" + os.path.join(OUT, "TDYDEMO.COM"),
         "TDYSND.COM=" + os.path.join(OUT, "TDYSND.COM"),
+        "JOYTEST.COM=" + os.path.join(OUT, "JOYTEST.COM"),
     ]
     if os.path.exists(gwbasic):
         files.append("GWBASIC.EXE=" + gwbasic)

@@ -17,6 +17,7 @@ GSOS      = $E100A8          ; GS/OS, inline call: JSL, dw command, adrl paramet
 KBD       = $E0C000          ; keyboard data, bit 7 = strobe
 KBDSTRB   = $E0C010          ; clear strobe
 KEYMOD    = $E0C025          ; modifier keys
+BUTN0     = $E0C061          ; button 0 (and Open-Apple), bit 7 = down; BUTN1 follows it
 NEWVIDEO  = $E0C029          ; bit 7 SHR, bit 6 linear
 BORDER    = $E0C034          ; low nibble = border colour
 VBLBAR    = $E0C019          ; bit 7 = in vertical blank (ROM 3: 1 during VBL)

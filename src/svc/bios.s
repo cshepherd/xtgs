@@ -703,9 +703,11 @@ int_1A
  jsr set_cf
  lda #$1A
  jmp note_unhandled
-* INT 15h: only the joystick (AH=84h), and that with nothing
-* attached. GW-BASIC asks for the buttons on every timer tick;
-* left unserviced, AL kept whatever it held and read as buttons.
+* INT 15h: only the joystick (AH=84h), which is the IIGS's
+* (joystick.s): the buttons, and the paddles as they read. With
+* none attached the buttons are up and the positions 0. GW-BASIC
+* asks for the buttons on every timer tick; left unserviced, AL
+* kept whatever it held and read as buttons.
 * Everything else is the XT's answer: CF set, AH=86h.
 int_15
  mx %00
@@ -716,13 +718,21 @@ int_15
  beq :btn
  cmp #1
  bne :unk
- stz rAX                   ; positions: all four axes 0 (no adapter)
+ jsr joy_trig              ; positions: stick A's as the paddles read, no
+ stz rAX                   ; stick B; all 0 with no adapter
  stz rBX
  stz rCX
  stz rDX
+ lda >JOY_HAVE
+ beq :nojoy
+ lda >JOY_X
+ sta rAX
+ lda >JOY_Y
+ sta rBX
+:nojoy
  jmp clr_cf
 :btn
- lda #$F0                  ; switches in bits 4-7, 1 = not pressed
+ jsr joy_btn               ; switches in bits 4-7, 1 = not pressed
  jsr set_al
  jmp clr_cf
 :unk

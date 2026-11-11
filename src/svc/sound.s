@@ -407,6 +407,7 @@ svc_sndclose
  phb
  phk
  plb
+ jsr com_close             ; COM1's interrupt goes first (serial.s)
  lda snd_on
  beq :out
  sei

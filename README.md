@@ -78,6 +78,15 @@ lost at power-off. See [Known limits](#known-limits).
   keys of their own. Function keys are Option+digit.
 - **Timer and sound:** the Ensoniq DOC is both the 8253's IRQ0 tick (18.2 Hz,
   or whatever rate the guest programs) and the PC speaker (`docs/sound.md`).
+- **Serial ports:** with `COM1=MODEM` and `COM2=PRINTER` in `XTGS.CMD`, the
+  IIGS's modem and printer ports are the PC's COM1 and COM2: 8250s at 3F8h
+  and 2F8h with their interrupts, `INT 14h`, 300 to 57600 baud, received
+  characters buffered by interrupt. Run in MAME only, each port looped
+  back on itself (`docs/serial.md`).
+- **Joystick:** the IIGS's joystick is the PC's, at the game port (201h) and
+  through `INT 15h AH=84h`, with the counts a program written for a 4.77 MHz
+  PC expects from its own read loop; `JOYTEST.COM` shows what it reads. Run
+  in MAME only (`docs/joystick.md`).
 - **Clock:** the guest's date and time are the IIGS's own, read from its
   clock (never set by the guest), and the timer ticks DOS could not be given
   are made up from it so its time stays right (`docs/clock.md`).
@@ -120,7 +129,10 @@ holds the GS/OS application `XTGS` with its Finder icon beside
 them; `READ.ME` on the disk says how to start it and what `XTGS.CMD`'s lines
 are. 474K of the disk is free for what DOS writes (`VOLSIZE=4096KB make
 release` for a larger volume). What goes on it beyond the build's own files
-is in `release/`.
+is in `release/`: anything put in `release/shared/`, folders included, is
+on drive `C:` (text files may have Unix line ends there; names must be
+ones DOS and ProDOS can both hold, 8.3 with a letter first and no
+punctuation).
 
 `make dos-image` downloads the FreeDOS kernel and FreeCOM into `third_party/`
 and puts them in a folder `SHARED` of the volume (named `XTGS`), which
@@ -562,6 +574,8 @@ suite: all 324 opcode files, 2,883,807 vectors after the exclusions listed in
 | `docs/tandy.md` | the Tandy 1000: `VIDEO=TANDY`, the page register, the array, modes 08h, 09h and 0Ah, the sound chip |
 | `docs/sound.md` | the DOC as PC speaker and timer, and as the Tandy's three voices and noise |
 | `docs/clock.md` | the IIGS's clock as the PC's date, time and tick count |
+| `docs/joystick.md` | the IIGS's joystick as the PC's game port |
+| `docs/serial.md` | the IIGS's modem and printer ports as COM1 and COM2 |
 | `docs/cpu-compatibility.md` | 8088 behaviour learned from the hardware vectors |
 | `docs/benchmarks.md` | measurements and where the time goes |
 | `docs/jit.md` | the translator experiment |

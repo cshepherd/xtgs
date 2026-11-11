@@ -280,6 +280,7 @@ rd_readcfg
  stz rd_cfgok
  stz eg_none
  stz tdy_cfg
+ stz com_cfg
  ldx #0
  lda #0
  jsr p_open
@@ -358,7 +359,9 @@ rd_readcfg
  bra :p
 :pend                      ; trailing blanks and slashes go
  tya
- beq :none
+ bne :pmore
+ jmp :none
+:pmore
  lda rd_root,y
  and #$00FF
  cmp #$21
@@ -377,9 +380,56 @@ rd_readcfg
  mx %00
  inc rd_cfgok
  jmp :line
-:word                      ; "VIDEO=CGA": the PC has no EGA (ega.s)
+:word                      ; "COMn=...": a serial port of the IIGS's (serial.s)
  sta sv1
  lda sv0
+ cmp #'C'
+ bne :wv
+ ldy #0
+:ck
+ lda rd_ckey,y
+ and #$00FF
+ beq :cval
+ cmp sv1
+ bne :wno2
+ jsr rd_cfgch
+ beq :none2
+ sta sv1
+ iny
+ bra :ck
+:cval                      ; "COM1=MODEM", "COM2=PRINTER"
+ lda sv1
+ cmp #'1'
+ bne :c2
+ jsr rd_cfgch
+ cmp #'='
+ bne :wno2
+ jsr rd_cfgch
+ cmp #'M'
+ bne :wno2
+ sta sv1
+ lda com_cfg
+ ora #$0001
+ sta com_cfg
+ bra :wno2
+:c2
+ cmp #'2'
+ bne :wno2
+ jsr rd_cfgch
+ cmp #'='
+ bne :wno2
+ jsr rd_cfgch
+ cmp #'P'
+ bne :wno2
+ sta sv1
+ lda com_cfg
+ ora #$0002
+ sta com_cfg
+:wno2
+ jmp :wno
+:none2
+ jmp :none
+:wv                        ; "VIDEO=CGA": the PC has no EGA (ega.s)
  cmp #'V'
  bne :wno
  ldy #0
@@ -423,6 +473,10 @@ rd_readcfg
  beq :nt
  jsr tdy_setup
 :nt
+ lda com_cfg
+ beq :nc
+ jsr com_bda
+:nc
  lda rd_cfgok
  beq :nn
  clc
@@ -433,6 +487,7 @@ rd_readcfg
 :tol
  jmp :line
 rd_vkey asc 'IDEO=',00
+rd_ckey asc 'OM',00
 rd_cfgok dw 0              ; a line named the share
 
 * rd_cfgch - A = the file's next character (X, in the bounce

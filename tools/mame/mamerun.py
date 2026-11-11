@@ -48,6 +48,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import shlex  # noqa: E402
 import layout  # noqa: E402  (tools/layout.py: the bank layout, XTGS_LAYOUT)
 
 REL = 0x1000000                           # run(find=...): bank-relative addresses
@@ -423,6 +424,13 @@ def run(image, waits, dumps, seconds, settle, ramsize="8M", timeout=None,
         lua_path = f.name
     cmd = ["mame", "apple2gs", "-rompath", ROMPATH, "-ramsize", ramsize,
            "-sl7", card,
+           # XTGS_GAMEIO=joy: a joystick in the game port (docs/joystick.md)
+           *(["-gameio", os.environ["XTGS_GAMEIO"]] if os.environ.get("XTGS_GAMEIO") else []),
+           # XTGS_MODEM=loopback, XTGS_PRINTER=loopback: what is on the serial ports (docs/serial.md)
+           *(["-modem", os.environ["XTGS_MODEM"]] if os.environ.get("XTGS_MODEM") else []),
+           *(["-printer", os.environ["XTGS_PRINTER"]] if os.environ.get("XTGS_PRINTER") else []),
+           # XTGS_MAME_ARGS: more of MAME's own options, as a shell would split them
+           *shlex.split(os.environ.get("XTGS_MAME_ARGS", "")),
            # A second disk goes on SCSI ID 5; MAME then names it hard1 and the
            # card's own disk (ID 6, the one it boots) hard2.
            *(["-hard1", os.path.abspath(image)] if not image2 else

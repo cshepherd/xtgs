@@ -88,57 +88,70 @@ svc_portout
  cmp #$03E0                ; and the sound chip's, no others)
  bcs :ntdy
  jsr tdy_port
- bra :out
+ brl :out
 :ntdy
  cmp #$00C0                ; C0h-C7h: the Tandy's sound chip (sound.s; the
  bcc :npsg                 ; .COM runner sends these too)
  cmp #$00C8
  bcs :npsg
  jsr psg_write
- bra :out
+ brl :out
 :npsg
  cmp #$0021
  bne :n21
  jsr pic_data
- bra :out
+ brl :out
 :n21
  cmp #$0020
  bne :n20
  jsr pic_cmd
- bra :out
+ brl :out
 :n20
  cmp #$0004
  bne :n04
  ldx #0
  jsr dma_wr
- bra :out
+ brl :out
 :n04
  cmp #$0005
  bne :n05
  ldx #2
  jsr dma_wr
- bra :out
+ brl :out
 :n05
  cmp #$000C                ; any write clears the flip-flop
  bne :n0C
  stz dma_ff
- bra :out
+ brl :out
 :n0C
  cmp #$0081
  bne :n81
  lda tmp0
  and #$000F
  sta dma_page
- bra :out
+ brl :out
 :n81
  cmp #$03F2
  bne :n3F2
  jsr fdc_dorw
- bra :out
+ brl :out
 :n3F2
  cmp #$03F5
- bne :out
+ bne :n3F5
  jsr fdc_dataw
+ brl :out
+:n3F5
+ cmp #$0201                ; the game port: a write starts its timers (joystick.s)
+ bne :n201
+ jsr joy_trig
+ brl :out
+:n201
+ tax                       ; 3F8h-3FFh and 2F8h-2FFh: COM1 and COM2, when
+ and #$FEF8                ; XTGS.CMD names them (serial.s)
+ cmp #$02F8
+ bne :out
+ txa
+ jsr com_out
 :out
  ply
  plb
@@ -156,40 +169,53 @@ svc_portin
  cmp #$0021
  bne :n21
  lda >PIC_MASK
- bra :out
+ brl :out
 :n21
  cmp #$0020                ; nothing requested, nothing in service
  bne :n20
  lda #0
- bra :out
+ brl :out
 :n20
  cmp #$03F4
  bne :n3F4
  jsr fdc_msr
- bra :out
+ brl :out
 :n3F4
  cmp #$03F5
  bne :n3F5
  jsr fdc_datar
- bra :out
+ brl :out
 :n3F5
  cmp #$0008                ; the 8237's status: read once
  bne :n08
  lda dma_stat
  stz dma_stat
- bra :out
+ brl :out
 :n08
  cmp #$0004
  bne :n04
  ldx #0
  jsr dma_rd
- bra :out
+ brl :out
 :n04
  cmp #$0005
- bne :nobody
+ bne :n05
  ldx #2
  jsr dma_rd
- bra :out
+ brl :out
+:n05
+ cmp #$0201                ; the game port (joystick.s)
+ bne :n201
+ jsr joy_read
+ brl :out
+:n201
+ tax                       ; COM1 and COM2 (serial.s)
+ and #$FEF8
+ cmp #$02F8
+ bne :nobody
+ txa
+ jsr com_in
+ brl :out
 :nobody
  lda #$00FF
 :out

@@ -137,10 +137,10 @@ slot
  jmp fetch                 ; bench: no services
 :pc
  cmp #2                    ; Mode B: the interrupt lines, looked at EVERY slot
- bne :vbl                  ; (not only on the VBL edge) so they reach the guest's
+ bne :novbl                  ; (not only on the VBL edge) so they reach the guest's
  lda rFL                   ; handlers promptly. do_int clears IF, so delivery
  and #F_IF                 ; self-serializes with the handler; interrupts off ->
- beq :vbl                  ; hold them (vTICK counts the IRQ0s owed).
+ beq :novbl                  ; hold them (vTICK counts the IRQ0s owed).
  lda vTICK                 ; IRQ0: the DOC timer oscillator wrapped (sound.s)
  beq :kbd
  lda >PIC_MASK             ; held back at the 8259: it stays owed
@@ -151,18 +151,48 @@ slot
  lda >PIC_BASE
  jsr do_int                ; INT 08h, or where the guest moved IRQ0
  jmp fetch
+:novbl
+ jmp :vbl
 :kbd                       ; IRQ1: a queued keyboard scancode
  lda >KBD_QHEAD
  and #KBD_QMASK
  cmp >KBD_QTAIL
- beq :fdc                  ; scancode queue empty
+ beq :com                  ; scancode queue empty
  lda >PIC_MASK
  and #$0002
- bne :fdc
+ bne :com
  sty rIP
  lda >PIC_BASE
  inc
  jsr do_int                ; INT 09h (IRQ1): the guest handler reads port 0x60
+ jmp fetch
+:com                       ; IRQ4: COM1 has a character, or room for one (serial.s)
+ lda >PIC_IRQ4
+ beq :com2
+ lda >PIC_MASK
+ and #$0010
+ bne :com2
+ lda #0
+ sta >PIC_IRQ4
+ sty rIP
+ lda >PIC_BASE
+ clc
+ adc #4
+ jsr do_int                ; INT 0Ch
+ jmp fetch
+:com2
+ lda >PIC_IRQ3             ; IRQ3: and COM2
+ beq :fdc
+ lda >PIC_MASK
+ and #$0008
+ bne :fdc
+ lda #0
+ sta >PIC_IRQ3
+ sty rIP
+ lda >PIC_BASE
+ clc
+ adc #3
+ jsr do_int                ; INT 0Bh
  jmp fetch
 :fdc                       ; IRQ6: the diskette controller finished (ports.s)
  lda >PIC_IRQ6
@@ -212,6 +242,10 @@ irq_owed                   ; C set: Mode B and an interrupt waiting
  lda vTICK                 ; IRQ0
  bne :yes
  lda >PIC_IRQ6             ; IRQ6
+ bne :yes
+ lda >PIC_IRQ4             ; IRQ4
+ bne :yes
+ lda >PIC_IRQ3             ; IRQ3
  bne :yes
  lda >KBD_QHEAD            ; IRQ1
  and #KBD_QMASK

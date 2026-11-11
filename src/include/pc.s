@@ -178,6 +178,24 @@ PSG_WRITES = RES_BASE+$9D2   ; u16 bytes written to the chip
 DOC_NOSC   = RES_BASE+$9D4   ; u16 oscillators enabled: 3, and 11 on a Tandy
 DOC_SUM    = RES_BASE+$9D6   ; u16 the noise table's checksum as it went to DOC RAM
 DOC_LOGN   = RES_BASE+$9D8   ; u16 entries written to DOC_LOG in all
+* The joystick (src/svc/joystick.s): the IIGS's paddles as the game port's.
+JOY_HAVE   = RES_BASE+$9DA   ; u16 nonzero once a stick has been seen
+JOY_X      = RES_BASE+$9DC   ; u16 paddle 0 as last read, 0-255
+JOY_Y      = RES_BASE+$9DE   ; u16 paddle 1
+JOY_READS  = RES_BASE+$9E0   ; u16 times the paddles were read
+* COM1 and COM2 (src/svc/serial.s): the IIGS's modem and printer ports as
+* the PC's 8250s. What is a pair is COM1's word, then COM2's.
+PIC_IRQ4   = RES_BASE+$9E2   ; u16 nonzero: COM1's interrupt is waiting (the slot)
+PIC_IRQ3   = RES_BASE+$9E4   ; u16 and COM2's
+ err PIC_IRQ3-PIC_IRQ4-2     ; (serial.s indexes the one from the other)
+COM_ON     = RES_BASE+$9E6   ; u16 XTGS.CMD: bit 0 COM1=MODEM, bit 1 COM2=PRINTER
+COM_OPEN   = RES_BASE+$9E8   ; u16 the same bits: the SCC's channel is ours (from the
+                             ; guest's first use of the port)
+COM_HEAD   = RES_BASE+$9F0   ; 2 x u16 the receive rings: where the interrupt puts,
+COM_TAIL   = RES_BASE+$9F4   ; 2 x u16 and where the guest takes
+COM_IRQS   = RES_BASE+$9F8   ; 2 x u16 the SCC's receive interrupts
+COM_LOST   = RES_BASE+$9FC   ; 2 x u16 characters lost: the ring full, or the SCC overrun
+COM_BUF    = RES_BASE+$C00   ; 2 x 256 bytes: the rings
 DOC_REG    = RES_BASE+$B00   ; 256 bytes: the DOC's registers as last written (doc_w)
 DOC_LOG    = RES_BASE+$E000  ; a ring of DOC_LOGM+1 entries of two bytes: a DOC register
 DOC_LOGM   = $0FFF           ; and the value written to it, in order; DOC_MARK and a
