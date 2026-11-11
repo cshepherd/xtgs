@@ -285,7 +285,10 @@ slot delivers IRQ n
 The text screen is drawn from the 6845's start address (`txt_org`,
 `src/svc/video.s`; `B800` goes round at 16K, mid-row) and `txt_shadow` is
 by place on the screen, not in the buffer. The cursor is the BDA's unless
-the guest wrote R14/R15 (`CRTC_CUR`, `cur_where`). `render_cell` takes the
+the guest wrote R14/R15 (`CRTC_CUR`, `cur_where`), and it is nowhere when
+either puts it outside the 80 by 25 (a program's way of hiding it: a cell
+drawn at row 25 lands in the SHR's line control bytes and palettes;
+`tests/com/curhide.asm`). `render_cell` takes the
 cell's word in A. A text-mode judge must read the buffer from the start
 address (`tools/minix_test.py` does; `tools/textshr.py` takes the cells).
 

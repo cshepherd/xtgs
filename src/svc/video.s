@@ -668,7 +668,7 @@ flush
 :done
  rts
 * cur_where - where the cursor is: A = col | row<<8, or carry set
-* when it is not on the screen. The BIOS's cursor (the BDA) until
+* when it is not on the screen's 80 by 25. The BIOS's cursor (the BDA) until
 * the guest writes the 6845's cursor address (R14/R15, CRTC_CUR
 * from the core's port write), and again once the BIOS moves its own.
 cur_bda    dw 0              ; the BDA's cursor when last looked at
@@ -683,6 +683,12 @@ cur_where
 :still
  lda >CRTC_CUR
  bne :crtc
+ lda cur_bda               ; a program hides the cursor by putting it below the
+ cmp #25*256               ; screen (row 25): it is then nowhere, and a cell
+ bcs :off                  ; drawn there would be past the SHR's pixels, in its
+ and #$00FF                ; line control bytes and palettes
+ cmp #80
+ bcs :off
  lda cur_bda
  clc
  rts
