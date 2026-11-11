@@ -174,7 +174,9 @@ port_out                   ; A = port, tmp0 = value
  cmp #$03D8                ; CGA mode-control register (Lotus sets the mode here)
  beq :mctl
  cmp #$03D9                ; CGA colour-select register
- beq :csel
+ bne :ncsel
+ jmp :csel
+:ncsel
  cmp #$03D4                ; the 6845's register select
  beq :cidx
  cmp #$03D5                ; and the selected register
@@ -187,8 +189,14 @@ port_out                   ; A = port, tmp0 = value
 :notega
  ldx vPCMODE               ; Mode B: the 8259, the 8237 and the diskette
  beq :nobody               ; controller (ports.s); there and under the .COM
- cpx #2                    ; runner 3DAh-3DFh, the Tandy's video (tandy.s)
- beq :svc
+ cpx #2                    ; runner 3DAh-3DFh, the Tandy's video (tandy.s),
+ beq :svc                  ; and C0h-C7h, its sound chip (sound.s)
+ cmp #$00C8
+ bcs :tvid
+ cmp #$00C0
+ bcs :svc
+ rts
+:tvid
  cmp #$03DA
  bcc :nobody
  cmp #$03E0

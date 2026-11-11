@@ -1,4 +1,4 @@
-# Tandy 1000 video: modes 08h, 09h and 0Ah
+# Tandy 1000: video modes 08h, 09h and 0Ah, and the three-voice sound
 
 With the line `VIDEO=TANDY` in `XTGS.CMD` the PC is a **Tandy 1000**: its
 BIOS's two identifying bytes, its page register and video array, and its
@@ -19,8 +19,12 @@ of the sixteen. And the **BIOS's text** is drawn in the three modes
 mode 09h, 20 in mode 08h and 80 in mode 0Ah, the prompt there after a
 program that leaves the mode set.
 
-These are the first steps of `XTGS_Tandy_1000_Graphics_and_Sound_Plan.md`.
-The three-voice sound is not built (Limits, below).
+And the machine's **sound chip** is there, the SN76496 at port C0h:
+three square waves and a noise, each a pair of the Ensoniq DOC's
+oscillators beside the speaker's and the timer's (The sound chip, below;
+docs/sound.md has the whole of it).
+
+These are the steps of `XTGS_Tandy_1000_Graphics_and_Sound_Plan.md`.
 
 ```
 make test-com COM=tandy        mode 09h: the pages, the array, the BIOS: 51 cases and a picture
@@ -38,6 +42,9 @@ make test-com COM=gtextt       CGA mode 4 and the BIOS's text in it, on the Tand
 make test-com COM=tandyc4      the array's palette and mask behind mode 4's colours
 make test-com COM=tandyc5      ... mode 5's, tandyc6 mode 6's, tandyct the 160x100 mode's
 make test-com COM=tandyc9      INT 10h 0Bh in mode 09h: palette register 0
+make test-com COM=psg          the sound chip: 129 bytes to it, every DOC register they lead to judged
+make test-com COM=psgpc        the same program on a PC: nobody at port C0h
+make test-psg                  fourteen sounds recorded by MAME and measured
 ```
 
 ## The line in `XTGS.CMD`
@@ -291,6 +298,26 @@ services away in the three modes, `vid_tty` no longer skips the
 drawing, and `con_out`'s tab goes to the next column of eight there as
 in text.
 
+## The sound chip (`src/svc/sound.s`, docs/sound.md)
+
+A byte written to any of ports C0h-C7h is a byte to the SN76496
+(`psg_write`, by `svc_portout` from the core in both modes of running):
+three tones of 3,579,545 / 32n Hz for a ten-bit period n, a noise that is
+a 15-bit shift register's output (white) or one bit in fifteen
+(periodic) at one of three rates or at tone 2's, and an attenuation of
+2 dB a step for each. The IIGS's DOC plays them: on a Tandy it runs
+eleven oscillators where a PC has three, the speaker's two, a pair for
+each tone and for the noise (one on each of the DOC's channels) and the
+timer's. A tone is the speaker's square wave at the chip's frequency (to
+0.002 %); the white noise is the shift register's 32,767 bits written
+out to DOC RAM at the start and played at the chip's rate, so the
+sequence itself and not a likeness of it; the periodic noise is a pulse
+a fifteenth of a cycle wide. docs/sound.md has the arithmetic, what is
+kept for the harness and what was measured.
+
+The speaker and the timer are as on a PC, at the constant eleven
+oscillators need. On a PC that is not a Tandy the ports are nobody's.
+
 ## Tests
 
 - `tests/com/tandy.asm` (`tandy`, and `tandyp` with the command line `P`):
@@ -540,8 +567,13 @@ of the cell being written again.
 - The page register's bits 6-7 are kept and not acted on; the array's
   other registers (`00h`, `04h`-`0Fh`) are not kept. `3DAh` reads as the
   CGA's status.
-- The three-voice sound (port C0h), the Tandy's keyboard, and the PCjr's
-  differences (its cartridge-less ID, its 3DAh flip-flop) are not there.
+- The sound chip's limits are in docs/sound.md (Not done): no tone
+  period under 6 and so no sampled sound through the chip, TI's noise
+  sequence and not the NCR part's, a voice's cycle begun again at each
+  new period, port 61h's multiplexer and the BIOS's sound services not
+  there, and none of it heard on a real IIGS.
+- The Tandy's keyboard and the PCjr's differences (its cartridge-less
+  ID, its 3DAh flip-flop) are not there.
 - A `REP` over the 32K is one instruction (some 90 ms of nothing else at
   the stock clock, by the cycles of a block move), and a page move is 40
   ms with nothing else: a tick that falls in them is made up afterwards
@@ -575,3 +607,15 @@ VIDEO=TANDY ARGS=A python3 -I tools/cga_test.py third_party/freedos/fd/TDYDEMO.C
 
 or add the line `VIDEO=TANDY` to the volume's `XTGS.CMD` and run `TDYDEMO`
 (or `TDYDEMO 8`, `TDYDEMO A`) at the prompt.
+
+`TDYSND.COM` (`tests/demo/tdysnd.asm`, 466 bytes, in the same places) is
+the sound chip: "Frere Jacques" as a round, the three tones coming in
+two bars apart (the third an octave up), each note struck and let fall
+by its attenuation register, the noise ticking the beat; 26 seconds by
+the BIOS's tick, or until a key. In MAME's recording of it the bars one
+voice sings alone are at their pitches eighth by eighth and the others
+show each voice's line where it should be. Where two voices meet on one
+note (the second "Frere Jacques" against the first "ding dang dong")
+what is heard depends on how far apart their cycles started, as on the
+chip: here the two all but cancel for four eighths, and the octave above
+is what is left.

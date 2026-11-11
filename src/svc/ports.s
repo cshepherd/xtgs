@@ -85,11 +85,18 @@ svc_portout
  phy
  cmp #$03DA                ; 3DAh-3DFh: the Tandy's video array and page
  bcc :ntdy                 ; register (tandy.s; the .COM runner sends these
- cmp #$03E0                ; and no others)
+ cmp #$03E0                ; and the sound chip's, no others)
  bcs :ntdy
  jsr tdy_port
  bra :out
 :ntdy
+ cmp #$00C0                ; C0h-C7h: the Tandy's sound chip (sound.s; the
+ bcc :npsg                 ; .COM runner sends these too)
+ cmp #$00C8
+ bcs :npsg
+ jsr psg_write
+ bra :out
+:npsg
  cmp #$0021
  bne :n21
  jsr pic_data

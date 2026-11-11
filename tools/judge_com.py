@@ -26,6 +26,12 @@ screen rows, against tests/com/NAME.json:
                                                   # SHR palette is always judged against the
                                                   # registers (tools/cgashr.py colours)
      "cmd": ["VIDEO=TANDY"],                      # XTGS.CMD's lines after the command's
+     "psg": {"writes": 150,                       # a Tandy's sound chip: the bytes it took, and
+             "speaker": [[0, 0], [140, 1193]],    # every write to the DOC judged against a
+             "timer": [[0, 0]]},                  # model of it; the speaker's and the timer's
+                                                  # counts from those bytes on (tools/psgdoc.py).
+                                                  # Without it: the oscillators enabled and the
+                                                  # timer's rate, as channel 0 was at the start
      "keys": [{"at": 90, "key": "xtgs"}, {"at": 150, "coded": "{ENTER}"}],
      "disk": {"LEFT.TMP": 5}}                     # a file's length on the volume afterwards
     {"bin": "third_party/msdos2/DEBUG.COM", "name": "DEBUG.COM",  # a real program
@@ -56,6 +62,7 @@ import t160shr  # noqa: E402
 import cgashr  # noqa: E402
 import egashr  # noqa: E402
 import tandyshr  # noqa: E402
+import psgdoc  # noqa: E402
 
 RES_BASE = 0x050000
 CAP_LEN, DIAG_UNH, DIAG_UNHN, DIAG_LAST = RES_BASE + 0x800, RES_BASE + 0x802, RES_BASE + 0x804, RES_BASE + 0x806
@@ -105,7 +112,7 @@ def run_test(path, syms, workdir, seconds):
                            if t.get("video") == "ega"] +
                           [("tdy", RES_BASE + tandyshr.STATE, tandyshr.STATE_LEN),
                            ("tdymr", RES_BASE + tandyshr.MODEREQ, 2),
-                           ("csel", syms["GUEST_DP"] + syms["cga_bg"], 6)] +
+                           ("csel", syms["GUEST_DP"] + syms["cga_bg"], 6)] + psgdoc.dumps(syms) +
                           ([(f"tm{a:x}", GUEST_BASE + a, n) for a, n in tandyshr.REGIONS]
                            if t.get("video") in ("tandy8", "tandy9", "tandyA") else []),
                     seconds=seconds, settle=5, ready=(syms["mb_runidx"], 0xBE57), inputs=t.get("keys", []))
@@ -249,6 +256,12 @@ def run_test(path, syms, workdir, seconds):
             bad = t160shr.mismatches(bytes.fromhex(r["dumps"]["txt"]["hex"]), shr_dump)
             if bad:
                 problems.append(f"{len(bad)} of the 8000 cells do not show B800 (first row,col {bad[0]})")
+    # the DOC: the oscillators and the timer, and with "psg" every write against the chip
+    bad, notes = psgdoc.judge({k: bytes.fromhex(r["dumps"][k]["hex"]) for k, _a, _n in psgdoc.dumps(syms)},
+                              syms, t.get("psg"))
+    for line in notes:
+        print("  sound: " + line)
+    problems += ["sound: " + b for b in bad]
     png, _lines = shr.render(shr_dump)
     with open(os.path.join(workdir, name + ".png"), "wb") as f:
         f.write(png)
@@ -268,6 +281,9 @@ def main():
     syms = symbols.read(os.path.join(ROOT, "build", "xtgs.lst"))
     svc = symbols.read(os.path.join(ROOT, "build", "svc.lst"))   # the colour-select register's
     syms.update({k: svc[k] for k in ("GUEST_DP", "cga_bg", "cga_pal", "cga_int")})   # three fields
+    syms.update({k: svc[k] for k in ("DOC_LOG", "DOC_LOGM", "DOC_LOGN", "DOC_MARK", "DOC_REG", "PSG_REG",
+                                     "PSG_LATCH", "TDY_ON", "PSG_VOL", "SPK_VOL", "N_OSC",
+                                     "N_OSCT")})                 # the sound's (tools/psgdoc.py)
     ok = True
     for p in paths:
         ok &= run_test(p, syms, workdir, seconds=120)

@@ -11,6 +11,7 @@
 #                         DOS=1: under FreeDOS, with the timer's lost ticks made up
 #   make test-minix       Minix 1.5's demonstration diskette (third_party/minix)
 #                         booted to its shell (docs/minix.md; ZIP=1 at 16 MHz)
+#   make test-psg         the Tandy's sound chip in MAME's recording (docs/sound.md)
 #   make test-layout      the tests again with every bank and bank-$00 page moved
 #   make test-gsos        launch XTGS.SYSTEM from GS/OS (needs a System 6 volume: SYSTEM6=)
 #   make test-s16         the GS/OS application XTGS (src/gs): probe, .COM programs and
@@ -60,7 +61,7 @@ CORE_SRCS := src/core/core.s src/core/probe.s src/core/run.s src/core/jit.s src/
              src/core/ops_mov.s src/core/ops_ctrl.s src/core/ops_grp.s src/core/ops_str.s \
              src/core/ops_misc.s src/core/ega.s src/core/harness.s $(CORE_GEN) $(INCLUDES)
 
-.PHONY: all image finder test-m0 test-cpu test-com test-dos test-share test-clock test-minix test-layout test-gsos test-s16 check-s16 bench boot-dos boot-shared run run-dos dos-image disk-image run-disk clean lint minix-image run-minix
+.PHONY: all image finder test-m0 test-cpu test-com test-dos test-share test-clock test-minix test-psg test-layout test-gsos test-s16 check-s16 bench boot-dos boot-shared run run-dos dos-image disk-image run-disk clean lint minix-image run-minix
 
 all: $(PO)
 
@@ -257,7 +258,7 @@ bench: $(PO)
 # floppy and the folder with the same files (tools/build_freedos.py), then
 # boots headless: boot-dos the floppy image (command D), boot-shared the
 # folder as drive C: with no image (command S, docs/share.md).
-$(FDIMG): tools/build_freedos.py tools/make_fat12.py tests/demo/egademo.asm tests/demo/tdydemo.asm $(wildcard $(GWBASIC))
+$(FDIMG): tools/build_freedos.py tools/make_fat12.py tests/demo/egademo.asm tests/demo/tdydemo.asm tests/demo/tdysnd.asm $(wildcard $(GWBASIC))
 	$(PY) tools/fetch_dos.py
 	$(PY) tools/build_freedos.py
 boot-dos: $(PO) $(FDIMG)
@@ -287,6 +288,13 @@ test-clock: $(PO) $(FDIMG)
 MINIX        := third_party/minix/demo_dsk.ibm
 test-minix: $(PO)
 	$(PY) tools/minix_test.py $(MINIX) $(if $(ZIP),--zip) $(if $(CGA),--cga)
+
+# The Tandy 1000's sound chip as it sounds (docs/sound.md): fourteen sounds
+# from tests/snd/psgwav.asm recorded by MAME, their frequencies, levels,
+# noise and timing measured (work files in build/psg/; KEEP=1 keeps the
+# recording). The registers behind them are make test-com's psg.
+test-psg: $(PO)
+	$(PY) tools/psg_test.py
 
 # ---- interactive ------------------------------------------------------------
 

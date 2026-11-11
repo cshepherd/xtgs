@@ -1,0 +1,1 @@
+{"com": "psg.asm", "name": "PSG.COM", "exit": 0, "stdout": "psg.out", "psg": {"writes": 0, "speaker": [[0, 1193]], "timer": [[0, 0]]}}

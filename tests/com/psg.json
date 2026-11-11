@@ -1,0 +1,1 @@
+{"com": "psg.asm", "name": "PSG.COM", "exit": 0, "stdout": "psg.out", "cmd": ["VIDEO=TANDY"], "psg": {"writes": 129, "speaker": [[0, 0], [120, 1193]], "timer": [[0, 0], [121, 2983], [122, 0]]}}

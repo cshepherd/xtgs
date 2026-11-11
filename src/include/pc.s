@@ -168,3 +168,17 @@ TDY_MOVES  = RES_BASE+$996   ; u16 16K moves made (diagnostic)
 TDY_SLOT   = RES_BASE+$998   ; 8 bytes: the slot each page is in
 TDY_REG    = RES_BASE+$9A0   ; 32 bytes: the array's registers (1 the palette mask,
                              ; 2 the border, 3 the mode, 10h-1Fh the palette)
+* The Tandy's sound chip, the SN76496 at ports C0h-C7h (src/svc/sound.s,
+* docs/tandy.md), as the guest last wrote it, and the DOC's registers as
+* sound.s last wrote them (on any PC: the judge's view of the oscillators).
+PSG_REG    = RES_BASE+$9C0   ; 8 x u16: the chip's registers (0, 2, 4 a tone's period;
+                             ; 1, 3, 5, 7 an attenuation; 6 the noise)
+PSG_LATCH  = RES_BASE+$9D0   ; u16 the register the last byte with bit 7 set named
+PSG_WRITES = RES_BASE+$9D2   ; u16 bytes written to the chip
+DOC_NOSC   = RES_BASE+$9D4   ; u16 oscillators enabled: 3, and 11 on a Tandy
+DOC_SUM    = RES_BASE+$9D6   ; u16 the noise table's checksum as it went to DOC RAM
+DOC_LOGN   = RES_BASE+$9D8   ; u16 entries written to DOC_LOG in all
+DOC_REG    = RES_BASE+$B00   ; 256 bytes: the DOC's registers as last written (doc_w)
+DOC_LOG    = RES_BASE+$E000  ; a ring of DOC_LOGM+1 entries of two bytes: a DOC register
+DOC_LOGM   = $0FFF           ; and the value written to it, in order; DOC_MARK and a
+DOC_MARK   = $FE             ; byte the guest wrote to the sound chip, before what it led to

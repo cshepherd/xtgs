@@ -6,7 +6,7 @@ Apple IIGS and booted straight from ProDOS 8. It boots FreeDOS, from a
 folder of the ProDOS volume or from a floppy image, and runs real DOS
 software on top of it: GW-BASIC with CGA graphics and sound, and Lotus 1-2-3
 Release 1A. It has the EGA's 320x200 16-colour mode as well, and can be a
-Tandy 1000 with that machine's own graphics modes. It also boots Minix 1.5
+Tandy 1000 with that machine's own graphics modes and three-voice sound. It also boots Minix 1.5
 from its demonstration diskette, which
 drives the PC's interrupt controller, diskette controller and 6845 itself.
 
@@ -66,8 +66,11 @@ lost at power-off. See [Known limits](#known-limits).
   eight 16K pages to draw on and show. The palette stands
   behind the CGA's modes as well, so a program can have mode 4 in any
   four of the sixteen colours, and the BIOS's text is drawn in the three
-  modes (40, 20 and 80 columns), DOS's prompt with it. First steps: no
-  three-voice sound yet (`docs/tandy.md`).
+  modes (40, 20 and 80 columns), DOS's prompt with it (`docs/tandy.md`).
+- **Tandy 1000 sound** (the same line): the SN76496 at port C0h, three
+  square-wave voices and the noise, each with its attenuation, played by
+  eight more of the DOC's oscillators beside the speaker; the white noise
+  is the chip's own shift-register sequence (`docs/sound.md`).
 - **Keyboard:** the IIGS keyboard as a PC keyboard, through `INT 16h`, the
   BIOS data area's buffer, and port 60h with IRQ1 for programs that hook
   `INT 09h`: a key held down stays down for them, and Shift and Control are
@@ -109,7 +112,7 @@ shell and whatever DOS writes are ordinary ProDOS files in that folder, so
 files go in and out with any ProDOS tool. GW-BASIC is not downloaded: put a
 `GWBASIC.EXE` (the rebuild from gitlab.com/tkchia/GW-BASIC is the one that
 works) at `third_party/gwbasic/GWBASIC.EXE` and it goes in the folder too,
-with `HELLO.BAS`, `CGADEMO.BAS`, the Tandy modes' `TDYDEMO.COM` (`TDYDEMO 8` for mode 08h, `TDYDEMO A` for 0Ah) and the EGA
+with `HELLO.BAS`, `CGADEMO.BAS`, the Tandy modes' `TDYDEMO.COM` (`TDYDEMO 8` for mode 08h, `TDYDEMO A` for 0Ah), the Tandy sound's `TDYSND.COM` (a round for its three voices) and the EGA
 mode's `EGADEMO.COM` (and
 `EGADEMO.BAS`, which needs a GW-BASIC that has `SCREEN 7`: Microsoft's 3.2x
 does, that rebuild of the 1983 source does not). The `.po` is an ordinary 4 MB ProDOS
@@ -416,8 +419,11 @@ keyboard and flushes the screen.
 **Timer and sound.** The 8253 is modelled on the Ensoniq DOC. One oscillator
 runs silently and interrupts at the rate the guest programmed into timer
 channel 0; that interrupt is the PC's IRQ0. Two more play a square wave at the
-channel 2 frequency when the guest opens the speaker gate at port 61h
-(`docs/sound.md`).
+channel 2 frequency when the guest opens the speaker gate at port 61h.
+As a Tandy 1000 the DOC runs eleven oscillators: a pair for each of the
+sound chip's three tones and for its noise, started together so that the
+two sides stay in phase, the noise a 32K table of the chip's 15-bit shift
+register played at the chip's shift rate (`docs/sound.md`).
 
 **Clock.** The date and time come from the IIGS's clock through the Misc
 Tools (`INT 1Ah`, and the built-in DOS's date and time calls). The BIOS tick
@@ -451,6 +457,8 @@ make test-minix   boot the Minix 1.5 demonstration diskette
                   command line and judge the screen (ZIP=1: at 16 MHz, 53
                   emulated seconds instead of 378; CGA=1: as a PC with no
                   EGA, which Minix scrolls another way)
+make test-psg     the Tandy's sound chip in MAME's recording: fourteen sounds'
+                  frequencies, levels and timing, the noise bit for bit
 make test-layout  the probe, .COM and sampled CPU tests with every part of
                   XT/GS in a different bank, and every bank-$00 page it uses
                   at a different address, than it was assembled for
@@ -493,10 +501,12 @@ suite: all 324 opcode files, 2,883,807 vectors after the exclusions listed in
   the EGA only mode 0Dh, set through `INT 10h`: no 640-wide or 350-line
   modes, no loadable fonts, and a store to the planes costs about three
   times an ordinary one. Run in MAME only (`docs/ega.md` has the limits).
-- The Tandy 1000 is its video's first steps: modes 08h, 09h and 0Ah, the
+- The Tandy 1000 is modes 08h, 09h and 0Ah, the
   pages and the palette (in those modes and behind the CGA's graphics,
-  not in 80x25 text) and the BIOS's text in the three modes, with no
-  Tandy sound or keyboard. No Tandy program has been run on it, mode 0Ah
+  not in 80x25 text), the BIOS's text in the three modes and the sound
+  chip (tone periods under 6 are silent, so no sampled sound through
+  it; the noise is TI's sequence; `docs/sound.md`), with no
+  Tandy keyboard. No Tandy program has been run on it, mode 0Ah
   is built from two emulators' reading of the machine, which differ in
   places, and what the BIOS's text does with colours there is decided
   here and not read from a Tandy's BIOS; run in MAME only
@@ -532,8 +542,8 @@ suite: all 324 opcode files, 2,883,807 vectors after the exclusions listed in
 | `docs/keyboard.md` | the key mapping |
 | `docs/cga.md` | CGA graphics |
 | `docs/ega.md` | the EGA's mode 0Dh: the planes, the registers, the BIOS, `VIDEO=CGA` |
-| `docs/tandy.md` | the Tandy 1000's video: `VIDEO=TANDY`, the page register, the array, modes 08h, 09h and 0Ah |
-| `docs/sound.md` | the DOC as PC speaker and timer |
+| `docs/tandy.md` | the Tandy 1000: `VIDEO=TANDY`, the page register, the array, modes 08h, 09h and 0Ah, the sound chip |
+| `docs/sound.md` | the DOC as PC speaker and timer, and as the Tandy's three voices and noise |
 | `docs/clock.md` | the IIGS's clock as the PC's date, time and tick count |
 | `docs/cpu-compatibility.md` | 8088 behaviour learned from the hardware vectors |
 | `docs/benchmarks.md` | measurements and where the time goes |

@@ -49,6 +49,9 @@ mode 0Ah 0-3; a scroll's BH a colour)
 mode-control and colour-select registers (`3D8h`, `3D9h`) as a mode set
 and 0Bh leave them.
 
+A Tandy's sound chip is its ports alone, C0h-C7h, which a `.COM` here
+reaches as under DOS (docs/sound.md); the BIOS has no service for it.
+
 Direct writes to `B800:0000` are stored (the buffer is real guest memory)
 but not yet detected for rendering: M3.
 
