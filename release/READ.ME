@@ -1,0 +1,42 @@
+XT/GS @VERSION@
+================
+
+An IBM PC/XT for the Apple IIGS: an 8088 and a PC's BIOS, video, keyboard,
+speaker and clock, in 65816 code. It needs a IIGS with 8 MB of memory.
+
+Starting it
+-----------
+Boot this disk: ProDOS 8 starts XTGS.SYSTEM, which boots FreeDOS.
+Or, from GS/OS, open the application XTGS in the Finder (keep it in the
+same folder as CORE, SVC, XTGS.CMD and SHARED if you copy it to another
+disk). There is no way back but to restart the IIGS.
+
+The PC
+------
+Drive C: is the folder SHARED on this disk: what DOS writes there are
+ProDOS files, and files you copy into the folder from GS/OS are there
+for DOS (names of 8.3 characters). FreeDOS, GW-BASIC and some demos are
+in it; the list is shown when DOS starts.
+
+XTGS.CMD is a text file, one line each:
+  S              boot FreeDOS from the shared folder
+  C=SHARED       the folder (below this one) that is drive C:
+  VIDEO=TANDY    add this line for a Tandy 1000: its 16-colour modes
+                 and three-voice sound (TDYDEMO, TDYSND), and no EGA
+  VIDEO=CGA      add this line for a PC with a CGA only
+
+What is on this disk
+--------------------
+  PRODOS         ProDOS 8 2.4.3 (Apple Computer; John Brooks)
+  XTGS.SYSTEM    XT/GS started from ProDOS 8
+  XTGS           XT/GS started from GS/OS, with its Finder icon
+  CORE, SVC      the PC: the processor, and the BIOS and devices
+  SHARED/        KERNEL.SYS, SETVER.SYS: the FreeDOS kernel (GNU GPL 2)
+                 COMMAND.COM: FreeCOM (GNU GPL 2)
+                 GWBASIC.EXE: GW-BASIC, T. K. Chia's build of the
+                 source Microsoft published under the MIT licence
+                 the demos (.BAS, .COM) and AUTOEXEC.BAT: XT/GS's own
+
+Sources: FreeDOS, https://github.com/FDOS/kernel and
+https://github.com/FDOS/freecom ; GW-BASIC,
+https://github.com/tkchia/GW-BASIC ; ProDOS, https://prodos8.com

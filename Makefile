@@ -26,6 +26,10 @@
 #   make disk-image IMG=path   build/disk/disk.po: XT/GS and a PC diskette image,
 #                         command D; make run-disk boots it in Ample's MAME
 #   make minix-image      the same with the Minix diskette; make run-minix boots it
+#   make release          build/release/xtgs-VERSION.po: the volume to hand out, an
+#                         800K disk that boots from ProDOS 8 into FreeDOS and has
+#                         the GS/OS application and its icon as well;
+#                         make test-release boots copies of it both ways
 #   make run         boot the image in Ample's MAME with the claudebridge plugin
 #   make run-dos     boot FreeDOS from the folder SHARED interactively in Ample's MAME
 #   make clean
@@ -61,7 +65,7 @@ CORE_SRCS := src/core/core.s src/core/probe.s src/core/run.s src/core/jit.s src/
              src/core/ops_mov.s src/core/ops_ctrl.s src/core/ops_grp.s src/core/ops_str.s \
              src/core/ops_misc.s src/core/ega.s src/core/harness.s $(CORE_GEN) $(INCLUDES)
 
-.PHONY: all image finder test-m0 test-cpu test-com test-dos test-share test-clock test-minix test-psg test-layout test-gsos test-s16 check-s16 bench boot-dos boot-shared run run-dos dos-image disk-image run-disk clean lint minix-image run-minix
+.PHONY: all image finder test-m0 test-cpu test-com test-dos test-share test-clock test-minix test-psg test-layout test-gsos test-s16 check-s16 bench boot-dos boot-shared run run-dos dos-image tandy-image run-tandy release run-release test-release disk-image run-disk clean lint minix-image run-minix
 
 all: $(PO)
 
@@ -108,7 +112,7 @@ $(B)/xtgs16: $(GS_SRCS)
 # ICON_REMAP: the records use $9 for the red of the D, which the Finder's
 # 640 mode draws as aqua (a pixel is a dithered pair there); $4 is its red.
 # Empty for the records exactly as they are.
-XTGS_VERSION := 0.1
+XTGS_VERSION := 1.0
 ICONS        := icon/dos_32x32.qdicon.bin icon/dos_16x16.qdicon.bin
 # FreeDOS for Mode B (the rule is with boot-dos): the floppy image, the
 # folder with the same files that DOS boots from as C: (made with the image),
@@ -323,6 +327,47 @@ $(B)/boot/boot.po: $(B)/xtgs $(B)/core $(B)/svc $(FDIMG) tools/make_image.sh
 # Boot that image (Mode B) interactively in Ample's MAME. See docs/mode-b.md.
 run-dos: $(B)/boot/boot.po
 	tools/mame/run-mame.sh $(B)/boot/boot.po
+
+# tandy-image: build/boot/tandy.po, the same volume as a Tandy 1000
+# (XTGS.CMD's line VIDEO=TANDY; docs/tandy.md): TDYSND and TDYDEMO at the
+# prompt. run-tandy boots it in Ample's MAME.
+tandy-image: $(B)/boot/tandy.po
+$(B)/boot/tandy.po: $(B)/xtgs $(B)/core $(B)/svc $(FDIMG) tools/make_image.sh
+	@mkdir -p $(B)/tandy
+	cp $(B)/xtgs $(B)/tandy/XTGS.SYSTEM\#FF2000
+	cp $(B)/core $(B)/tandy/CORE\#060000
+	cp $(B)/svc  $(B)/tandy/SVC\#060000
+	printf 'S\rC=SHARED\rVIDEO=TANDY\r' > $(B)/tandy/XTGS.CMD\#040000
+	@mkdir -p $(B)/boot
+	VOLSIZE=4096KB tools/make_image.sh $@ \
+	    $(B)/tandy/XTGS.SYSTEM\#FF2000 $(B)/tandy/CORE\#060000 $(B)/tandy/SVC\#060000 \
+	    $(B)/tandy/XTGS.CMD\#040000 $(FDDIR)
+
+run-tandy: $(B)/boot/tandy.po
+	tools/mame/run-mame.sh $(B)/boot/tandy.po
+
+# release: build/release/xtgs-VERSION.po, the volume to hand out
+# (tools/release_image.py; an 800K disk unless VOLSIZE says otherwise). It
+# boots from ProDOS 8 into XT/GS and FreeDOS (command S), and the GS/OS
+# application with its Finder icon is beside XTGS.SYSTEM for a launch from
+# the Finder; SHARED holds FreeDOS, GW-BASIC (required, as for finder) and
+# the demos, with release/shared's AUTOEXEC.BAT. run-release boots it in
+# Ample's MAME; test-release boots it headless both ways (tools/release_test.py).
+RELEASE := $(B)/release/xtgs-$(XTGS_VERSION).po
+release: $(RELEASE)
+$(RELEASE): $(B)/xtgs $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/core $(B)/svc $(FDIMG) tools/release_image.py \
+            tools/gsos_rfork.py res/PRODOS release/READ.ME $(wildcard release/shared/*) Makefile
+	@[ -f $(GWBASIC) ] || { echo "release: no $(GWBASIC) for the FreeDOS folder"; exit 1; }
+	@mkdir -p $(B)/release
+	$(PY) tools/release_image.py $@ $(XTGS_VERSION)
+
+run-release: $(RELEASE)
+	tools/mame/run-mame.sh $(RELEASE)
+
+test-release: $(RELEASE)
+	$(PY) tools/release_test.py $(RELEASE)
+	@[ -f "$(SYSTEM6)" ] || { echo "test-release: no System 6 volume at $(SYSTEM6) (set SYSTEM6=): the GS/OS launch is not tested"; exit 1; }
+	$(PY) tools/release_test.py $(RELEASE) --gsos
 
 # disk-image IMG=path: build/disk/disk.po, a ProDOS 8 volume that boots
 # XT/GS and then the PC diskette image IMG (Mode B, command D): its boot

@@ -606,7 +606,9 @@ VIDEO=TANDY ARGS=A python3 -I tools/cga_test.py third_party/freedos/fd/TDYDEMO.C
 ```
 
 or add the line `VIDEO=TANDY` to the volume's `XTGS.CMD` and run `TDYDEMO`
-(or `TDYDEMO 8`, `TDYDEMO A`) at the prompt.
+(or `TDYDEMO 8`, `TDYDEMO A`) at the prompt. `make tandy-image` builds a volume
+with that line, `build/boot/tandy.po` (FreeDOS from the folder `SHARED`,
+command `S`), and `make run-tandy` boots it in Ample's MAME.
 
 `TDYSND.COM` (`tests/demo/tdysnd.asm`, 466 bytes, in the same places) is
 the sound chip: "Frere Jacques" as a round, the three tones coming in

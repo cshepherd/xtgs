@@ -355,7 +355,7 @@ GS/OS as it does on the bare firmware. `CORE`, `SVC` and results land in
 matches file type `$B3` and the name `XTGS`, two `rIcon`s from the
 QuickDraw II icon records in `icon/` (`dos_32x32.qdicon.bin`,
 `dos_16x16.qdicon.bin`), an `rVersion` (`XTGS_VERSION` in the Makefile,
-0.1) and an `rComment`. The data fork is the load file as before. cadius
+1.0) and an `rComment`. The data fork is the load file as before. cadius
 adds the fork of `XTGS#B30000` from `XTGS#B30000_ResourceFork.bin` beside
 it, and the Makefile puts it there.
 
@@ -398,7 +398,7 @@ in. GW-BASIC is not fetched: the rule fails without
 
 There, in MAME under System 6.0.1: the folder `XTGS` shows the
 application under the DOS icon (red D, yellow O, green S, blue shadow) in
-the icon and small-icon views; Icon Info shows the icon, `XT/GS 0.1` and
+the icon and small-icon views; Icon Info shows the icon, `XT/GS 0.1` (the version then) and
 the `rVersion`'s second line. Open boots FreeDOS from the folder to
 FreeCOM's date prompt, about two minutes of emulated time after the click
 (the boot from the floppy image took about 200 seconds), and after two

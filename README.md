@@ -10,6 +10,7 @@ Tandy 1000 with that machine's own graphics modes and three-voice sound. It also
 from its demonstration diskette, which
 drives the PC's interrupt controller, diskette controller and 6845 itself.
 
+
 | | |
 | --- | --- |
 | ![FreeDOS booted from a ProDOS folder to the C: prompt](assets/freedos.png) | ![GW-BASIC: a program typed, listed with F1 and run with F2](assets/gwbasic-text.png) |
@@ -103,7 +104,23 @@ with `tools/mame/install-plugin.sh`.
 make              # build/xtgs.po: XTGS.SYSTEM + CORE + SVC
 make dos-image    # build/boot/boot.po: the same plus FreeDOS in the folder SHARED
 make run-dos      # boot that in Ample's MAME
+make tandy-image  # build/boot/tandy.po: that volume as a Tandy 1000 (VIDEO=TANDY)
+make run-tandy    # boot that in Ample's MAME: TDYSND and TDYDEMO at the prompt
+make release      # build/release/xtgs-1.0.po: the 800K volume to hand out (below)
+make test-release # boot copies of it headless, from ProDOS 8 and from GS/OS
 ```
+
+`make release` builds the volume to hand out, `build/release/xtgs-1.0.po`
+(the version is `XTGS_VERSION` in the Makefile): one 800K ProDOS disk, named
+`XTGS`, that a IIGS boots from ProDOS 8 straight into FreeDOS, and that also
+holds the GS/OS application `XTGS` with its Finder icon beside
+`XTGS.SYSTEM`, for a launch from the Finder. Its folder `SHARED` is drive
+`C:`: FreeDOS, GW-BASIC, the demos (`HELLO.BAS`, `CGADEMO.BAS`, `MUSIC.BAS`,
+`EGADEMO.COM`, `TDYDEMO.COM`, `TDYSND.COM`) and an `AUTOEXEC.BAT` that lists
+them; `READ.ME` on the disk says how to start it and what `XTGS.CMD`'s lines
+are. 474K of the disk is free for what DOS writes (`VOLSIZE=4096KB make
+release` for a larger volume). What goes on it beyond the build's own files
+is in `release/`.
 
 `make dos-image` downloads the FreeDOS kernel and FreeCOM into `third_party/`
 and puts them in a folder `SHARED` of the volume (named `XTGS`), which
@@ -564,3 +581,8 @@ kernel and utilities (GPL), FreeCOM, Microsoft's MIT-licensed MS-DOS 2.0
 binaries, and the SingleStepTests 8088 vectors. GW-BASIC is tkchia's rebuild
 of Microsoft's MIT-licensed source. Lotus 1-2-3 and other commercial titles
 are not included; supply your own media.
+
+## Acknowledgements
+
+Another fine [cCc] release that would not have happened without the rest of the gang. Plenty more to come in the pipeline.
+

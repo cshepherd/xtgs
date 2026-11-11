@@ -84,6 +84,23 @@ make boot-shared  FreeDOS booted from the folder third_party/freedos/fd/SHARED
                   build/bootdos/); make boot-dos is the floppy image
 make dos-image    build/boot/boot.po: XT/GS and that folder as SHARED,
                   command S (make run-dos boots it in Ample's MAME)
+make tandy-image  build/boot/tandy.po: the same volume with the line
+                  VIDEO=TANDY, a Tandy 1000 (TDYSND, TDYDEMO at the prompt;
+                  make run-tandy boots it in Ample's MAME)
+make release      build/release/xtgs-VERSION.po (XTGS_VERSION in the Makefile):
+                  the volume to hand out, an 800K ProDOS disk (VOLSIZE=
+                  another size) that boots from ProDOS 8 into FreeDOS
+                  (command S) and has the GS/OS application with its icon
+                  beside XTGS.SYSTEM, CORE, SVC and XTGS.CMD in the root;
+                  SHARED is third_party/freedos/fd/SHARED without
+                  EGADEMO.BAS, plus release/shared/ (AUTOEXEC.BAT, MUSIC.BAS;
+                  text, LF in the tree), and release/READ.ME is on it
+                  (tools/release_image.py); make run-release boots it in
+                  Ample's MAME
+make test-release copies of that volume booted headless: from ProDOS 8 to
+                  C:\> and GWBASIC HELLO, and its XTGS launched from a
+                  GS/OS volume's Start as the second disk
+                  (tools/release_test.py; --show prints the console)
 make test-gsos    launch XTGS.SYSTEM from GS/OS (a System 6 volume, SYSTEM6=,
                   default ../ddiigs/assets/system6.hdv; tools/check_gsos.py)
 make test-s16     the GS/OS application (src/gs/xtgs16.s) on the same volume:
