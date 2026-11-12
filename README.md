@@ -33,6 +33,8 @@ drives the PC's interrupt controller, diskette controller and 6845 itself.
 | MechWarrior in EGA mode 0Dh: the planet's screen, its files (`MW_MAIN.EXE`, `6X6.FNT`) on the ProDOS volume under names ProDOS can hold | The same game in a mission: the cockpit of a Jenner, the ground and hills drawn as polygons |
 | ![688 Attack Sub's control room](assets/sub688.png) | ![688 Attack Sub's ship control panel](assets/sub688-contour.png) |
 | 688 Attack Sub (a preview edition) in EGA mode 0Dh: the control room, the stations reached by Option and a digit as F2 to F8 | Its ship control panel, the sea bottom ahead drawn by the contour mapping display |
+| ![Where in the U.S.A. is Carmen Sandiego?, Denver](assets/carmen.png) | ![A witness in Miami](assets/carmen-witness.png) |
+| Where in the U.S.A. is Carmen Sandiego? in EGA mode 0Dh: the first city of a case, the game's arrow on the IIGS's mouse | A witness's clue in Miami |
 
 The screenshots are the emulated IIGS's Super Hi-Res screen, captured from
 headless MAME runs and doubled in height (the SHR screen is 640x200 or

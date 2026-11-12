@@ -28,7 +28,7 @@
 #   make minix-image      the same with the Minix diskette; make run-minix boots it
 #   make games-image      build/boot/games.po: the release volume as a Tandy 1000 on
 #                         an 8 MB disk with the games' folders of release/shared
-#                         (GAMES: lsl2, outrun, arkanoid, keen1, mech, sub688; make run-games boots it;
+#                         (GAMES: lsl2, outrun, arkanoid, keen1, mech, sub688, carmen; make run-games boots it;
 #                         lsl-image and run-lsl are the same)
 #   make release          build/release/xtgs-VERSION.po: the volume to hand out, an
 #                         800K disk that boots from ProDOS 8 into FreeDOS and has
