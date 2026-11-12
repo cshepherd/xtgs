@@ -107,6 +107,7 @@ CRTC_CUR   = RES_BASE+$8B2   ; u16 nonzero: the cursor is where the 6845's R14/R
                              ; (the guest wrote them after the BIOS last moved it)
 TICK_OFF   = $0510           ; F000:0510, INT 08h: hypercall 8 / int 1Ch / iret
 MS_OFF     = $0590           ; F000:0590, the mouse driver's stub, which calls the handler (mouse.s)
+XMS_OFF    = $05C0           ; F000:05C0, the XMS driver's entry (xms.s)
 RD_OFF     = $0540           ; F000:0540, the shared drive's stubs (redir.s)
 RD_STATE   = RES_BASE+$8A0   ; u16 the shared drive: 0 none, 1-3 on the way,
                              ; 4 there, 5 it could not be installed
@@ -139,6 +140,11 @@ EGA_SEQI   = RES_BASE+$94A   ; u16 the sequencer's index (port 3C4h)
 EGA_GCI    = RES_BASE+$94C   ; u16 the graphics controller's (3CEh)
 EGA_ACI    = RES_BASE+$94E   ; u16 the attribute controller's (3C0h)
 EGA_ACFF   = RES_BASE+$950   ; u16 3C0h's flip-flop: 0 the index is next, 1 the data
+EGA_WINLEN = RES_BASE+$952   ; u16 the bytes of a plane the screen can show, from
+                             ; EGA_START: EGA_LEN, or more when the 6845's offset
+                             ; register makes a line longer than 40 bytes or the
+                             ; attribute controller pans it (ega_flush; a write
+                             ; past EGA_LEN and within this sets VID_DIRTY's first)
 EGA_SEQ    = RES_BASE+$958   ; 8 bytes: the sequencer (2 is the map mask)
 EGA_GC     = RES_BASE+$960   ; 16 bytes: the graphics controller, 0-8
 EGA_AC     = RES_BASE+$970   ; 32 bytes: the attribute controller (0-15 the palette)

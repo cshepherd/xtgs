@@ -582,6 +582,13 @@ claim_all
  jsr claim_region
  bcs :rg_err
 :nojit
+ lda mb_cmd+1              ; S has no disk image: its banks are the guest's
+ and #$00FF                ; XMS memory (src/svc/xms.s) when they can be had,
+ cmp #'S'                  ; last, so that nothing above goes without for it
+ bne :noxms
+ ldx #RG_DISK+RG_DISK
+ jsr claim_region
+:noxms
  clc
  rts
 :rg_err

@@ -30,6 +30,10 @@ eg_wx      dw 0              ; its cursor's slot in the BDA, while it is in the 
 eg_in      dw 0              ; nonzero: INT 10h named the page, the teletype does not
 eg_none    dw 0              ; nonzero: the PC has no EGA (XTGS.CMD's VIDEO=CGA,
                              ; rd_readcfg): INT 10h is a CGA's
+eg_stride  dw 40             ; bytes from a line to the next (the 6845's R13h, twice)
+eg_pan     dw 0              ; pixels the screen is panned left (the attribute controller's 13h)
+eg_ln      dw 0              ; the wide draw: a line's first byte, lines to go
+eg_cnt     dw 0
 eg_keep    dw 0              ; mode set: AL's bit 7, the planes are not cleared
 eg_f       ds 8              ; a fill: each plane's byte (words)
 eg_fw      dw 0              ; and the SHR's two bytes
@@ -51,6 +55,8 @@ ega_init
  sta >EGA_PALD
  sta >EGA_ALLD
  sta >EGA_START
+ lda #EGA_LEN
+ sta >EGA_WINLEN
  lda eg_none
  bne :nocard
  lda #$F760                ; 0040:0087 60h: 256K, the EGA is the active card;
@@ -113,6 +119,18 @@ ega_enter
  sta >EGA_START
  sta >EGA_ALLD
  sta >H_BDA+BDA_PGOFF
+ lda #EGA_LEN
+ sta >EGA_WINLEN
+ lda #40
+ sta eg_stride
+ stz eg_pan
+ sep #$20
+ mx %10
+ lda #20                   ; the 6845's offset register: 40 bytes a line
+ sta >CRTC_REG+$13
+ rep #$20
+ mx %00
+ lda #0
  stz eg_wpg
  stz eg_wx
  stz eg_in
@@ -282,10 +300,39 @@ ega_flush
  lda #1
  sta >EGA_ALLD
 :same
+ lda >CRTC_REG+$13         ; the offset register: words from a line to the next
+ and #$00FF
+ bne :off
+ lda #20
+:off
+ asl
+ sta gE
+ lda >EGA_AC+$13           ; and the pixels panned
+ and #$0007
+ sta gO
+ cmp eg_pan
+ bne :geom
+ lda gE
+ cmp eg_stride
+ beq :geomok
+:geom
+ lda gO
+ sta eg_pan
+ lda gE
+ sta eg_stride
+ lda #1
+ sta >EGA_ALLD
+ jsr eg_winlen
+:geomok
  lda >EGA_PALD
  beq :np
  jsr ega_setpal
 :np
+ lda >EGA_WINLEN
+ cmp #EGA_LEN
+ beq :narrow
+ jmp eg_wide
+:narrow
  lda >EGA_ALLD
  beq :pages
  lda #0
@@ -366,6 +413,200 @@ ega_flush
  bcc :pg
  rts
 
+* eg_winlen - EGA_WINLEN from eg_stride and eg_pan: EGA_LEN as the
+* mode is set, else the bytes from the screen's first to its last
+* (200 lines of eg_stride and the byte panned in), all of a plane when
+* that is more than one holds.
+eg_winlen
+ mx %00
+ lda eg_pan
+ bne :wide
+ lda eg_stride
+ cmp #40
+ bne :wide
+ lda #EGA_LEN
+ bra :set
+:wide
+ lda eg_stride
+ cmp #321
+ bcc :fits
+ lda #$FFFF
+ bra :set
+:fits
+ asl
+ asl
+ asl                       ; * 8
+ sta gE
+ asl                       ; * 16
+ sta gO
+ clc
+ adc gE                    ; * 24
+ clc
+ adc gO                    ; * 40
+ asl
+ asl                       ; * 160
+ clc
+ adc gO                    ; * 176
+ clc
+ adc gO                    ; * 192
+ clc
+ adc gE                    ; * 200
+ inc
+ cmp #EGA_LEN              ; (shorter lines: never the narrow path's number)
+ bne :set
+ inc
+:set
+ sta >EGA_WINLEN
+ rts
+
+* eg_wide - the frame's drawing when a line of the planes is not 40
+* bytes from the next or the screen is panned (a program that scrolls
+* by the 6845's start address and offset register and the attribute
+* controller's panning: a window on a buffer wider than the screen).
+* No byte has a flag then: anything written in the window, or the
+* window moved, and all of it is drawn, 40 bytes of each line.
+eg_wide
+ mx %00
+ lda >EGA_ALLD
+ bne :draw
+ ldx #0
+:chk
+ lda >VID_DIRTY,x
+ bne :draw
+ inx
+ inx
+ cpx #32
+ bcc :chk
+ rts
+:draw
+ lda #0
+ sta >EGA_ALLD
+ ldx #0
+:cv
+ sta >VID_DIRTY,x
+ inx
+ inx
+ cpx #32
+ bcc :cv
+ stz gL
+ lda >EGA_START
+ sta eg_ln
+ lda #200
+ sta eg_cnt
+:line
+ lda eg_ln
+ sta gROW
+ lda #40
+ sta gR1
+ lda eg_pan
+ bne :pan
+:byte
+ ldx gROW
+ jsr eg_conv
+ lda gL
+ clc
+ adc #4
+ sta gL
+ inc gROW
+ dec gR1
+ bne :byte
+ bra :next
+:pan
+ ldx gROW
+ jsr eg_convp
+ lda gL
+ clc
+ adc #4
+ sta gL
+ inc gROW
+ dec gR1
+ bne :pan
+:next
+ lda eg_ln
+ clc
+ adc eg_stride
+ sta eg_ln
+ dec eg_cnt
+ bne :line
+ rts
+
+* eg_convp - as eg_conv, the eight pixels that begin eg_pan (1-7)
+* pixels into the byte at X: each plane's byte and the next, shifted.
+eg_convp
+ mx %00
+ lda >H_EGA,x
+ xba
+ ldy eg_pan
+:s0
+ asl
+ dey
+ bne :s0
+ xba
+ and #$00FF
+ asl
+ tay
+ lda eg_t0lo,y
+ sta gE
+ lda eg_t0hi,y
+ sta gO
+ lda >H_EGA1,x
+ beq :p2
+ xba
+ ldy eg_pan
+:s1
+ asl
+ dey
+ bne :s1
+ xba
+ and #$00FF
+ asl
+ tay
+ lda eg_t1lo,y
+ tsb gE
+ lda eg_t1hi,y
+ tsb gO
+:p2
+ lda >H_EGA2,x
+ beq :p3
+ xba
+ ldy eg_pan
+:s2
+ asl
+ dey
+ bne :s2
+ xba
+ and #$00FF
+ asl
+ tay
+ lda eg_t2lo,y
+ tsb gE
+ lda eg_t2hi,y
+ tsb gO
+:p3
+ lda >H_EGA3,x
+ beq :out
+ xba
+ ldy eg_pan
+:s3
+ asl
+ dey
+ bne :s3
+ xba
+ and #$00FF
+ asl
+ tay
+ lda eg_t3lo,y
+ tsb gE
+ lda eg_t3hi,y
+ tsb gO
+:out
+ ldx gL
+ lda gE
+ sta >SHR_PIX,x
+ lda gO
+ sta >SHR_PIX+2,x
+ rts
+
 * eg_one - the screen's byte X is flagged: not any more, and drawn
 eg_one
  mx %00
@@ -440,7 +681,14 @@ eg_mk1
  sec
  sbc >EGA_START
  cmp #EGA_LEN
+ bcc :in
+ cmp >EGA_WINLEN           ; (longer or panned lines: ega_flush's wide path)
  bcs :out
+ lda >VID_DIRTY
+ ora #$0001
+ sta >VID_DIRTY
+ bra :out
+:in
  tax
  sep #$20
  mx %10

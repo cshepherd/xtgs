@@ -41,6 +41,13 @@ make test-com COM=egap         the same picture after a palette change
   | Graphics 8 | the bit mask |
   | Attribute 0-15 (`3C0h`, flip-flop reset by a read of `3DAh`) | the palette: each of the 16 colours is any of the CGA's 16 |
   | 6845 R12/R13 (`3D4h`/`3D5h`) | the start address: the page shown, or a scroll by whole bytes |
+  | 6845 R13h | the offset: words from a line of the planes to the next (20 as the mode is set) |
+  | Attribute 13h | the screen panned left by 0-7 pixels |
+
+  The last three together are how a game scrolls: the screen is a window
+  on a buffer wider than itself (Commander Keen: 48 bytes a line), moved a
+  byte at a time by the start address and a pixel at a time by the
+  panning. The planes go round at 64K under the window.
 
   The four latches are filled by every read and used by every write, so the
   usual idioms work: `OR [mem],al` to load the latches and write through the
@@ -78,6 +85,33 @@ the BDA's EGA bytes are 0. The line may come before or after the shared
 drive's (`C=...`, docs/share.md); SVC reads both (`rd_readcfg`). Command
 `C` reads the `VIDEO` line as well (`svc_pcinit`), and `VIDEO=TANDY` is
 the Tandy 1000 of docs/tandy.md.
+
+## The window on a wider buffer
+
+While a line is 40 bytes from the next and nothing is panned, the flush is
+the one below: a flag a byte, by place on the screen. Otherwise
+(`EGA_WINLEN` is not `EGA_LEN`; `ega_flush` works it out from the two
+registers each frame) no byte has a place of its own, and the rule is
+simpler: when the window moved, or anything was written inside it, **all
+of the screen is drawn** (`eg_wide`: 200 lines of 40 bytes from where each
+begins, through `eg_conv`, or `eg_convp` when panned, which takes each
+plane's byte and the next and shifts). A write inside the window but past
+the 8000th byte has no flag to set, so it sets `VID_DIRTY`'s first
+(`eg_mark`, `eg_markrng` in the core, `eg_mk1` in SVC), and that is all the
+wide path asks: is any of `VID_DIRTY`'s 32 set.
+
+What that costs: a scroll step is a whole screen, some 2 million cycles
+(0.7 s on the stock clock, a seventh of a second at 16 MHz). The split
+screen (line compare) is not there, the start address is taken when the
+frame's flush runs (a flush between a program's two writes of R12 and R13
+draws one frame from a wrong place), and the BIOS's text and scrolls
+(`INT 10h`) still take a line for 40 bytes.
+
+`tests/com/egaw.asm` (`egaw`, `egaww`, `egawp`) is the test: 48 bytes a
+line from `3604h` panned 3, the same from `FE00h` round the planes' end,
+and 40 bytes panned 5; each draws, waits for the flush and then writes
+past the 8000th byte, singly and by `REP STOSB`. `tools/egashr.py` takes
+the offset register and the panning from the registers.
 
 Minix 1.5 shows the difference: it asks `AH=12h`, and on an EGA it does not
 let the 6845's start address go round at 16K but copies the screen back to

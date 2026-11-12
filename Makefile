@@ -63,13 +63,13 @@ INCLUDES  := src/include/hw.s src/include/layout.s src/include/mailbox.s src/inc
 SYS_SRCS  := src/sys/xtgs.s $(INCLUDES)
 SVC_GEN   := src/svc/gen/font.s src/svc/gen/tables.s src/svc/gen/dostab.s src/svc/gen/t160.s src/svc/gen/egatab.s src/svc/gen/tdytab.s
 SVC_SRCS  := src/svc/svc.s src/svc/video.s src/svc/gtext.s src/svc/ega.s src/svc/tandy.s src/svc/pcinit.s src/svc/bios.s src/svc/dos.s \
-             src/svc/files.s src/svc/disk.s src/svc/ports.s src/svc/redir.s src/svc/keyboard.s src/svc/sound.s src/svc/clock.s src/svc/joystick.s src/svc/serial.s src/svc/mouse.s src/svc/capture.s $(SVC_GEN) $(INCLUDES)
+             src/svc/files.s src/svc/disk.s src/svc/ports.s src/svc/redir.s src/svc/keyboard.s src/svc/sound.s src/svc/clock.s src/svc/joystick.s src/svc/serial.s src/svc/mouse.s src/svc/xms.s src/svc/capture.s $(SVC_GEN) $(INCLUDES)
 CORE_GEN  := src/core/gen/optab.s src/core/gen/eatab.s src/core/gen/alu.s src/core/gen/flagtab.s src/core/gen/egaw.s
 CORE_SRCS := src/core/core.s src/core/probe.s src/core/run.s src/core/jit.s src/core/jit2.s src/core/cpu.s src/core/flags.s \
              src/core/ops_mov.s src/core/ops_ctrl.s src/core/ops_grp.s src/core/ops_str.s \
              src/core/ops_misc.s src/core/ega.s src/core/harness.s $(CORE_GEN) $(INCLUDES)
 
-.PHONY: all image finder test-m0 test-cpu test-com test-dos test-share test-clock test-minix test-psg test-layout test-gsos test-s16 check-s16 bench boot-dos boot-shared run run-dos dos-image tandy-image run-tandy release run-release test-release lsl-image run-lsl games-image run-games test-joy test-mouse test-serial disk-image run-disk clean lint minix-image run-minix
+.PHONY: all image finder test-m0 test-cpu test-com test-dos test-share test-clock test-minix test-psg test-layout test-gsos test-s16 check-s16 bench boot-dos boot-shared run run-dos dos-image tandy-image run-tandy release run-release test-release lsl-image run-lsl games-image run-games games-ega-image run-games-ega test-joy test-mouse test-xms test-serial disk-image run-disk clean lint minix-image run-minix
 
 all: $(PO)
 
@@ -266,7 +266,7 @@ bench: $(PO)
 # floppy and the folder with the same files (tools/build_freedos.py), then
 # boots headless: boot-dos the floppy image (command D), boot-shared the
 # folder as drive C: with no image (command S, docs/share.md).
-$(FDIMG): tools/build_freedos.py tools/make_fat12.py tests/demo/egademo.asm tests/demo/tdydemo.asm tests/demo/tdysnd.asm tests/demo/joytest.asm tests/demo/mousetst.asm $(wildcard $(GWBASIC))
+$(FDIMG): tools/build_freedos.py tools/make_fat12.py tests/demo/egademo.asm tests/demo/tdydemo.asm tests/demo/tdysnd.asm tests/demo/joytest.asm tests/demo/mousetst.asm tests/demo/xmstest.asm $(wildcard $(GWBASIC))
 	$(PY) tools/fetch_dos.py
 	$(PY) tools/build_freedos.py
 boot-dos: $(PO) $(FDIMG)
@@ -358,7 +358,7 @@ run-tandy: $(B)/boot/tandy.po
 # the demos, with release/shared's AUTOEXEC.BAT. run-release boots it in
 # Ample's MAME; test-release boots it headless both ways (tools/release_test.py).
 # the folders of release/shared that are games: off the release, on games-image
-GAMES := lsl2 outrun arkanoid
+GAMES := lsl2 outrun arkanoid keen1
 RELEASE := $(B)/release/xtgs-$(XTGS_VERSION).po
 release: $(RELEASE)
 $(RELEASE): $(B)/xtgs $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/core $(B)/svc $(FDIMG) tools/release_image.py \
@@ -384,6 +384,18 @@ $(B)/boot/games.po: $(B)/xtgs $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/core $(B)/svc $
 run-games run-lsl: $(B)/boot/games.po
 	tools/mame/run-mame.sh $(B)/boot/games.po
 
+# games-ega-image: build/boot/gamesega.po, the same volume without the line
+# VIDEO=TANDY: a PC with the EGA (mode 0Dh), for the games that want one
+# (C:\KEEN1; OutRun's and Arkanoid's EGA choices). run-games-ega boots it.
+games-ega-image: $(B)/boot/gamesega.po
+$(B)/boot/gamesega.po: $(B)/xtgs $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/core $(B)/svc $(FDIMG) tools/release_image.py \
+            tools/gsos_rfork.py res/PRODOS release/READ.ME $(shell find release/shared -type f) Makefile
+	@mkdir -p $(B)/boot
+	VOLSIZE=$(GAMESIZE) $(PY) tools/release_image.py $@ $(XTGS_VERSION)
+
+run-games-ega: $(B)/boot/gamesega.po
+	tools/mame/run-mame.sh $(B)/boot/gamesega.po
+
 run-release: $(RELEASE)
 	tools/mame/run-mame.sh $(RELEASE)
 
@@ -396,6 +408,13 @@ test-joy: $(PO) $(FDIMG)
 # MOUSETST under FreeDOS, MAME's mouse moved by the harness (tools/mouse_test.py).
 test-mouse: $(PO) $(FDIMG)
 	$(PY) tools/mouse_test.py
+
+# test-xms: the XMS driver (docs/xms.md): FreeDOS booted from the folder
+# (command S), XMSTEST typed, its line judged; then with the line XMS=OFF,
+# which must find no driver (tools/xms_test.py; work files in build/xms/).
+test-xms: $(PO) $(FDIMG)
+	$(PY) tools/xms_test.py
+	$(PY) tools/xms_test.py XMS=OFF
 
 # test-serial: the IIGS's serial ports as COM1 and COM2 (docs/serial.md):
 # COMTEST under FreeDOS with MAME's two ports looped back (tools/com_test.py).

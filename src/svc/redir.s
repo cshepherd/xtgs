@@ -23,9 +23,10 @@
 *           (rd_install) marks the drive's CDS entry as a
 *           network drive and takes INT 2Fh, and the EXEC
 *           goes on to DOS. INT 21h is given back.
-*   hook2F  INT 2Fh: AH=11h is hypercall 257 (rd_int2f);
-*           a call that is not for the drive goes on down
-*           the chain.
+*   hook2F  INT 2Fh: hypercall 257 (rd_int2f), which
+*           answers AH=11h for the drive and AH=43h for
+*           the XMS driver (xms.s); any other call, and one
+*           not for the drive, goes on down the chain.
 * rd_poll (once a frame) puts hook21 in when the kernel has
 * set its INT 21h vector.
 *
@@ -59,6 +60,7 @@ RD_NDIRS   = 8
 rd_state   dw 0              ; 0 off, 1 waiting for DOS's INT 21h, 2 for its EXEC,
                              ; 3 installing, 4 the drive is there, 5 it could not be
 rd_cfg     dw 0              ; 0 no share asked for, 1 found, 2 not a directory
+rd_kx      dw 0              ; rd_readcfg: the line is XMS=, not MOUSE=
 rd_boot    dw 0              ; the S command: DOS itself comes from the share
 rd_early   dw 0              ; while it boots from there: hook21 goes in at the
                              ; first BIOS call and stays until the shell's EXEC
@@ -107,7 +109,7 @@ rd_stub
  hex 2EFF2E                ; +04 jmp far [cs:old21]
  dw RD_OFF+9
  adrl 0                    ; +09 old21
- hex 80FC117504            ; +0D hook2F: cmp ah,11h / jne +16
+ hex 9090909090            ; +0D hook2F: (five NOPs: rd_int2f looks at AH)
  hex FE380101              ; +12 hypercall 257
  hex 2EFF2E                ; +16 jmp far [cs:old2F]
  dw RD_OFF+$1B
@@ -283,6 +285,7 @@ rd_readcfg
  stz com_cfg
  lda #1
  sta ms_cfg
+ sta xms_cfg
  ldx #0
  lda #0
  jsr p_open
@@ -434,6 +437,12 @@ rd_readcfg
 :wv
  cmp #'V'
  beq :wvid
+ stz rd_kx
+ cmp #'X'                  ; "XMS=OFF": no XMS driver (xms.s)
+ bne :notx
+ inc rd_kx
+ bra :mk
+:notx
  cmp #'M'                  ; "MOUSE=OFF": no mouse driver (mouse.s)
  bne :wno3
 :mk
@@ -459,7 +468,12 @@ rd_readcfg
  sta sv1
  cmp #'F'
  bne :wno3
+ lda rd_kx
+ bne :xoff
  stz ms_cfg
+ bra :wno3
+:xoff
+ stz xms_cfg
 :wno3
  jmp :wno
 :none3
@@ -1041,6 +1055,14 @@ rd_farptr
 * pARG = the swappable data area throughout.
 rd_int2f
  mx %00
+ lda rAX
+ and #$FF00
+ cmp #$4300                ; the XMS driver's installation check (xms.s)
+ bne :n43
+ jmp xms_int2f
+:n43
+ cmp #$1100
+ bne :chain
  lda rd_state
  cmp #4
  bne :chain

@@ -108,8 +108,9 @@ def run_test(path, syms, workdir, seconds):
                     dumps=[("mb", syms["mb_stage"], 0x70), ("caplen", CAP_LEN, 8), ("cap", CAP_BUF, CAP_MAX),
                            ("txt", TXT_BASE, cgashr.LEN), ("shr", shr.SHR_BASE, shr.SHR_LEN),
                            ("maps", RES_BASE + 0x810, 48), ("crtc", CRTC_START, 2), ("ac", EGA_AC, 16)] +
-                          [(f"pl{i}", GUEST_BASE + a, 0x4000) for i, a in enumerate(egashr.PLANES)
+                          [(f"pl{i}", GUEST_BASE + a, 0x10000) for i, a in enumerate(egashr.PLANES)
                            if t.get("video") == "ega"] +
+                          [("crtcoff", CRTC_START + 7, 1), ("acpan", EGA_AC + 0x13, 1)] +
                           [("tdy", RES_BASE + tandyshr.STATE, tandyshr.STATE_LEN),
                            ("tdymr", RES_BASE + tandyshr.MODEREQ, 2),
                            ("csel", syms["GUEST_DP"] + syms["cga_bg"], 6)] + psgdoc.dumps(syms) +
@@ -196,13 +197,16 @@ def run_test(path, syms, workdir, seconds):
         start = crtc[0] << 8 | crtc[1]                 # (in bytes: R12, R13)
         if not egashr.is_ega(shr_dump):
             problems.append("the screen is not in mode 0Dh (SHR 320, one palette)")
-        elif start + egashr.LEN > 0x4000:
-            problems.append(f"the screen starts at {start:#x}, past what the judge reads")
         else:
-            bad = egashr.mismatches([bytes.fromhex(r["dumps"][f"pl{i}"]["hex"]) for i in range(4)], start, shr_dump)
+            # (the 6845's offset register, words a line, and the pixels panned)
+            stride = (bytes.fromhex(r["dumps"]["crtcoff"]["hex"])[0] or 20) * 2
+            pan = bytes.fromhex(r["dumps"]["acpan"]["hex"])[0] & 7
+            bad = egashr.mismatches([bytes.fromhex(r["dumps"][f"pl{i}"]["hex"]) for i in range(4)], start, shr_dump,
+                                    stride, pan)
             if bad:
-                problems.append(f"{len(bad)} of the 8000 bytes of the planes are not on the screen "
-                                f"(first line,byte {bad[0]}; the screen starts at {start:#x})")
+                problems.append(f"{len(bad)} of the 8000 bytes of the screen are not the planes' "
+                                f"(first line,byte {bad[0]}; the screen starts at {start:#x}, "
+                                f"{stride} bytes a line, panned {pan})")
             badp = egashr.palette(ac, shr_dump)
             if badp:
                 problems.append("palette: " + ", ".join(f"{i}: {g:04X} not {w:04X}" for i, g, w in badp))

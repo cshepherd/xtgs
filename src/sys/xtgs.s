@@ -569,6 +569,7 @@ tools_up
  jsr claim_region
  bcs :rg_err
 :nojit
+ jsr claim_xms
  sec
  xce
  mx %11
@@ -879,6 +880,23 @@ claim_region
 :try
  sta nh_addr+2
  jmp new_handle
+
+*----------------------------------------------------------
+* claim_xms - S has no disk image: its banks are the guest's
+* XMS memory (src/svc/xms.s) when they can be had; claimed
+* last, so that nothing else goes without for it, and no
+* error when they cannot. Native, 16-bit M/X.
+*----------------------------------------------------------
+claim_xms
+ mx %00
+ lda mb_cmd+1
+ and #$00FF
+ cmp #'S'
+ bne :no
+ ldx #RG_DISK+RG_DISK
+ jsr claim_region
+:no
+ rts
 
 *----------------------------------------------------------
 * show_banks - print the bank of each region and the page

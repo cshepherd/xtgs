@@ -52,6 +52,7 @@
  put joystick.s
  put serial.s
  put mouse.s
+ put xms.s
  put capture.s
  put gen/font.s
  put gen/tables.s

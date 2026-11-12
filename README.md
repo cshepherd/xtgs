@@ -25,6 +25,10 @@ drives the PC's interrupt controller, diskette controller and 6845 itself.
 | `EGADEMO.COM`: EGA mode 0Dh (320x200, 16 colours) drawn through the card's registers, the palette mid-turn | Microsoft GW-BASIC 3.23, `SCREEN 7`: `LINE`, `CIRCLE` and `PAINT` in `EGADEMO.BAS` |
 | ![TDYDEMO.COM in Tandy mode 09h, the second pair of pages](assets/tandy-demo.png) | ![TDYDEMO.COM, the first pair of pages](assets/tandy-pages.png) |
 | `TDYDEMO.COM` as a Tandy 1000 (`VIDEO=TANDY`): mode 09h (320x200, 16 colours), drawn on pages 4 and 5 through the page register | The same program's other picture, on pages 6 and 7: it shows the two pairs in turn and turns the palette |
+| ![Leisure Suit Larry 2 as a Tandy 1000](assets/lsl2.png) | ![Out Run in Tandy 16 colours](assets/outrun.png) |
+| Leisure Suit Larry 2 as a Tandy 1000: Sierra's Tandy driver in mode 09h, the game's own arrow following the IIGS's mouse | Out Run in its Tandy 16-colour mode, the music on the Tandy's three voices |
+| ![Arkanoid in EGA mode 0Dh](assets/arkanoid.png) | ![Commander Keen 1's title and menu](assets/keen1.png) |
+| Arkanoid in EGA mode 0Dh, round 3 | Commander Keen: Marooned on Mars, in EGA mode 0Dh scrolled by the card's registers, with FreeDOS's shell swapped out to XMS memory to make room for it |
 
 The screenshots are the emulated IIGS's Super Hi-Res screen, captured from
 headless MAME runs and doubled in height (the SHR screen is 640x200 or
@@ -92,6 +96,12 @@ lost at power-off. See [Known limits](#known-limits).
   program's handler called as it moves (`MOUSE=OFF` in `XTGS.CMD` for a PC
   without one); `MOUSETST.COM` shows what it reads. Run in MAME only
   (`docs/mouse.md`).
+- **XMS:** 1472 KB of extended memory by the XMS driver's calls, built in
+  (no `HIMEM.SYS`), when FreeDOS boots from the folder: its `COMMAND.COM`
+  moves into it while a program runs, which leaves a program 566 KB
+  instead of 474 (`XMS=OFF` in `XTGS.CMD` for none). Blocks and moves only:
+  an 8088 has no A20 line and no high memory area. Run in MAME only
+  (`docs/xms.md`).
 - **Clock:** the guest's date and time are the IIGS's own, read from its
   clock (never set by the guest), and the timer ticks DOS could not be given
   are made up from it so its time stays right (`docs/clock.md`).
@@ -575,12 +585,13 @@ suite: all 324 opcode files, 2,883,807 vectors after the exclusions listed in
 | `docs/dos-api.md` | the built-in DOS and BIOS services of Mode A |
 | `docs/keyboard.md` | the key mapping |
 | `docs/cga.md` | CGA graphics |
-| `docs/ega.md` | the EGA's mode 0Dh: the planes, the registers, the BIOS, `VIDEO=CGA` |
+| `docs/ega.md` | the EGA's mode 0Dh: the planes, the registers, scrolling by the start address, the offset register and panning, the BIOS, `VIDEO=CGA` |
 | `docs/tandy.md` | the Tandy 1000: `VIDEO=TANDY`, the page register, the array, modes 08h, 09h and 0Ah, the sound chip |
 | `docs/sound.md` | the DOC as PC speaker and timer, and as the Tandy's three voices and noise |
 | `docs/clock.md` | the IIGS's clock as the PC's date, time and tick count |
 | `docs/joystick.md` | the IIGS's joystick as the PC's game port |
 | `docs/mouse.md` | the IIGS's mouse as the PC's, by `INT 33h` |
+| `docs/xms.md` | XMS memory for the guest, and FreeCOM swapped out of the 640 KB |
 | `docs/serial.md` | the IIGS's modem and printer ports as COM1 and COM2 |
 | `docs/cpu-compatibility.md` | 8088 behaviour learned from the hardware vectors |
 | `docs/benchmarks.md` | measurements and where the time goes |

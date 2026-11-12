@@ -207,7 +207,7 @@ eg_mark
  sec
  sbc >EGA_START
  cmp #EGA_LEN
- bcs :out
+ bcs :far
  tax
  lda >EGA_DIRTY,x
  ora #$0001
@@ -221,11 +221,37 @@ eg_mark
  sta >VID_DIRTY,x
 :out
  rts
+:far                       ; past the 8000: on the screen all the same when its
+ cmp >EGA_WINLEN           ; lines are longer or panned (the whole is drawn then)
+ bcs :out
+ lda >VID_DIRTY
+ ora #$0001
+ sta >VID_DIRTY
+ rts
 
 * eg_markrng - the same for the eg_n bytes (not 0) from offset eg_o.
 * Y is lost.
 eg_markrng
  mx %00
+ lda >EGA_WINLEN           ; longer lines or panned: no flags, only whether
+ cmp #EGA_LEN+1            ; the run meets what the screen shows
+ bcc :flags
+ lda eg_o
+ sec
+ sbc >EGA_START
+ cmp >EGA_WINLEN
+ bcc :hit
+ eor #$FFFF
+ inc
+ cmp eg_n
+ bcs :miss
+:hit
+ lda >VID_DIRTY
+ ora #$0001
+ sta >VID_DIRTY
+:miss
+ rts
+:flags
  lda eg_o
  sec
  sbc >EGA_START

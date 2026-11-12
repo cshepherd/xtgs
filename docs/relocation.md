@@ -27,7 +27,7 @@ only place a bank-`$00` page is.
 | `JIT` (M6 code cache and block map) | `$06` | 1 | command `K` |
 | `GUEST` (the PC's megabyte) | `$20` | 16 | always |
 | `DATA` (the vector file) | `$30` | by file size | command `V` |
-| `DISK` (Mode B disk image) | `$50` | 23 | command `D` |
+| `DISK` (Mode B disk image; under `S` the guest's XMS memory, docs/xms.md) | `$50` | 23 | command `D`; command `S` too, last, and no error when there is no room (`MB_LAYOUT`'s word stays 0) |
 
 The bank-`$00` areas, each a whole number of pages:
 
