@@ -1181,6 +1181,8 @@ rd_path
  beq :vok
  cmp #'?'
  beq :vok
+ cmp #'_'
+ beq :vok
  cmp #'0'
  bcc :vbad
  cmp #'9'+1
@@ -1199,7 +1201,9 @@ rd_path
  rts
 :vend
  plx
+ inc dp_pfx
  jsr dos_path
+ stz dp_pfx                ; (STZ keeps the carry)
  bcs :out
  lda sv7
  cmp #$FFFF
@@ -1231,6 +1235,7 @@ rd_path
 :cd
  rep #$20
  mx %00
+ jsr rd_unname             ; as DOS spells it
  jsr split83
  ldx #0
 :n
@@ -1246,6 +1251,88 @@ rd_path
 :vdev
  lda #5
  sec
+ rts
+
+* rd_unname - tmpname, a ProDOS name, as DOS spells it (files.s,
+* dp_prefix): "X.." before a digit goes, and every dot but the
+* last is a "_", a dot at the end being that last. X kept.
+rd_unname
+ mx %00
+ phx
+ lda tmpname
+ and #$00FF
+ cmp #4
+ bcc :dots
+ lda tmpname+1
+ cmp #'X.'
+ bne :dots
+ lda tmpname+3
+ and #$00FF
+ cmp #'.'
+ bne :dots
+ lda tmpname+4
+ and #$00FF
+ cmp #'0'
+ bcc :dots
+ cmp #'9'+1
+ bcs :dots
+ sep #$20
+ mx %10
+ lda tmpname
+ sec
+ sbc #3
+ sta tmpname
+ ldx #0
+:c
+ lda tmpname+4,x
+ sta tmpname+1,x
+ inx
+ cpx #12
+ bcc :c
+ rep #$20
+ mx %00
+:dots
+ lda tmpname
+ and #$00FF
+ beq :out
+ tax
+ lda tmpname,x             ; its last character
+ and #$00FF
+ cmp #'.'
+ bne :f
+ dex                       ; a dot at the end: it goes, the rest are "_"
+ sep #$20
+ mx %10
+ txa
+ sta tmpname
+ rep #$20
+ mx %00
+ bra :conv
+:f                         ; X = the last dot's index
+ txa
+ beq :out
+ dex
+ lda tmpname+1,x
+ and #$00FF
+ cmp #'.'
+ bne :f
+:conv
+ txa
+ beq :out
+ dex
+ sep #$20
+ mx %10
+ lda tmpname+1,x
+ cmp #'.'
+ bne :c2
+ lda #'_'
+ sta tmpname+1,x
+:c2
+ rep #$20
+ mx %00
+ bra :conv
+:out
+ plx
  rts
 
 * rd_sft - pDTA = the SFT at ES:DI; C clear when it is a file
@@ -2129,7 +2216,19 @@ rd_ffirst
  sta pDTA
  lda pGST+2
  sta pDTA+2
- jsr pattern_fill
+ ldx #0                    ; the pattern: rd_path's 8+3 of it, as DOS spells
+ ldy #1                    ; it (DOS has made every "*" its "?"s)
+ sep #$20
+ mx %10
+:pat
+ lda rd_n83,x
+ sta [pDTA],y
+ iny
+ inx
+ cpx #11
+ bcc :pat
+ rep #$20
+ mx %00
  lda sv3                   ; the directory: what is before the pattern's slash
  beq :dlen
  dec
@@ -2400,6 +2499,7 @@ rd_fwalk
  sta sv5
 :name
  jsr entry_name            ; -> tmpname
+ jsr rd_unname             ; as DOS spells it
  jsr rd_clean83            ; DOS could not name it: not shown
  bcc :lr2
  jmp :entry

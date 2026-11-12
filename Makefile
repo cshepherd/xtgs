@@ -28,7 +28,7 @@
 #   make minix-image      the same with the Minix diskette; make run-minix boots it
 #   make games-image      build/boot/games.po: the release volume as a Tandy 1000 on
 #                         an 8 MB disk with the games' folders of release/shared
-#                         (GAMES: lsl2, outrun, arkanoid; make run-games boots it;
+#                         (GAMES: lsl2, outrun, arkanoid, keen1, mech; make run-games boots it;
 #                         lsl-image and run-lsl are the same)
 #   make release          build/release/xtgs-VERSION.po: the volume to hand out, an
 #                         800K disk that boots from ProDOS 8 into FreeDOS and has
@@ -358,7 +358,7 @@ run-tandy: $(B)/boot/tandy.po
 # the demos, with release/shared's AUTOEXEC.BAT. run-release boots it in
 # Ample's MAME; test-release boots it headless both ways (tools/release_test.py).
 # the folders of release/shared that are games: off the release, on games-image
-GAMES := lsl2 outrun arkanoid keen1
+GAMES := lsl2 outrun arkanoid keen1 mech
 RELEASE := $(B)/release/xtgs-$(XTGS_VERSION).po
 release: $(RELEASE)
 $(RELEASE): $(B)/xtgs $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/core $(B)/svc $(FDIMG) tools/release_image.py \
@@ -386,7 +386,7 @@ run-games run-lsl: $(B)/boot/games.po
 
 # games-ega-image: build/boot/gamesega.po, the same volume without the line
 # VIDEO=TANDY: a PC with the EGA (mode 0Dh), for the games that want one
-# (C:\KEEN1; OutRun's and Arkanoid's EGA choices). run-games-ega boots it.
+# (C:\KEEN1, C:\MECH; OutRun's and Arkanoid's EGA choices). run-games-ega boots it.
 games-ega-image: $(B)/boot/gamesega.po
 $(B)/boot/gamesega.po: $(B)/xtgs $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/core $(B)/svc $(FDIMG) tools/release_image.py \
             tools/gsos_rfork.py res/PRODOS release/READ.ME $(shell find release/shared -type f) Makefile

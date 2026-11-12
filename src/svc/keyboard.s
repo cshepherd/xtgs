@@ -16,6 +16,8 @@ kb_held    dw 0              ; Mode B: scancode of the key that is down (0 = non
 kb_heldt   dw 0              ; vbl_count when its make code was queued
 kb_akdt    dw 0              ; vbl_count when any-key-down was last looked at
 kb_mods    dw 0              ; Mode B: the Shift and Control bits last sent
+kb_owed    dw 0              ; the key word kb_poll last put in the buffer, until INT 16h
+                             ; takes a key or the BIOS's INT 09h sees its make code (int_09)
 KB_MINHOLD = 3               ; frames a key stays down at least
 
 * svc_vbl - from the core's slot on a VBL edge (Y saved by the core)
@@ -108,6 +110,7 @@ kb_poll
  pha                       ; the key word (scan<<8 | ascii)
  jsr kb_push               ; -> BDA ring buffer (INT 16h path, unchanged)
  pla
+ sta kb_owed               ; (int_09)
  jmp kb_scpush             ; -> port-0x60 scancode ring (IRQ1/INT 09h path)
 :none
  rep #$20
@@ -313,6 +316,32 @@ kb_translate
  ora sv0
  rts
 
+* int_09 - the BIOS's INT 09h, after its IN AL,60h (the stub at
+* F000:KB9_OFF; AL is the scancode). On a PC this is where a key
+* goes into the buffer. Here kb_poll put it there as it queued the
+* make code, before any handler ran; but a program's own INT 09h
+* handler that empties the buffer and then passes the interrupt on
+* (MechWarrior: tail = head, JMP FAR to the old vector) means the
+* key that is coming to stay. So when this make code is the last
+* key's and the buffer is empty, the key goes in again.
+int_09
+ mx %00
+ lda kb_owed
+ beq :out
+ xba
+ eor rAX
+ and #$00FF
+ bne :out                  ; a break code, or not that key's
+ lda >H_BDA+BDA_KBHEAD
+ cmp >H_BDA+BDA_KBTAIL
+ bne :keep                 ; it is still there
+ lda kb_owed
+ jsr kb_push
+:keep
+ stz kb_owed
+:out
+ rts
+
 * kb_push - A = key word into the BDA ring; dropped when full
 kb_push
  mx %00
@@ -416,6 +445,7 @@ kb_pop
 :nw
  txa
  sta >H_BDA+BDA_KBHEAD
+ stz kb_owed               ; taken: int_09 must not bring it back
  lda sv2
  sec
  rts
@@ -463,4 +493,5 @@ kb_flush
  lda >H_BDA+BDA_KBTAIL
  sta >H_BDA+BDA_KBHEAD
  stz key_pending
+ stz kb_owed
  rts

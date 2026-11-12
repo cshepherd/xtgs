@@ -44,6 +44,9 @@ cwd        ds 66             ; DOS current directory, no leading "\", Pascal
 fcb_ptr    dw 0              ; the current FCB (guest offset in DS)
 err_dos    dw 0              ; last DOS error code
 tmpname    ds 16
+dp_pfx     dw 0              ; the shared drive's: names ProDOS cannot hold are respelt (dp_prefix)
+dp_us      dw 0              ; this component had a "_"
+dp_dot     dw 0              ; and a "."
 
 *=== the MLI =================================================
 * mli - A = command; the parameter list is already at
@@ -117,6 +120,8 @@ dos_err
 dos_path
  mx %00
  stx sv6                   ; destination offset in bank 0
+ stz dp_us
+ stz dp_dot
  lda #$FFFF
  sta sv7
  ldy #0
@@ -200,9 +205,12 @@ dos_path
  jmp :done
 :lj3
  cmp #'\'
- beq :sep
+ beq :sepj
  cmp #'/'
- beq :sep
+ bne :lj3b
+:sepj
+ jmp :sep
+:lj3b
  cmp #'a'
  bcc :nolow
  cmp #'z'+1
@@ -210,7 +218,10 @@ dos_path
  and #$5F
 :nolow
  cmp #'.'
- beq :ok
+ bne :nodot
+ sta dp_dot
+ bra :ok
+:nodot
  cmp #'?'                  ; wildcards stay: find first takes the last component
  beq :ok                   ; as its pattern, and ProDOS refuses them anywhere else
  cmp #'*'
@@ -224,9 +235,25 @@ dos_path
  cmp #'Z'+1
  bcc :ok
 :bad
+ cmp #'_'
+ bne :bad2
+ ldx dp_pfx
+ beq :bad2
+ jsr dp_under              ; the shared drive: "_" is kept as a "."
+ bcc :bad2
+ jmp :toolong
+:bad2
  lda #'.'
 :ok
  sta sv8
+ cmp #'0'
+ bcc :nopfx
+ cmp #'9'+1
+ bcs :nopfx
+ jsr dp_prefix             ; a component may not start with a digit
+ bcc :nopfx
+ jmp :toolong
+:nopfx
  lda sv5
  cmp #63
  bcc :room
@@ -246,6 +273,7 @@ dos_path
  jmp :copy
 :sep
  iny
+ jsr dp_close
  ; drop a "." component; ".." removes the previous one
  jsr path_dots
  lda sv5
@@ -267,6 +295,7 @@ dos_path
  inc sv5
  jmp :copy
 :done
+ jsr dp_close
  jsr path_dots
  ; a trailing '/' goes
  lda sv5
@@ -303,6 +332,113 @@ dos_path
 :empty
  lda #3                    ; path not found
  sec
+ rts
+
+* The shared drive's names (dp_pfx set by rd_path). ProDOS takes
+* a letter, then letters, digits and dots; DOS names also start
+* with digits and hold "_". So for that drive:
+*   a "_" in the name's first part is stored as a ".", and a name
+*   with one and no extension gets a "." at its end: every dot
+*   but the last is an underscore (MW_MAIN.EXE is MW.MAIN.EXE,
+*   A_B is A.B.);
+*   a name that starts with a digit gets "X.." first (6X6.FNT is
+*   X..6X6.FNT).
+* rd_unname reads them back.
+
+* dp_first - C set when the next character starts a component.
+* Y kept.
+dp_first
+ mx %00
+ lda sv5
+ beq :yes
+ dec
+ clc
+ adc sv6
+ tax
+ lda >PATHBUF0+1,x
+ and #$00FF
+ cmp #'/'
+ beq :yes
+ clc
+ rts
+:yes
+ sec
+ rts
+
+* dp_prefix - a digit is about to be stored: "X.." before it when
+* it starts a component. Y kept; C set when there is no room.
+dp_prefix
+ mx %00
+ lda dp_pfx
+ beq :no
+ jsr dp_first
+ bcc :no
+ lda sv5
+ cmp #60
+ bcs :long
+ clc
+ adc sv6
+ tax
+ sep #$20
+ mx %10
+ lda #'X'
+ sta >PATHBUF0+1,x
+ lda #'.'
+ sta >PATHBUF0+2,x
+ sta >PATHBUF0+3,x
+ rep #$20
+ mx %00
+ lda sv5
+ clc
+ adc #3
+ sta sv5
+:no
+ clc
+ rts
+:long
+ sec
+ rts
+
+* dp_under - a "_": C clear when it may be a "." (not the first
+* character, which ProDOS would refuse, and not in the extension,
+* which could not be told from the name). Y kept.
+dp_under
+ mx %00
+ lda dp_dot
+ bne :no
+ jsr dp_first
+ bcs :no
+ inc dp_us
+ clc
+ rts
+:no
+ sec
+ rts
+
+* dp_close - a component ends: one with a "_" and no extension
+* gets its last ".". Y kept.
+dp_close
+ mx %00
+ lda dp_us
+ beq :out
+ lda dp_dot
+ bne :out
+ lda sv5
+ cmp #63
+ bcs :out
+ clc
+ adc sv6
+ tax
+ sep #$20
+ mx %10
+ lda #'.'
+ sta >PATHBUF0+1,x
+ rep #$20
+ mx %00
+ inc sv5
+:out
+ stz dp_us
+ stz dp_dot
  rts
 
 * path_dots - the last component of the path under construction
@@ -387,7 +523,7 @@ path_device                ; CON NUL AUX PRN (3 letters, whole path) -> sv7
 :lj7
  ldx sv6
  lda >PATHBUF0+1,x
- cmp #'OC'                 ; "CO"
+ cmp #'CO'
  bne :n1
  lda >PATHBUF0+3,x
  and #$00FF
@@ -397,7 +533,7 @@ path_device                ; CON NUL AUX PRN (3 letters, whole path) -> sv7
  sta sv7
  rts
 :n1
- cmp #'UN'                 ; "NU"
+ cmp #'NU'
  bne :n2
  lda >PATHBUF0+3,x
  and #$00FF
@@ -407,7 +543,7 @@ path_device                ; CON NUL AUX PRN (3 letters, whole path) -> sv7
  sta sv7
  rts
 :n2
- cmp #'UA'                 ; "AU"
+ cmp #'AU'
  bne :n3
  lda >PATHBUF0+3,x
  and #$00FF
@@ -417,7 +553,7 @@ path_device                ; CON NUL AUX PRN (3 letters, whole path) -> sv7
  sta sv7
  rts
 :n3
- cmp #'RP'                 ; "PR"
+ cmp #'PR'
  bne :no
  lda >PATHBUF0+3,x
  and #$00FF

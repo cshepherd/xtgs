@@ -58,6 +58,28 @@ handler) sees a key held:
   break code of left Shift (`2Ah`) or Ctrl (`1Dh`). Tunneler's fire button is
   Ctrl.
 
+### The BIOS's own INT 09h
+
+On a PC the key goes into the buffer inside the BIOS's INT 09h handler, after
+any handler a program has put in front of it. Here `kb_poll` puts it there as
+it queues the make code, before the interrupt is delivered, which is the same
+to a program that only calls INT 16h and to one that takes the scancodes for
+itself. It is not the same to a program whose INT 09h handler empties the
+buffer and then passes the interrupt on to the BIOS, which MechWarrior's does
+at every key (tail = head, then a far jump to the old vector): the key the
+interrupt announces was already in the buffer, and went with the rest. About
+every second key was lost.
+
+So the BIOS's handler does its part (`int_09`, hypercall 9 from the stub at
+`F000:KB9_OFF`: `PUSH AX`, `IN AL,60h`, the hypercall, `POP AX`, `IRET`).
+`kb_poll` keeps the last key word it stored in `kb_owed`; when the scancode
+the stub read is that key's make code and the buffer is empty, the key is
+stored again. `kb_owed` is dropped when INT 16h takes a key (`kb_pop`) or the
+buffer is emptied by DOS (`kb_flush`), so a key that was read before its
+interrupt arrived does not come twice. The break code's interrupt empties
+MechWarrior's buffer again, as it does on a PC: a key it has not read by then
+is lost there too.
+
 Limits, all from what `$C000`/`$C010` can say:
 
 - **One ordinary key at a time.** The IIGS reports the latest key only, so a

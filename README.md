@@ -29,6 +29,8 @@ drives the PC's interrupt controller, diskette controller and 6845 itself.
 | Leisure Suit Larry 2 as a Tandy 1000: Sierra's Tandy driver in mode 09h, the game's own arrow following the IIGS's mouse | Out Run in its Tandy 16-colour mode, the music on the Tandy's three voices |
 | ![Arkanoid in EGA mode 0Dh](assets/arkanoid.png) | ![Commander Keen 1's title and menu](assets/keen1.png) |
 | Arkanoid in EGA mode 0Dh, round 3 | Commander Keen: Marooned on Mars, in EGA mode 0Dh scrolled by the card's registers, with FreeDOS's shell swapped out to XMS memory to make room for it |
+| ![MechWarrior's world screen](assets/mechwarrior-world.png) | ![MechWarrior's cockpit](assets/mechwarrior.png) |
+| MechWarrior in EGA mode 0Dh: the planet's screen, its files (`MW_MAIN.EXE`, `6X6.FNT`) on the ProDOS volume under names ProDOS can hold | The same game in a mission: the cockpit of a Jenner, the ground and hills drawn as polygons |
 
 The screenshots are the emulated IIGS's Super Hi-Res screen, captured from
 headless MAME runs and doubled in height (the SHR screen is 640x200 or

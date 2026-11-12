@@ -27,8 +27,10 @@ a 3.5-inch disk), that a IIGS boots from and that GS/OS can launch from:
                           its extension says so (TEXT_EXT) and its bytes
                           are text; any other goes as it is, type BIN.
                           A name must be one that both ProDOS and DOS
-                          can hold: a letter, then letters and digits, 8
-                          at most, and an extension of 3 at most
+                          can hold: letters, digits and _, 8 at most, and
+                          an extension of 3 at most; one with a _ or a
+                          digit at its start is stored the way the
+                          shared drive spells it (prodos_name)
     Icons/Desktop         names the application for the Finder, so that
                           its icon shows before the first launch
 
@@ -51,7 +53,7 @@ VOL = "XTGS"
 LEFT_OUT = {"EGADEMO.BAS"}
 NEEDED = {"KERNEL.SYS", "COMMAND.COM", "FDCONFIG.SYS", "GWBASIC.EXE"}
 TEXT_EXT = {"BAT", "BAS", "TXT", "ME", "DOC", "INI", "CFG", "SYS"}
-NAME = re.compile(r"[A-Z][A-Z0-9]{0,7}(\.[A-Z0-9]{1,3})?$")
+NAME = re.compile(r"(?=[A-Z0-9_]{1,8}(\.|$))[A-Z0-9][A-Z0-9_]*(\.[A-Z0-9]{1,3})?$")
 SKIP = {".DS_Store"}
 
 
@@ -62,6 +64,15 @@ def is_text(name, data):
     return ext in TEXT_EXT and all(b in (9, 10, 13) or 32 <= b < 127 for b in data)
 
 
+def prodos_name(name):
+    """The shared drive's ProDOS spelling of a DOS name (docs/share.md): a _ is
+    a dot (and a name with one and no extension ends in a dot), and X.. goes
+    before a digit that starts it."""
+    if "_" in name:
+        name = name.replace("_", ".") + ("" if "." in name else ".")
+    return "X.." + name if name[0].isdigit() else name
+
+
 def add_tree(src, dst, without=()):
     """release/shared and what is below it, into the staged folder."""
     for entry in sorted(os.listdir(src)):
@@ -70,7 +81,8 @@ def add_tree(src, dst, without=()):
         path, name = os.path.join(src, entry), entry.upper()
         if not NAME.match(name):
             sys.exit(f"release_image: {path}: not a name ProDOS and DOS can both hold "
-                     "(a letter, then letters and digits: 8, and 3 after one dot)")
+                     "(letters, digits and _: 8, and 3 letters or digits after one dot)")
+        name = prodos_name(name)
         if os.path.isdir(path):
             os.makedirs(os.path.join(dst, name), exist_ok=True)
             add_tree(path, os.path.join(dst, name))

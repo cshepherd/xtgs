@@ -122,13 +122,35 @@ kernel would need its own way in; only FreeDOS 2043 boots like this.
 
 | DOS | ProDOS |
 | --- | --- |
-| a file | a file with one fork, of any type, whose name reads as a DOS name: at most 8 characters, and at most 3 after one dot. Others are not listed and cannot be opened (`XTGS.SYSTEM`, `LONG.NAME.FILE`, a file with a resource fork) |
+| a file | a file with one fork, of any type, whose name reads as a DOS name (below): at most 8 characters, and at most 3 after one dot. Others are not listed and cannot be opened (`XTGS.SYSTEM`, `LONG.NAME.FILE`, a file with a resource fork) |
 | a directory | a folder (the same rule for its name) |
-| a new file | type `TXT`, auxiliary type 0. A name ProDOS cannot hold (one that starts with a digit, or has a character other than letters, digits and dots) fails with "path not found" |
+| a new file | type `TXT`, auxiliary type 0. A name with a character other than letters, digits, `_` and the dot fails with "access denied", and one that starts with `_` or has one in its extension with "path not found" |
 | size, date and time | the file's end of file and its modification date. DOS cannot set them: a copied file gets the time it was copied |
 | read-only attribute | the file is locked (ProDOS's access byte has no write, rename or destroy). `ATTRIB +R` locks, `-R` unlocks. Hidden, system and archive are not kept |
 | volume label | none |
 | free space | the volume's free blocks, as 512-byte clusters |
+
+### Names ProDOS cannot hold
+
+A ProDOS name is a letter, then letters, digits and dots, 15 at most. DOS
+programs also name files `6X6.FNT` and `MW_MAIN.EXE`, so the drive spells two
+kinds of name differently on the volume (`dp_prefix`, `dp_under`, `dp_close`
+in `files.s`; `rd_unname` in `redir.s` reads them back for a directory search
+and for the name DOS keeps of an open file):
+
+| DOS | ProDOS | |
+| --- | --- | --- |
+| `MW_MAIN.EXE` | `MW.MAIN.EXE` | a `_` in the name's first part is a dot: every dot but the last is an underscore |
+| `A_B` | `A.B.` | with no extension, the name ends in the dot that is the last |
+| `6X6.FNT` | `X..6X6.FNT` | `X..` before a name that starts with a digit |
+| `1_2.TXT` | `X..1.2.TXT` | both |
+
+So a ProDOS file `A.B.TXT` is DOS's `A_B.TXT` (it was not listed before), and
+the longest DOS name still fits in 15 characters. Two things follow that are
+not put right: DOS's `X__6.TXT` is stored as `X..6.TXT` and then listed as
+`6.TXT`, and a name with a `_` first or in the extension cannot be made.
+`tools/release_image.py` stores a folder's files the same way
+(`prodos_name`), and `make test-share` has a case of each.
 
 Up to 8 files of the drive can be open at once (the files `A:` has open do
 not count), and a directory search needs one of the 8 for the moment it

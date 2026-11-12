@@ -619,6 +619,25 @@ build_stubs
  sta >H_BIOS+5,x
  lda #$CF
  sta >H_BIOS+6,x
+ ldx #KB9_OFF              ; INT 09h (IRQ1), the BIOS's: PUSH AX; IN AL,60h;
+ lda #$50                  ; hypercall 9 (int_09: the key into the buffer if a
+ sta >H_BIOS,x
+ lda #$E4                  ; handler before this one emptied it); POP AX; IRET
+ sta >H_BIOS+1,x
+ lda #$60
+ sta >H_BIOS+2,x
+ lda #$FE
+ sta >H_BIOS+3,x
+ lda #$38
+ sta >H_BIOS+4,x
+ lda #$09
+ sta >H_BIOS+5,x
+ lda #$00
+ sta >H_BIOS+6,x
+ lda #$58
+ sta >H_BIOS+7,x
+ lda #$CF
+ sta >H_BIOS+8,x
  ldx #CALL5_OFF            ; mov ah,cl / int 21h / retf
  lda #$88
  sta >H_BIOS,x
@@ -669,6 +688,8 @@ build_ivt
  bcc :v
  lda #TICK_OFF             ; INT 08h has the longer stub (it chains INT 1Ch)
  sta >H_IVT+$20
+ lda #KB9_OFF              ; and INT 09h (it reads the port first)
+ sta >H_IVT+$24
  rts
 
 build_bda

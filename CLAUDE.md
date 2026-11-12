@@ -104,14 +104,14 @@ make games-image  build/boot/games.po: the release volume as a Tandy 1000
                   (VIDEO=TANDY) on an 8 MB disk (GAMESIZE=), with the games'
                   folders of release/shared on it (the Makefile's GAMES:
                   lsl2, a Sierra game whose RESOURCE.CFG names TANDY320.DRV
-                  and JR.DRV, outrun, arkanoid, keen1: whichever are there), which
+                  and JR.DRV, outrun, arkanoid, keen1, mech: whichever are there), which
                   make release leaves out and .gitignore keeps out of the
                   tree (release_image.py's --without and --cmd); make
                   run-games boots it in Ample's MAME; lsl-image and run-lsl
                   are the older names
 make games-ega-image
                   build/boot/gamesega.po: the same volume without
-                  VIDEO=TANDY, a PC with the EGA (keen1, and OutRun's and
+                  VIDEO=TANDY, a PC with the EGA (keen1, mech, and OutRun's and
                   Arkanoid's EGA choices); make run-games-ega boots it
 make test-joy     the IIGS's joystick as the PC's game port (docs/joystick.md):
                   JOYTEST L under FreeDOS, MAME's joystick (XTGS_GAMEIO=joy)
@@ -274,6 +274,12 @@ front page for `+`).
   (`rd_early`, unhooked at the shell's `AX=4B00h`). It depends on FreeDOS's
   kernel (its entry convention and its use of its own `INT 21h` during
   startup); no other DOS boots this way.
+- The shared drive spells a DOS name ProDOS cannot hold another way on the
+  volume (docs/share.md: a `_` is a dot, `X..` goes before a leading digit;
+  `dp_prefix`/`dp_under`/`dp_close` in `files.s` while `dp_pfx` is set,
+  `rd_unname` in `redir.s` back). Anything that turns a ProDOS name into a
+  DOS one, or the other way, goes through those; `tools/release_image.py`'s
+  `prodos_name` is the same rule for the host.
 - The shared drive makes its folder the ProDOS prefix (`SET_PREFIX`; GS/OS
   prefix 1) and sends partial pathnames, and issues `FLUSH`: both front
   ends answer those. After a change to `redir.s`, `files.s` or a front
@@ -309,6 +315,10 @@ clear, for ever. A new instruction that can set IF must do the same. The
 slot delivers IRQ n
 (0, 1, COM2's 3, COM1's 4 and the diskette's 6) at vector `PIC_BASE+n` and only when bit n of
 `PIC_MASK` is clear: never write `INT 08h`/`09h` into the core as a number.
+The BIOS's INT 09h (`F000:KB9_OFF`, `int_09` in `keyboard.s`) stores the
+last key again when a guest handler before it emptied the buffer
+(`kb_owed`; docs/keyboard.md): whatever takes a key out of the BDA's ring
+for the guest clears `kb_owed`, as `kb_pop` and `kb_flush` do.
 IRQ1 alone has an in-service state (`PIC_KBIS`): from its delivery until
 the guest reads port 60h or writes an EOI to port 20h the slot brings no
 other, because a handler that begins with `STI` (Sierra's keyboard driver)

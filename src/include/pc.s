@@ -106,6 +106,7 @@ PIC_IRQ6   = RES_BASE+$8B0   ; u16 nonzero: the diskette controller's interrupt 
 CRTC_CUR   = RES_BASE+$8B2   ; u16 nonzero: the cursor is where the 6845's R14/R15 put it
                              ; (the guest wrote them after the BIOS last moved it)
 TICK_OFF   = $0510           ; F000:0510, INT 08h: hypercall 8 / int 1Ch / iret
+KB9_OFF    = $0518           ; F000:0518, INT 09h: push ax / in al,60h / hypercall 9 / pop ax / iret
 MS_OFF     = $0590           ; F000:0590, the mouse driver's stub, which calls the handler (mouse.s)
 CTL_REQ    = RES_BASE+$954   ; u16 the desk accessory's request (control.s): 1 a soft
                              ; reboot, 2 a hard one; svc_vbl takes it

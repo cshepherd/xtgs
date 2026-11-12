@@ -3,7 +3,7 @@
 * dos_tab: handler for each INT 21h function AH = 0-$7F.
 int_tab
  da int_default,int_default,int_default,int_default,int_default,int_default,int_default,int_default
- da int_08,int_default,int_default,int_default,int_default,int_default,int_default,int_default
+ da int_08,int_09,int_default,int_default,int_default,int_default,int_default,int_default
  da int_10,int_11,int_12,int_13,int_14,int_15,int_16,int_default
  da int_default,int_19,int_1A,int_default,int_default,int_default,int_default,int_default
  da int_20,int_21,int_default,int_default,int_default,int_default,int_default,int_default

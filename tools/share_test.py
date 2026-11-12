@@ -44,6 +44,8 @@ DIR C:
 ECHO [type]
 TYPE C:\HELLO.TXT
 TYPE C:\DOCS\NOTE.TXT
+TYPE C:\7UP.TXT
+TYPE C:\A_B.TXT
 ECHO [toA]
 COPY C:\HELLO.TXT A:\H2.TXT
 TYPE A:\H2.TXT
@@ -58,6 +60,12 @@ CD SUB
 COPY A:\FDCONFIG.SYS ONE.TXT
 COPY ONE.TXT TWO.TXT
 REN TWO.TXT THREE.TXT
+COPY ONE.TXT 4FOUR.TXT
+COPY 4*.TXT 5FIVE.TXT
+COPY ONE.TXT S_X
+COPY S_?.* T_U.V
+COPY ONE.TXT 6_7.TXT
+DEL 4FOUR.TXT
 DIR
 DEL ONE.TXT
 CD ..
@@ -183,6 +191,8 @@ def main():
     sh(CADIUS, "ADDFILE", po, share + "/", os.path.join(work, "FILEOPS.COM#060000"), "--quiet")
     sh(CADIUS, "ADDFILE", po, share + "/", put("LONG.NAME.FILE#040000", b"not a DOS name\r\n"), "--quiet")
     sh(CADIUS, "ADDFILE", po, share + "/DOCS/", put("NOTE.TXT#040000", NOTE), "--quiet")
+    sh(CADIUS, "ADDFILE", po, share + "/", put("X..7UP.TXT#040000", b"Seven up.\r\n"), "--quiet")
+    sh(CADIUS, "ADDFILE", po, share + "/", put("A.B.TXT#040000", b"A and B.\r\n"), "--quiet")
     sh(CADIUS, "ADDFILE", po, share + "/", put("T.BAT#040000", b"@ECHO OFF\r\nECHO a batch file on the drive\r\n"), "--quiet")
     if basic:
         sh(CADIUS, "ADDFILE", po, share + "/", put("PROG.BAS#040000", BASIC.replace("C:", L + ":").replace("\n", "\r\n").encode()), "--quiet")
@@ -242,6 +252,14 @@ def main():
     want(re.search(r"DOCS\s+<DIR>", g("dir")), "DIR C: does not list DOCS as a directory")
     want("LONG" not in g("dir"), "DIR C: lists the name that is not 8.3")
     want("Hello from ProDOS." in g("type"), "TYPE C:\\HELLO.TXT")
+    want(re.search(r"^7UP\s+TXT\s+11\b", g("dir"), re.M), "DIR C: does not list X..7UP.TXT as 7UP.TXT, 11 bytes")
+    want("Seven up." in g("type"), "TYPE C:\\7UP.TXT")
+    want(re.search(r"^A_B\s+TXT\s+10\b", g("dir"), re.M), "DIR C: does not list A.B.TXT as A_B.TXT, 10 bytes")
+    want("A and B." in g("type"), "TYPE C:\\A_B.TXT")
+    want(re.search(r"^S_X\s+38\b", g("cd"), re.M) and re.search(r"^T_U\s+V\s", g("cd"), re.M)
+         and re.search(r"^6_7\s+TXT", g("cd"), re.M), "DIR in C:\\SUB does not list S_X, T_U.V and 6_7.TXT")
+    want(re.search(r"^5FIVE\s+TXT", g("cd"), re.M) and not re.search(r"4FOUR\s+TXT", g("cd")),
+         "DIR in C:\\SUB: 5FIVE.TXT copied from 4*.TXT, 4FOUR.TXT deleted")
     want("A file in a folder." in g("type"), "TYPE C:\\DOCS\\NOTE.TXT")
     want("Hello from ProDOS." in g("toA"), "the copy to A: does not read back")
     want("LASTDRIVE=Z" in g("toC") and "SHELL=" in g("toC"), "the copy to C: does not read back")
@@ -277,7 +295,9 @@ def main():
     for n in ("ONE.TXT", "TWO.TXT", "GONE", "T1.TMP", "T2.TMP", "TMP.OUT", "BAS.OUT"):
         want(not re.search(rf"\b{re.escape(n)}\b", cat), f"the volume still has {n}")
     same = [("KEEP.TXT", os.path.join(work, "FDCONFIG.SYS")), ("BIG.BIN", os.path.join(FD, "COMMAND.COM")),
-            ("SUB/THREE.TXT", os.path.join(work, "FDCONFIG.SYS"))] + ([("GW.EXE", GW)] if basic else [])
+            ("SUB/THREE.TXT", os.path.join(work, "FDCONFIG.SYS")),
+            ("SUB/X..5FIVE.TXT", os.path.join(work, "FDCONFIG.SYS")), ("SUB/S.X.", os.path.join(work, "FDCONFIG.SYS")),
+            ("SUB/T.U.V", os.path.join(work, "FDCONFIG.SYS")), ("SUB/X..6.7.TXT", os.path.join(work, "FDCONFIG.SYS"))] + ([("GW.EXE", GW)] if basic else [])
     for pd, ref in same:
         r2 = subprocess.run([CADIUS, "EXTRACTFILE", po, f"{share}/{pd}", out + "/", "--quiet"],
                             capture_output=True, text=True)
