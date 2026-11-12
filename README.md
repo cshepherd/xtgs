@@ -31,6 +31,8 @@ drives the PC's interrupt controller, diskette controller and 6845 itself.
 | Arkanoid in EGA mode 0Dh, round 3 | Commander Keen: Marooned on Mars, in EGA mode 0Dh scrolled by the card's registers, with FreeDOS's shell swapped out to XMS memory to make room for it |
 | ![MechWarrior's world screen](assets/mechwarrior-world.png) | ![MechWarrior's cockpit](assets/mechwarrior.png) |
 | MechWarrior in EGA mode 0Dh: the planet's screen, its files (`MW_MAIN.EXE`, `6X6.FNT`) on the ProDOS volume under names ProDOS can hold | The same game in a mission: the cockpit of a Jenner, the ground and hills drawn as polygons |
+| ![688 Attack Sub's control room](assets/sub688.png) | ![688 Attack Sub's ship control panel](assets/sub688-contour.png) |
+| 688 Attack Sub (a preview edition) in EGA mode 0Dh: the control room, the stations reached by Option and a digit as F2 to F8 | Its ship control panel, the sea bottom ahead drawn by the contour mapping display |
 
 The screenshots are the emulated IIGS's Super Hi-Res screen, captured from
 headless MAME runs and doubled in height (the SHR screen is 640x200 or
