@@ -44,10 +44,18 @@ svc_hypercall
  sec
  sbc #256
  cmp #RD_NCALLS
- bcs :cont
+ bcs :ms
  asl
  tax
  jsr (rd_tab,x)
+ bra :cont
+:ms                        ; then the mouse driver's (mouse.s)
+ sbc #RD_NCALLS
+ cmp #MS_NCALLS
+ bcs :cont
+ asl
+ tax
+ jsr (ms_calls,x)
  bra :cont
 
 * int_default - an unserviced vector: note it, return (IRET)

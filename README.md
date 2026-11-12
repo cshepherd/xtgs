@@ -87,6 +87,11 @@ lost at power-off. See [Known limits](#known-limits).
   through `INT 15h AH=84h`, with the counts a program written for a 4.77 MHz
   PC expects from its own read loop; `JOYTEST.COM` shows what it reads. Run
   in MAME only (`docs/joystick.md`).
+- **Mouse:** the IIGS's mouse is the PC's, behind the Microsoft driver's
+  `INT 33h` with nothing to load: place and buttons, the text cursor, and a
+  program's handler called as it moves (`MOUSE=OFF` in `XTGS.CMD` for a PC
+  without one); `MOUSETST.COM` shows what it reads. Run in MAME only
+  (`docs/mouse.md`).
 - **Clock:** the guest's date and time are the IIGS's own, read from its
   clock (never set by the guest), and the timer ticks DOS could not be given
   are made up from it so its time stays right (`docs/clock.md`).
@@ -575,6 +580,7 @@ suite: all 324 opcode files, 2,883,807 vectors after the exclusions listed in
 | `docs/sound.md` | the DOC as PC speaker and timer, and as the Tandy's three voices and noise |
 | `docs/clock.md` | the IIGS's clock as the PC's date, time and tick count |
 | `docs/joystick.md` | the IIGS's joystick as the PC's game port |
+| `docs/mouse.md` | the IIGS's mouse as the PC's, by `INT 33h` |
 | `docs/serial.md` | the IIGS's modem and printer ports as COM1 and COM2 |
 | `docs/cpu-compatibility.md` | 8088 behaviour learned from the hardware vectors |
 | `docs/benchmarks.md` | measurements and where the time goes |

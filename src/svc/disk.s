@@ -56,6 +56,7 @@ svc_bootinit
  sta >H_BDA+BDA_EQUIP
 :fd
  jsr rd_setup              ; a shared ProDOS directory? (redir.s)
+ jsr ms_setup              ; the mouse driver, unless XTGS.CMD says MOUSE=OFF
  lda #0
  sta >MB_INT13N
  sta >MB_BOOTTRC

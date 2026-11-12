@@ -106,6 +106,7 @@ PIC_IRQ6   = RES_BASE+$8B0   ; u16 nonzero: the diskette controller's interrupt 
 CRTC_CUR   = RES_BASE+$8B2   ; u16 nonzero: the cursor is where the 6845's R14/R15 put it
                              ; (the guest wrote them after the BIOS last moved it)
 TICK_OFF   = $0510           ; F000:0510, INT 08h: hypercall 8 / int 1Ch / iret
+MS_OFF     = $0590           ; F000:0590, the mouse driver's stub, which calls the handler (mouse.s)
 RD_OFF     = $0540           ; F000:0540, the shared drive's stubs (redir.s)
 RD_STATE   = RES_BASE+$8A0   ; u16 the shared drive: 0 none, 1-3 on the way,
                              ; 4 there, 5 it could not be installed
@@ -189,6 +190,8 @@ PIC_IRQ4   = RES_BASE+$9E2   ; u16 nonzero: COM1's interrupt is waiting (the slo
 PIC_IRQ3   = RES_BASE+$9E4   ; u16 and COM2's
  err PIC_IRQ3-PIC_IRQ4-2     ; (serial.s indexes the one from the other)
 PIC_KBIS   = RES_BASE+$9EA   ; u16 nonzero: IRQ1 is in service: delivered, port 60h not read and no EOI since (cpu.s, ports.s)
+PIC_MOUSE  = RES_BASE+$9EC   ; u16 nonzero: the mouse driver has an event for its handler (the slot enters F000:MS_OFF; mouse.s)
+MS_RAW     = RES_BASE+$9EE   ; u16 the last X and Y bytes read from the mouse
 COM_ON     = RES_BASE+$9E6   ; u16 XTGS.CMD: bit 0 COM1=MODEM, bit 1 COM2=PRINTER
 COM_OPEN   = RES_BASE+$9E8   ; u16 the same bits: the SCC's channel is ours (from the
                              ; guest's first use of the port)

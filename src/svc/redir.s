@@ -281,6 +281,8 @@ rd_readcfg
  stz eg_none
  stz tdy_cfg
  stz com_cfg
+ lda #1
+ sta ms_cfg
  ldx #0
  lda #0
  jsr p_open
@@ -429,9 +431,40 @@ rd_readcfg
  jmp :wno
 :none2
  jmp :none
-:wv                        ; "VIDEO=CGA": the PC has no EGA (ega.s)
+:wv
  cmp #'V'
- bne :wno
+ beq :wvid
+ cmp #'M'                  ; "MOUSE=OFF": no mouse driver (mouse.s)
+ bne :wno3
+:mk
+ lda sv1
+ cmp #$0D
+ beq :wno3
+ cmp #$0A
+ beq :wno3
+ cmp #'='
+ beq :mv
+ jsr rd_cfgch
+ beq :none3
+ sta sv1
+ bra :mk
+:mv
+ jsr rd_cfgch
+ beq :none3
+ sta sv1
+ cmp #'O'
+ bne :wno3
+ jsr rd_cfgch
+ beq :none3
+ sta sv1
+ cmp #'F'
+ bne :wno3
+ stz ms_cfg
+:wno3
+ jmp :wno
+:none3
+ jmp :none
+:wvid                      ; "VIDEO=CGA": the PC has no EGA (ega.s)
  ldy #0
 :wk
  lda rd_vkey,y

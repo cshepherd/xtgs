@@ -198,7 +198,19 @@ slot
  adc #3
  jsr do_int                ; INT 0Bh
  jmp fetch
-:fdc                       ; IRQ6: the diskette controller finished (ports.s)
+:fdc                       ; the mouse driver has an event for its handler (mouse.s):
+ lda >PIC_MOUSE            ; its stub at F000:MS_OFF is entered as an interrupt
+ beq :fdc6                 ; enters a handler, but by no vector (DOS takes the
+ lda #0                    ; hardware interrupts' for itself)
+ sta >PIC_MOUSE
+ sty rIP
+ jsr int_push
+ lda #BIOS_SEG
+ sta rCS
+ jsr set_cs
+ ldy #MS_OFF
+ jmp fetch
+:fdc6                      ; IRQ6: the diskette controller finished (ports.s)
  lda >PIC_IRQ6
  beq :vbl
  lda >PIC_MASK
@@ -250,6 +262,8 @@ irq_owed                   ; C set: Mode B and an interrupt waiting
  lda >PIC_IRQ4             ; IRQ4
  bne :yes
  lda >PIC_IRQ3             ; IRQ3
+ bne :yes
+ lda >PIC_MOUSE            ; the mouse driver's
  bne :yes
  lda >PIC_KBIS             ; IRQ1, unless one is in service
  bne :no
@@ -835,15 +849,7 @@ vid_mark_rng
 do_int
  mx %00
  sta tmp6
- jsr flags_get
- jsr push16
- lda rFL
- and #$FCFF
- sta rFL
- lda rCS
- jsr push16
- lda rIP
- jsr push16
+ jsr int_push
  lda tmp6
  asl
  asl
@@ -857,6 +863,20 @@ do_int
  lda [pSTK]
  tay
  rts
+
+*--- int_push: what an interrupt leaves on the stack (FLAGS, CS, the
+* IP in rIP), IF and TF cleared. Keeps tmp6.
+int_push
+ mx %00
+ jsr flags_get
+ jsr push16
+ lda rFL
+ and #$FCFF
+ sta rFL
+ lda rCS
+ jsr push16
+ lda rIP
+ jmp push16
 
 *--- unimplemented or undefined: count it and move on
 op_bad

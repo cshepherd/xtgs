@@ -8,7 +8,7 @@ int_tab
  da int_default,int_19,int_1A,int_default,int_default,int_default,int_default,int_default
  da int_20,int_21,int_default,int_default,int_default,int_default,int_default,int_default
  da int_default,int_29,int_default,int_default,int_default,int_default,int_default,int_default
- da int_default,int_default,int_default,int_default,int_default,int_default,int_default,int_default
+ da int_default,int_default,int_default,int_33,int_default,int_default,int_default,int_default
  da int_default,int_default,int_default,int_default,int_default,int_default,int_default,int_default
  da int_default,int_default,int_default,int_default,int_default,int_default,int_default,int_default
  da int_default,int_default,int_default,int_default,int_default,int_default,int_default,int_default
