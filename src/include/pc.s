@@ -107,6 +107,12 @@ CRTC_CUR   = RES_BASE+$8B2   ; u16 nonzero: the cursor is where the 6845's R14/R
                              ; (the guest wrote them after the BIOS last moved it)
 TICK_OFF   = $0510           ; F000:0510, INT 08h: hypercall 8 / int 1Ch / iret
 MS_OFF     = $0590           ; F000:0590, the mouse driver's stub, which calls the handler (mouse.s)
+CTL_REQ    = RES_BASE+$954   ; u16 the desk accessory's request (control.s): 1 a soft
+                             ; reboot, 2 a hard one; svc_vbl takes it
+CTL_LIVE   = RES_BASE+$956   ; u16 nonzero: a PC is running (Mode B) that the front
+                             ; end can start again
+CTL_STAT   = RES_BASE+$A80   ; u16 the saved state (control.s): 0 none, 1 there, 2 the
+                             ; last save found no memory for it
 XMS_OFF    = $05C0           ; F000:05C0, the XMS driver's entry (xms.s)
 RD_OFF     = $0540           ; F000:0540, the shared drive's stubs (redir.s)
 RD_STATE   = RES_BASE+$8A0   ; u16 the shared drive: 0 none, 1-3 on the way,

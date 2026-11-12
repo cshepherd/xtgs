@@ -34,6 +34,7 @@
  jmp svc_sndport           ; $040021  a write to port A (40h-61h), value in tmp0
  jmp svc_portout           ; $040024  Mode B: a write to any other port A, value in tmp0
  jmp svc_portin            ; $040027  Mode B: a read of port A the core has not -> A
+ jmp svc_cda               ; $04002A  the desk accessory's start routine (control.s)
 
  put video.s
  put gtext.s
@@ -53,6 +54,7 @@
  put serial.s
  put mouse.s
  put xms.s
+ put control.s
  put capture.s
  put gen/font.s
  put gen/tables.s

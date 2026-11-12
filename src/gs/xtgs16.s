@@ -122,7 +122,26 @@ start
  jmp fail
 :claimed
  jsr show_banks
+ lda #1                    ; prefix 1 as we were launched, kept: the shared drive
+ sta pf_blk                ; makes its folder the prefix, and a reboot (boot_pc)
+ lda #pf_buf               ; loads CORE and SVC again
+ sta pf_blk+2
+ lda #^pf_buf
+ sta pf_blk+4
+ jsl GSOS
+ dw $000A                  ; GET_PREFIX
+ adrl pf_blk
 
+* The desk accessory's reboot comes back here (below): CORE and SVC
+* as they are on the disk, and the PC started again.
+boot_pc
+ mx %00
+ lda rebooting
+ beq :pfx_ok
+ jsl GSOS
+ dw $0009                  ; SET_PREFIX
+ adrl pf_blk
+:pfx_ok
  lda #4
  sta mb_stage
  lda #path_core
@@ -149,6 +168,10 @@ start
  lda mb_filelen
  sta img_len+2
 
+ lda rebooting             ; (a reboot keeps what is loaded: the disk image is
+ beq :first                ; as the PC left it)
+ jmp :loaded
+:first
  lda mb_cmd+1
  and #$00FF
  cmp #'V'
@@ -234,6 +257,7 @@ start
 
  lda #msg_run
  jsr puts
+ jsr cda_on                ; "XTGS Control" among the desk accessories
  lda #8
  sta mb_stage
  sep #$20
@@ -255,6 +279,19 @@ start
  stx mb_exit
  lda mb_sp
  tcs
+ jsr cda_off               ; (SVC is about to go, or to be loaded again)
+ lda mb_exit               ; the desk accessory asked for a reboot
+ cmp #CTL_EXIT+1           ; (src/svc/control.s: CTL_EXIT + 1 soft, + 2 hard)?
+ beq :again
+ cmp #CTL_EXIT+2
+ bne :final
+ jsr zero_guest
+:again
+ jsr close_files
+ lda #1
+ sta rebooting
+ jmp boot_pc
+:final
  lda #9
  sta mb_stage
  jsr release
@@ -269,7 +306,198 @@ start
  sta mb_stage
  lda #$5A5A
  sta mb_magic
+ lda mb_exit               ; the desk accessory's "Quit": no key to wait for
+ cmp #CTL_EXIT+3
+ bne :key
+ jmp quit_now
+:key
  jmp wait_quit
+
+*----------------------------------------------------------
+* cda_on - "XTGS Control" (src/svc/control.s) installed with the
+* Desk Manager, as the ProDOS 8 loader does it (src/sys/xtgs.s):
+* a block of ours with the header, a jump to SVC's entry 14 and
+* an RTL. cda_off takes it out and gives the block back.
+*----------------------------------------------------------
+cda_on
+ mx %00
+ lda #cda_end-cda_hdr
+ sta nh_size
+ stz nh_size+2
+ stz nh_addr
+ stz nh_addr+2
+ lda mm_id
+ sta nh_id
+ lda #$C018                ; locked, fixed, anywhere but the special memory
+ sta nh_attr
+ jsr new_handle
+ bcs :out
+ lda nh_result
+ sta cda_h
+ sta ptr
+ lda nh_result+2
+ sta cda_h+2
+ sta ptr+2
+ lda [ptr]                 ; the block
+ tax
+ ldy #2
+ lda [ptr],y
+ sta ptr+2
+ stx ptr
+ lda mb_layout+RG_SVC+RG_SVC
+ and #$00FF
+ ora #$EA00                ; (and a NOP)
+ sta cda_jml+3
+ lda ptr
+ clc
+ adc #cda_jml-cda_hdr
+ sta cda_start
+ lda ptr+2
+ sta cda_start+2
+ sta cda_stop+2
+ lda ptr
+ clc
+ adc #cda_rtl-cda_hdr
+ sta cda_stop
+ ldy #0
+ sep #$20
+ mx %10
+:c
+ lda cda_hdr,y
+ sta [ptr],y
+ iny
+ cpy #cda_end-cda_hdr
+ bcc :c
+ rep #$20
+ mx %00
+ lda cda_h+2
+ pha
+ lda cda_h
+ pha
+ ldx #$0F05                ; InstallCDA
+ jsl TOOLS
+ bcs :out
+ lda #1
+ sta cda_in
+:out
+ rts
+
+cda_off
+ mx %00
+ lda cda_in
+ beq :free
+ stz cda_in
+ lda cda_h+2
+ pha
+ lda cda_h
+ pha
+ ldx #$2105                ; RemoveCDA
+ jsl TOOLS
+ bcc :free
+ lda cda_h                 ; a Desk Manager without the call: the accessory
+ sta ptr                   ; stays in the menu, so its block stays too and
+ lda cda_h+2               ; its jump becomes a return
+ sta ptr+2
+ lda [ptr]
+ tax
+ ldy #2
+ lda [ptr],y
+ sta ptr+2
+ stx ptr
+ ldy #cda_jml-cda_hdr
+ sep #$20
+ mx %10
+ lda #$6B
+ sta [ptr],y
+ rep #$20
+ mx %00
+ stz cda_h
+ stz cda_h+2
+:free
+ lda cda_h
+ ora cda_h+2
+ beq :out
+ lda cda_h+2
+ pha
+ lda cda_h
+ pha
+ ldx #$1002                ; DisposeHandle
+ jsl TOOLS
+ stz cda_h
+ stz cda_h+2
+:out
+ rts
+
+CTL_EXIT   = $B0C0           ; (src/svc/control.s)
+cda_in     dw 0
+cda_h      adrl 0
+cda_hdr    str 'XTGS Control'
+cda_start  adrl 0            ; cda_jml, where the block is
+cda_stop   adrl 0            ; cda_rtl
+cda_jml    hex 5C            ; jml SVC's entry 14 (its bank put in)
+           dw 42
+           hex 00EA
+cda_rtl    rtl
+cda_end
+rebooting  dw 0
+pf_blk     dw 1
+           adrl 0
+pf_buf     ds 66
+
+* close_files - what the guest left open, before its PC starts again
+close_files
+ mx %00
+ ldx #0
+:f
+ lda sl_ref,x
+ beq :n
+ phx
+ sta cl_ref
+ stz sl_ref,x
+ jsl GSOS
+ dw $0014                  ; CLOSE
+ adrl cl_blk
+ plx
+:n
+ inx
+ inx
+ cpx #SLOTS*2
+ bcc :f
+ rts
+
+* zero_guest - a hard reboot: the PC's megabyte cleared, a bank a move
+zero_guest
+ mx %00
+ lda mb_layout+RG_GUEST+RG_GUEST
+ and #$00FF
+ sta zg_b
+ lda #16
+ sta zg_n
+:bank
+ sep #$20
+ mx %10
+ lda zg_b
+ sta :st+3
+ sta :mv+1
+ sta :mv+2
+ rep #$20
+ mx %00
+ lda #0
+:st
+ sta >$000000              ; (the bank stored above)
+ ldx #0
+ ldy #2
+ lda #$FFFD
+ phb
+:mv
+ hex 540000                ; mvn bank,bank
+ plb
+ inc zg_b
+ dec zg_n
+ bne :bank
+ rts
+zg_b       dw 0
+zg_n       dw 0
 
 *----------------------------------------------------------
 * fail - X = stage, fail_err = the tool or GS/OS error.
@@ -312,6 +540,8 @@ wait_quit
  bpl :wait
  sta >KBDSTRB
  rep #$20
+ mx %00
+quit_now
  mx %00
  jsr video_back
  lda mbx_dp                ; the front page goes back with the block: no

@@ -409,6 +409,9 @@ svc_sndclose
  plb
  jsr com_close             ; COM1's interrupt goes first (serial.s)
  jsr ms_close              ; and the mouse's goes back on, if it was (mouse.s)
+ lda #0
+ sta >CTL_LIVE             ; no PC for the desk accessory to restart (control.s)
+ jsr st_drop               ; nor a saved state of it
  lda snd_on
  beq :out
  sei

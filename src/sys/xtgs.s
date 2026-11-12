@@ -236,6 +236,15 @@ start
  dfb $C6                   ; SET_PREFIX
  da gp_parms
 :pfx_done
+ jsr MLI                   ; the prefix the files are in, kept: the shared drive
+ dfb $C7                   ; makes its folder the prefix, and a reboot (boot_pc)
+ da gp_parms               ; loads CORE and SVC again
+ ldx #63
+:pfx_keep
+ lda pathbuf,x
+ sta pfx_save,x
+ dex
+ bpl :pfx_keep
 
 * The command first, so tools_up can claim the Mode B disk region
 * only when it is needed (D); it would otherwise block a large VEC load.
@@ -261,9 +270,25 @@ start
 :mm_ok
  jsr show_banks
 
-* The images, each at offset 0 of its bank.
+* The images, each at offset 0 of its bank. The desk accessory's
+* reboot comes back here (below): CORE and SVC as they are on the
+* disk, and the PC started again.
+boot_pc
+ mx %11
  lda #4
  sta mb_stage
+ lda rebooting
+ beq :pfx_ok
+ ldx #63
+:pfx_back
+ lda pfx_save,x
+ sta pathbuf,x
+ dex
+ bpl :pfx_back
+ jsr MLI
+ dfb $C6                   ; SET_PREFIX
+ da gp_parms
+:pfx_ok
  lda #<path_core
  sta ld_path
  lda #>path_core
@@ -296,7 +321,12 @@ start
  lda mb_filelen+1
  sta img_len+3
 
-* A data file, by the command letter.
+* A data file, by the command letter (a reboot keeps what is loaded:
+* the disk image is as the PC left it).
+ lda rebooting
+ beq :first
+ jmp :loaded
+:first
  lda mb_cmd+1
  cmp #'V'
  bne :nodata
@@ -400,6 +430,7 @@ start
  lda #<msg_run
  ldy #>msg_run
  jsr puts
+ jsr cda_on                ; "XTGS Control" among the desk accessories
  lda #8
  sta mb_stage
  lda mb_layout+RG_CORE+RG_CORE
@@ -432,6 +463,21 @@ start
  jsr MLI                   ; (its data is not on the disk until then)
  dfb $CC                   ; CLOSE
  da close_parms
+ jsr cda_off               ; (SVC is about to go, or to be loaded again)
+ lda mb_exit+1             ; the desk accessory asked for a reboot
+ cmp #>CTL_EXIT            ; (src/svc/control.s: CTL_EXIT + 1 soft, + 2 hard)?
+ bne :final
+ lda mb_exit
+ cmp #<CTL_EXIT+1
+ beq :again
+ cmp #<CTL_EXIT+2
+ bne :final
+ jsr zero_guest
+:again
+ lda #1
+ sta rebooting
+ jmp boot_pc
+:final
  jsr tools_down
  lda #$A5
  sta mb_done
@@ -449,6 +495,14 @@ start
  lda #$5A
  sta mb_magic
  sta mb_magic+1
+ lda mb_exit+1             ; the desk accessory's "Quit": no key to wait for
+ cmp #>CTL_EXIT
+ bne :key
+ lda mb_exit
+ cmp #<CTL_EXIT+3
+ bne :key
+ jmp quit
+:key
  jmp wait_quit
 
 *----------------------------------------------------------
@@ -880,6 +934,196 @@ claim_region
 :try
  sta nh_addr+2
  jmp new_handle
+
+*----------------------------------------------------------
+* cda_on - "XTGS Control" (src/svc/control.s) installed with the
+* Desk Manager: a header in a handle of ours, the name and the
+* start and shutdown routines, which are SVC's entries 14 and 15.
+* No error is one: there is no accessory then. cda_off takes it
+* out and gives the handle back; both before SVC's bank is loaded
+* again or freed. Emulation in/out.
+*----------------------------------------------------------
+cda_on
+ mx %11
+ clc
+ xce
+ rep #$30
+ mx %00
+ lda #cda_end-cda_hdr
+ sta nh_size
+ stz nh_size+2
+ stz nh_addr
+ stz nh_addr+2
+ lda mb_master
+ sta nh_id
+ lda #$C018                ; locked, fixed, anywhere but the special memory
+ sta nh_attr
+ jsr new_handle
+ bcs :out
+ lda nh_result
+ sta cda_h
+ sta CDA_P
+ lda nh_result+2
+ sta cda_h+2
+ sta CDA_P+2
+ lda [CDA_P]               ; the block
+ tax
+ ldy #2
+ lda [CDA_P],y
+ sta CDA_P+2
+ stx CDA_P
+ lda mb_layout+RG_SVC+RG_SVC ; the block's own code: a jump to SVC's entry 14
+ and #$00FF
+ ora #$EA00                ; (and a NOP)
+ sta cda_jml+3
+ lda CDA_P                 ; the start routine is that jump, the shutdown
+ clc                       ; routine the RTL after it
+ adc #cda_jml-cda_hdr
+ sta cda_start
+ lda CDA_P+2
+ sta cda_start+2
+ sta cda_stop+2
+ lda CDA_P
+ clc
+ adc #cda_rtl-cda_hdr
+ sta cda_stop
+ ldy #0
+ sep #$20
+ mx %10
+:c
+ lda cda_hdr,y
+ sta [CDA_P],y
+ iny
+ cpy #cda_end-cda_hdr
+ bcc :c
+ rep #$20
+ mx %00
+ lda cda_h+2
+ pha
+ lda cda_h
+ pha
+ ldx #$0F05                ; InstallCDA
+ jsl TOOLS
+ bcs :out
+ lda #1
+ sta cda_in
+:out
+ sec
+ xce
+ mx %11
+ rts
+
+cda_off
+ mx %11
+ clc
+ xce
+ rep #$30
+ mx %00
+ lda cda_in
+ beq :free
+ stz cda_in
+ lda cda_h+2
+ pha
+ lda cda_h
+ pha
+ ldx #$2105                ; RemoveCDA
+ jsl TOOLS
+ bcc :free
+ lda cda_h                 ; a Desk Manager without the call (ROM 01 and no
+ sta CDA_P                 ; system disk's tools): the accessory stays in the
+ lda cda_h+2               ; menu, so its block stays too and its jump becomes
+ sta CDA_P+2               ; a return
+ lda [CDA_P]
+ tax
+ ldy #2
+ lda [CDA_P],y
+ sta CDA_P+2
+ stx CDA_P
+ ldy #cda_jml-cda_hdr
+ sep #$20
+ mx %10
+ lda #$6B
+ sta [CDA_P],y
+ rep #$20
+ mx %00
+ stz cda_h
+ stz cda_h+2
+:free
+ lda cda_h
+ ora cda_h+2
+ beq :out
+ lda cda_h+2
+ pha
+ lda cda_h
+ pha
+ ldx #$1002                ; DisposeHandle
+ jsl TOOLS
+ stz cda_h
+ stz cda_h+2
+:out
+ sec
+ xce
+ mx %11
+ rts
+
+CDA_P      = $06             ; a long pointer in the zero page (ours while we run)
+CTL_EXIT   = $B0C0           ; (src/svc/control.s)
+cda_in     dw 0
+cda_h      adrl 0
+cda_hdr    str 'XTGS Control'
+cda_start  adrl 0            ; cda_jml, where the block is
+cda_stop   adrl 0            ; cda_rtl
+cda_jml    hex 5C            ; jml SVC's entry 14 (its bank put in)
+           dw 42
+           hex 00EA
+cda_rtl    rtl
+cda_end
+rebooting  dw 0
+pfx_save   ds 64
+
+*----------------------------------------------------------
+* zero_guest - a hard reboot: the PC's megabyte cleared, a
+* bank a move. Emulation in/out.
+*----------------------------------------------------------
+zero_guest
+ mx %11
+ clc
+ xce
+ rep #$30
+ mx %00
+ lda mb_layout+RG_GUEST+RG_GUEST
+ and #$00FF
+ sta zg_b
+ lda #16
+ sta zg_n
+:bank
+ sep #$20
+ mx %10
+ lda zg_b
+ sta :st+3
+ sta :mv+1
+ sta :mv+2
+ rep #$20
+ mx %00
+ lda #0
+:st
+ sta >$000000              ; (the bank stored above)
+ ldx #0
+ ldy #2
+ lda #$FFFD
+ phb
+:mv
+ hex 540000                ; mvn bank,bank
+ plb
+ inc zg_b
+ dec zg_n
+ bne :bank
+ sec
+ xce
+ mx %11
+ rts
+zg_b       dw 0
+zg_n       dw 0
 
 *----------------------------------------------------------
 * claim_xms - S has no disk image: its banks are the guest's

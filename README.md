@@ -102,6 +102,10 @@ lost at power-off. See [Known limits](#known-limits).
   instead of 474 (`XMS=OFF` in `XTGS.CMD` for none). Blocks and moves only:
   an 8088 has no A20 line and no high memory area. Run in MAME only
   (`docs/xms.md`).
+- **XTGS Control:** a desk accessory, there under Control-Apple-Esc while
+  the PC runs: a soft reboot (as Ctrl-Alt-Del), a hard one (memory
+  cleared), the PC's state saved in memory and restored, and a quit to
+  ProDOS or GS/OS. Run in MAME only (`docs/control.md`).
 - **Clock:** the guest's date and time are the IIGS's own, read from its
   clock (never set by the guest), and the timer ticks DOS could not be given
   are made up from it so its time stays right (`docs/clock.md`).
@@ -591,6 +595,7 @@ suite: all 324 opcode files, 2,883,807 vectors after the exclusions listed in
 | `docs/clock.md` | the IIGS's clock as the PC's date, time and tick count |
 | `docs/joystick.md` | the IIGS's joystick as the PC's game port |
 | `docs/mouse.md` | the IIGS's mouse as the PC's, by `INT 33h` |
+| `docs/control.md` | the desk accessory XTGS Control: soft and hard reboot, save and restore state, quit |
 | `docs/xms.md` | XMS memory for the guest, and FreeCOM swapped out of the 640 KB |
 | `docs/serial.md` | the IIGS's modem and printer ports as COM1 and COM2 |
 | `docs/cpu-compatibility.md` | 8088 behaviour learned from the hardware vectors |

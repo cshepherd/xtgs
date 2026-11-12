@@ -234,6 +234,11 @@ slot
  beq :fetch
  sty rIP
  jsl SVC_BASE+15           ; svc_vbl: keyboard poll, screen flush, the Mode A tick
+ bcc :vgo
+ sta vEXIT                 ; the desk accessory's reboot (control.s): stop, as
+ ldy rIP                   ; a program's exit does, A the exit code
+ jmp (HALTVEC)
+:vgo
  lda >EGA_SYNC             ; (a mode set through 3D8h ends mode 0Dh)
  beq :nosync
  jsr ega_sync

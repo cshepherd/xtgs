@@ -59,6 +59,10 @@ svc_bootinit
  jsr ms_setup              ; the mouse driver, unless XTGS.CMD says MOUSE=OFF
  jsr xms_setup             ; the XMS driver (S only), unless it says XMS=OFF
  lda #0
+ sta >CTL_REQ
+ inc
+ sta >CTL_LIVE             ; the desk accessory may restart this PC
+ lda #0
  sta >MB_INT13N
  sta >MB_BOOTTRC
  lda disk_have

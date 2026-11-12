@@ -29,7 +29,8 @@ svc_vbl
  jsr ms_poll               ; the mouse (mouse.s)
  jsr rd_poll               ; the shared drive: DOS is up?
  jsr vbl_work
- plb
+ jsr ctl_poll              ; the desk accessory asked for a reboot? C set, A = the
+ plb                       ; exit code: the core stops
  rtl
 
 * vbl_work - once a frame: blink, the Mode A ticks, screen flush.

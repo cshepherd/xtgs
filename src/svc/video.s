@@ -33,6 +33,10 @@ svc_init
  phb
  phk
  plb
+ lda #0
+ sta >CTL_LIVE
+ sta >CTL_REQ
+ sta >CTL_STAT
  jsr init_shr
  plb
  lda #0

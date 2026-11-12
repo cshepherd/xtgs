@@ -63,13 +63,13 @@ INCLUDES  := src/include/hw.s src/include/layout.s src/include/mailbox.s src/inc
 SYS_SRCS  := src/sys/xtgs.s $(INCLUDES)
 SVC_GEN   := src/svc/gen/font.s src/svc/gen/tables.s src/svc/gen/dostab.s src/svc/gen/t160.s src/svc/gen/egatab.s src/svc/gen/tdytab.s
 SVC_SRCS  := src/svc/svc.s src/svc/video.s src/svc/gtext.s src/svc/ega.s src/svc/tandy.s src/svc/pcinit.s src/svc/bios.s src/svc/dos.s \
-             src/svc/files.s src/svc/disk.s src/svc/ports.s src/svc/redir.s src/svc/keyboard.s src/svc/sound.s src/svc/clock.s src/svc/joystick.s src/svc/serial.s src/svc/mouse.s src/svc/xms.s src/svc/capture.s $(SVC_GEN) $(INCLUDES)
+             src/svc/files.s src/svc/disk.s src/svc/ports.s src/svc/redir.s src/svc/keyboard.s src/svc/sound.s src/svc/clock.s src/svc/joystick.s src/svc/serial.s src/svc/mouse.s src/svc/xms.s src/svc/control.s src/svc/capture.s $(SVC_GEN) $(INCLUDES)
 CORE_GEN  := src/core/gen/optab.s src/core/gen/eatab.s src/core/gen/alu.s src/core/gen/flagtab.s src/core/gen/egaw.s
 CORE_SRCS := src/core/core.s src/core/probe.s src/core/run.s src/core/jit.s src/core/jit2.s src/core/cpu.s src/core/flags.s \
              src/core/ops_mov.s src/core/ops_ctrl.s src/core/ops_grp.s src/core/ops_str.s \
              src/core/ops_misc.s src/core/ega.s src/core/harness.s $(CORE_GEN) $(INCLUDES)
 
-.PHONY: all image finder test-m0 test-cpu test-com test-dos test-share test-clock test-minix test-psg test-layout test-gsos test-s16 check-s16 bench boot-dos boot-shared run run-dos dos-image tandy-image run-tandy release run-release test-release lsl-image run-lsl games-image run-games games-ega-image run-games-ega test-joy test-mouse test-xms test-serial disk-image run-disk clean lint minix-image run-minix
+.PHONY: all image finder test-m0 test-cpu test-com test-dos test-share test-clock test-minix test-psg test-layout test-gsos test-s16 check-s16 bench boot-dos boot-shared run run-dos dos-image tandy-image run-tandy release run-release test-release lsl-image run-lsl games-image run-games games-ega-image run-games-ega test-joy test-mouse test-xms test-control test-serial disk-image run-disk clean lint minix-image run-minix
 
 all: $(PO)
 
@@ -412,6 +412,17 @@ test-mouse: $(PO) $(FDIMG)
 # test-xms: the XMS driver (docs/xms.md): FreeDOS booted from the folder
 # (command S), XMSTEST typed, its line judged; then with the line XMS=OFF,
 # which must find no driver (tools/xms_test.py; work files in build/xms/).
+# test-control: the desk accessory "XTGS Control" (docs/control.md): FreeDOS
+# booted from the folder, Control-Apple-Esc, and in a boot each the
+# accessory's soft reboot, its hard one, a state saved and restored, and its
+# Quit (tools/control_test.py; build/control/).
+test-control: $(PO) $(FDIMG)
+	$(PY) tools/control_test.py soft
+	$(PY) tools/control_test.py hard
+	$(PY) tools/control_test.py state
+	$(PY) tools/control_test.py drop
+	$(PY) tools/control_test.py quit
+
 test-xms: $(PO) $(FDIMG)
 	$(PY) tools/xms_test.py
 	$(PY) tools/xms_test.py XMS=OFF
