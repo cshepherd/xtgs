@@ -57,7 +57,9 @@ def main():
                     os.path.join(stage, "CORE#060000"), os.path.join(stage, "SVC#060000"), disk, cmd],
                    check=True, capture_output=True)
     syms = symbols.read(os.path.join(ROOT, "build", "xtgs.lst"))
-    inputs = [dict(i, after="start") for i in INPUTS]
+    # (from GS/OS the PC starts that much later: mamerun adds the same to the run)
+    late = mamerun.GSOS_BOOT * 60 if os.environ.get("XTGS_FRONT") == "s16" else 0
+    inputs = [dict(i, at=i["at"] + late, after="start") for i in INPUTS]
     r = mamerun.run(po, waits=[(syms["mb_magic"], 0x5A5A)],
                     dumps=[("fb", 0x2B8000, 4000), ("raw", 0x0509EE, 2)], seconds=END / 60, settle=5, inputs=inputs)
     if r["status"] == "no-output":

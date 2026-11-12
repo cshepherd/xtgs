@@ -30,6 +30,7 @@
 *----------------------------------------------------------
 ms_cfg     dw 1              ; XTGS.CMD: 0 after MOUSE=OFF
 ms_on      dw 0              ; INT 33h answers
+ms_irq     dw 0              ; KMSTATUS's mouse interrupt bit as we found it
 ms_hook    dw 0              ; frames since DOS took vector 33h; $FFFF: taken back
 ms_pos     dw 320,100        ; x, y
 ms_min     dw 0,0
@@ -94,6 +95,41 @@ ms_setup
  stz ms_drawn
  stz ms_hook
  jsr ms_reset
+ php                       ; the mouse's interrupt off while the PC has it:
+ sei                       ; were it on (a system that used the mouse) the
+ sep #$20                  ; firmware's handler would take the data first
+ mx %10
+ lda >KMSTATUS
+ and #$40
+ sta ms_irq
+ lda >KMSTATUS
+ and #$BF
+ sta >KMSTATUS
+ rep #$20
+ mx %00
+ plp
+:out
+ rts
+
+* ms_close - from svc_sndclose: the mouse's interrupt as it was
+ms_close
+ mx %00
+ lda ms_on
+ beq :out
+ stz ms_on
+ lda ms_irq
+ and #$0040
+ beq :out
+ php
+ sei
+ sep #$20
+ mx %10
+ lda >KMSTATUS
+ ora #$40
+ sta >KMSTATUS
+ rep #$20
+ mx %00
+ plp
 :out
  rts
 

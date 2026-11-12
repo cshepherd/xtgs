@@ -408,6 +408,7 @@ svc_sndclose
  phk
  plb
  jsr com_close             ; COM1's interrupt goes first (serial.s)
+ jsr ms_close              ; and the mouse's goes back on, if it was (mouse.s)
  lda snd_on
  beq :out
  sei

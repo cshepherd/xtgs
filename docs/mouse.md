@@ -74,8 +74,10 @@ that hooks `INT 33h` later keeps its hook.
 The ADB GLU's registers, read directly: `$C027` bit 7 says the mouse has
 moved or its button changed, `$C024` then gives X and Y in turn, seven
 bits signed, bit 7 a button (0 is down): the mouse's own in the Y byte, a
-second one's in the X byte. Nothing is asked of the firmware and no mouse
-interrupt is turned on, so the driver costs two register reads a frame.
+second one's in the X byte. Nothing is asked of the firmware; the mouse's
+interrupt (`$C027` bit 6) is turned off while the PC runs, so that the
+firmware does not take the data first, and put back as it was at the end
+(`ms_close`). The driver costs two register reads a frame.
 
 ## Testing
 
@@ -87,8 +89,7 @@ place and buttons by function 03h, and what its handler was called with)
 are held to that. `mouse_test.py MOUSE=OFF` must find no driver.
 `MOUSETST` without the `L` shows the text cursor and one line.
 
-Run in MAME only. Not checked: a real ADB mouse's counts and its second
-button, the mouse under GS/OS (`XTGS_FRONT=s16`: if a desk accessory or
-the system has the mouse's interrupt on, the firmware takes the data
-first), and the edge of MAME's own mouse fields (the harness keeps away
-from it).
+Run in MAME only, from ProDOS 8, with the layout moved (`XTGS_LAYOUT=alt`)
+and from GS/OS (`XTGS_FRONT=s16`). Not checked: a real ADB mouse's counts
+and its second button, and the edge of MAME's own mouse fields (the
+harness keeps away from it).
