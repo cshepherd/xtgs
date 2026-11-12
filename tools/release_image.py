@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""release_image.py IMAGE VERSION: the release volume (make release).
+"""release_image.py IMAGE VERSION [--without NAME]... [--cmd LINE]...: the
+release volume (make release).
+
+--without NAME leaves release/shared's entry NAME (a file or a folder, by
+its name there in capitals) off the volume; --cmd LINE is one more line of
+XTGS.CMD after C=SHARED (VIDEO=TANDY). make lsl-image is the two: the
+volume with release/shared/lsl2 on it and a Tandy 1000, which make release
+leaves out.
 
 One ProDOS volume, named XTGS (VOLSIZE in the environment, default 800KB:
 a 3.5-inch disk), that a IIGS boots from and that GS/OS can launch from:
@@ -55,10 +62,10 @@ def is_text(name, data):
     return ext in TEXT_EXT and all(b in (9, 10, 13) or 32 <= b < 127 for b in data)
 
 
-def add_tree(src, dst):
+def add_tree(src, dst, without=()):
     """release/shared and what is below it, into the staged folder."""
     for entry in sorted(os.listdir(src)):
-        if entry in SKIP:
+        if entry in SKIP or entry.upper() in without:
             continue
         path, name = os.path.join(src, entry), entry.upper()
         if not NAME.match(name):
@@ -88,6 +95,15 @@ def cadius(*args):
 
 def main():
     image, version = sys.argv[1], sys.argv[2]
+    without, lines, rest = set(), [], sys.argv[3:]
+    while rest:
+        if len(rest) < 2 or rest[0] not in ("--without", "--cmd"):
+            sys.exit(__doc__)
+        if rest[0] == "--without":
+            without.add(rest[1].upper())
+        else:
+            lines.append(rest[1])
+        rest = rest[2:]
     size = os.environ.get("VOLSIZE", "800KB")
     stage = tempfile.mkdtemp()
     try:
@@ -102,7 +118,7 @@ def main():
                 put(os.path.join(B, "svc"), "SVC#060000")]
         fork = put(os.path.join(B, "xtgs16.rfork"), "XTGS#B30000_ResourceFork.bin")
         with open(os.path.join(stage, "XTGS.CMD#040000"), "w", newline="") as f:
-            f.write("S\rC=SHARED\r")
+            f.write("".join(l + "\r" for l in ["S", "C=SHARED"] + lines))
         root.append(os.path.join(stage, "XTGS.CMD#040000"))
         with open(os.path.join(REL, "READ.ME")) as f:
             text = f.read().replace("@VERSION@", version)
@@ -122,7 +138,7 @@ def main():
         missing = NEEDED - have
         if missing:
             sys.exit(f"release_image: {FD} lacks {', '.join(sorted(missing))}")
-        add_tree(os.path.join(REL, "shared"), shared)
+        add_tree(os.path.join(REL, "shared"), shared, without)
 
         if os.path.exists(image):
             os.remove(image)

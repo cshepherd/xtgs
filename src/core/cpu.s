@@ -161,6 +161,10 @@ slot
  lda >PIC_MASK
  and #$0002
  bne :com
+ lda >PIC_KBIS             ; in service: the handler has this one and has not
+ bne :com                  ; read port 60h yet (one that begins with STI, a
+ inc                       ; Sierra game's, would be entered again for ever)
+ sta >PIC_KBIS
  sty rIP
  lda >PIC_BASE
  inc
@@ -247,7 +251,9 @@ irq_owed                   ; C set: Mode B and an interrupt waiting
  bne :yes
  lda >PIC_IRQ3             ; IRQ3
  bne :yes
- lda >KBD_QHEAD            ; IRQ1
+ lda >PIC_KBIS             ; IRQ1, unless one is in service
+ bne :no
+ lda >KBD_QHEAD
  and #KBD_QMASK
  cmp >KBD_QTAIL
  beq :no

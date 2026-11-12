@@ -100,6 +100,13 @@ make release      build/release/xtgs-VERSION.po (XTGS_VERSION in the Makefile):
                   and release/READ.ME is on it
                   (tools/release_image.py); make run-release boots it in
                   Ample's MAME
+make lsl-image    build/boot/lsl.po: the release volume as a Tandy 1000
+                  (VIDEO=TANDY) on an 8 MB disk (LSLSIZE=), with the folder
+                  release/shared/lsl2 on it as C:\LSL2, which make release
+                  leaves out and .gitignore keeps out of the tree (a Sierra
+                  game, its RESOURCE.CFG naming TANDY320.DRV and JR.DRV;
+                  release_image.py's --without and --cmd); make run-lsl
+                  boots it in Ample's MAME
 make test-joy     the IIGS's joystick as the PC's game port (docs/joystick.md):
                   JOYTEST L under FreeDOS, MAME's joystick (XTGS_GAMEIO=joy)
                   moved by the harness, its lines judged (tools/joy_test.py;
@@ -281,6 +288,11 @@ clear, for ever. A new instruction that can set IF must do the same. The
 slot delivers IRQ n
 (0, 1, COM2's 3, COM1's 4 and the diskette's 6) at vector `PIC_BASE+n` and only when bit n of
 `PIC_MASK` is clear: never write `INT 08h`/`09h` into the core as a number.
+IRQ1 alone has an in-service state (`PIC_KBIS`): from its delivery until
+the guest reads port 60h or writes an EOI to port 20h the slot brings no
+other, because a handler that begins with `STI` (Sierra's keyboard driver)
+would otherwise be entered again before it had taken the scancode, for
+ever. The other lines are cleared as they are delivered.
 
 The text screen is drawn from the 6845's start address (`txt_org`,
 `src/svc/video.s`; `B800` goes round at 16K, mid-row) and `txt_shadow` is

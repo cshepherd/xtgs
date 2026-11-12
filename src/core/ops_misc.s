@@ -70,7 +70,9 @@ cga_stat   dw 0
 port_in8                   ; A = port -> A = value (8-bit in the low byte)
  mx %00
  cmp #$0060
- beq :kbdata
+ bne :n60
+ jmp kb_data
+:n60
  cmp #$0064
  beq :kbstat
  cmp #$0040
@@ -109,7 +111,28 @@ port_in8                   ; A = port -> A = value (8-bit in the low byte)
  sta >PIT_CTR
  and #$00FF
  rts
-:kbdata                    ; 8042 data: pop the next scancode (make/break)
+:kbstat                    ; 8042 status: bit0 (OBF) = a scancode is waiting
+ lda >KBD_QHEAD
+ and #KBD_QMASK
+ cmp >KBD_QTAIL
+ beq :kbstat0
+ lda #$0001
+ rts
+:kbstat0
+ lda #$0000
+ rts
+:cgastat
+ lda #0                    ; (a read makes 3C0h's next write the index: the EGA)
+ sta >EGA_ACFF
+ lda cga_stat              ; free-running: all (bit0,bit3) states appear
+ inc
+ sta cga_stat
+ and #$00FF
+ rts
+kb_data                    ; 8042 data: pop the next scancode (make/break)
+ mx %00
+ lda #0                    ; (and IRQ1 is no longer in service: the slot may
+ sta >PIC_KBIS             ; bring the next one)
  lda >KBD_QHEAD
  and #KBD_QMASK
  cmp >KBD_QTAIL
@@ -130,24 +153,6 @@ port_in8                   ; A = port -> A = value (8-bit in the low byte)
  rts
 :kbempty
  lda #$0000
- rts
-:kbstat                    ; 8042 status: bit0 (OBF) = a scancode is waiting
- lda >KBD_QHEAD
- and #KBD_QMASK
- cmp >KBD_QTAIL
- beq :kbstat0
- lda #$0001
- rts
-:kbstat0
- lda #$0000
- rts
-:cgastat
- lda #0                    ; (a read makes 3C0h's next write the index: the EGA)
- sta >EGA_ACFF
- lda cga_stat              ; free-running: all (bit0,bit3) states appear
- inc
- sta cga_stat
- and #$00FF
  rts
 port_in16
  mx %00

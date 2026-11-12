@@ -188,6 +188,7 @@ JOY_READS  = RES_BASE+$9E0   ; u16 times the paddles were read
 PIC_IRQ4   = RES_BASE+$9E2   ; u16 nonzero: COM1's interrupt is waiting (the slot)
 PIC_IRQ3   = RES_BASE+$9E4   ; u16 and COM2's
  err PIC_IRQ3-PIC_IRQ4-2     ; (serial.s indexes the one from the other)
+PIC_KBIS   = RES_BASE+$9EA   ; u16 nonzero: IRQ1 is in service: delivered, port 60h not read and no EOI since (cpu.s, ports.s)
 COM_ON     = RES_BASE+$9E6   ; u16 XTGS.CMD: bit 0 COM1=MODEM, bit 1 COM2=PRINTER
 COM_OPEN   = RES_BASE+$9E8   ; u16 the same bits: the SCC's channel is ours (from the
                              ; guest's first use of the port)

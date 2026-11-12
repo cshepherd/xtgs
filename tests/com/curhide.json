@@ -1,0 +1,8 @@
+{
+ "com": "curhide.asm",
+ "name": "CURHIDE.COM",
+ "args": "",
+ "exit": 0,
+ "stdout": "curhide.out",
+ "video": "text"
+}

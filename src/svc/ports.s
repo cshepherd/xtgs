@@ -6,7 +6,10 @@
 *   20h/21h    the 8259: where the interrupts go (ICW2) and
 *              which are held back (the mask), kept in
 *              PIC_BASE and PIC_MASK for the slot in cpu.s.
-*              An EOI is accepted and means nothing.
+*              An EOI ends IRQ1's time in service (PIC_KBIS: from
+*              its delivery to the read of port 60h or the EOI the
+*              slot brings no second one); for the other lines it
+*              means nothing.
 *   04h/05h, 08h, 0Ch, 81h
 *              the 8237's channel 2: the address and count
 *              of the diskette controller's next transfer.
@@ -56,6 +59,7 @@ ports_init
  lda #0
  sta >PIC_MASK
  sta >PIC_IRQ6
+ sta >PIC_KBIS
  stz pic_step
  stz dma_ff
  stz dma_stat
@@ -228,14 +232,22 @@ pic_cmd
  mx %00
  lda tmp0
  and #$0010
- beq :ocw                  ; an EOI, or which register to read: nothing
+ beq :ocw                  ; an EOI, or which register to read
  lda tmp0                  ; ICW1: the vector base follows at port 21h
  sta pic_icw1
  lda #2
  sta pic_step
  lda #0
  sta >PIC_MASK
+ rts
 :ocw
+ lda tmp0                  ; OCW2 with the EOI bit: IRQ1 is no longer in
+ and #$0038                ; service (PIC_KBIS, the only line the slot keeps
+ cmp #$0020                ; that for)
+ bne :noeoi
+ lda #0
+ sta >PIC_KBIS
+:noeoi
  rts
 pic_data
  mx %00
