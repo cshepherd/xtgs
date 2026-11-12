@@ -83,6 +83,10 @@ port_in8                   ; A = port -> A = value (8-bit in the low byte)
  beq :ppib
  cmp #$03DA
  beq :cgastat
+ cmp #$03D5
+ bne :n3d5
+ jmp crtc_data
+:n3d5
  ldx vPCMODE               ; Mode B: the 8259, the 8237 and the diskette
  cpx #2                    ; controller (ports.s); a port nobody is at reads FF
  bne :nobody
@@ -128,6 +132,20 @@ port_in8                   ; A = port -> A = value (8-bit in the low byte)
  inc
  sta cga_stat
  and #$00FF
+ rts
+crtc_data                  ; the 6845's selected register: R12-R17 read back what
+ mx %00                    ; was written (a program finds the adapter by writing
+ lda >CRTC_IDX             ; the cursor's address and reading it), the others 0
+ cmp #12
+ bcc :none
+ cmp #18
+ bcs :none
+ tax
+ lda >CRTC_REG,x
+ and #$00FF
+ rts
+:none
+ lda #0
  rts
 kb_data                    ; 8042 data: pop the next scancode (make/break)
  mx %00

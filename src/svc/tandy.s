@@ -82,6 +82,7 @@ tdy_r1     hex 0103040607090B0C0E0F1113141617191B1C1E1F2123242627292B2C2E2F3131
 * tdy_setup - the PC is a Tandy 1000 (rd_readcfg, after the BDA and
 * the BIOS's stubs): its two identifying bytes, no EGA, the pages
 * where a text mode has them and the registers as its BIOS leaves them.
+tdy_name asc 'Tandy'
 tdy_setup
  mx %00
  jsr ega_off               ; no EGA: its banks hold the pages
@@ -95,6 +96,12 @@ tdy_setup
  sta >H_BIOS+$FFFE         ; the model byte, and the 21h a 1000's BIOS has
  lda #$21                  ; at F000:C000
  sta >H_BIOS+$C000
+ ldx #4                    ; and its maker's name a little after, where a
+:name                      ; program looks for it (Arkanoid: FC00:0000-0100)
+ lda >tdy_name,x
+ sta >H_BIOS+$C008,x
+ dex
+ bpl :name
  rep #$20
  mx %00
  ldx #0

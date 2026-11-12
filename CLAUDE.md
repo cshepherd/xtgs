@@ -100,13 +100,15 @@ make release      build/release/xtgs-VERSION.po (XTGS_VERSION in the Makefile):
                   and release/READ.ME is on it
                   (tools/release_image.py); make run-release boots it in
                   Ample's MAME
-make lsl-image    build/boot/lsl.po: the release volume as a Tandy 1000
-                  (VIDEO=TANDY) on an 8 MB disk (LSLSIZE=), with the folder
-                  release/shared/lsl2 on it as C:\LSL2, which make release
-                  leaves out and .gitignore keeps out of the tree (a Sierra
-                  game, its RESOURCE.CFG naming TANDY320.DRV and JR.DRV;
-                  release_image.py's --without and --cmd); make run-lsl
-                  boots it in Ample's MAME
+make games-image  build/boot/games.po: the release volume as a Tandy 1000
+                  (VIDEO=TANDY) on an 8 MB disk (GAMESIZE=), with the games'
+                  folders of release/shared on it (the Makefile's GAMES:
+                  lsl2, a Sierra game whose RESOURCE.CFG names TANDY320.DRV
+                  and JR.DRV, outrun, arkanoid: whichever are there), which
+                  make release leaves out and .gitignore keeps out of the
+                  tree (release_image.py's --without and --cmd); make
+                  run-games boots it in Ample's MAME; lsl-image and run-lsl
+                  are the older names
 make test-joy     the IIGS's joystick as the PC's game port (docs/joystick.md):
                   JOYTEST L under FreeDOS, MAME's joystick (XTGS_GAMEIO=joy)
                   moved by the harness, its lines judged (tools/joy_test.py;
@@ -203,7 +205,7 @@ buffers. The loader's own, not layout: `$0800-$0BFF` core native stack
 `BOUNCE` `$4000`. `$E1:2000` SHR, written directly.
 
 Banks: `$03` CORE, `$04` SVC, `$05` results/trace (and the PC's device
-state from `src/include/pc.s`: the 6845 registers `CRTC_REG` and `CRTC_CUR`,
+state from `src/include/pc.s`: the 6845 registers `CRTC_REG` (R12-R17 read back at 3D5h, `crtc_data`: a program finds the adapter by the cursor's address) and `CRTC_CUR`,
 the 8259's `PIC_BASE`/`PIC_MASK` and the diskette's `PIC_IRQ6`, the shared
 drive's `RD_STATE`/`RD_DIAG`/`RD_CALLS`/`RD_LAST`/`RD_LOG`, the EGA's
 registers `EGA_SEQ`/`EGA_GC`/`EGA_AC` and its flags `EGA_ON`/`EGA_SYNC`, the

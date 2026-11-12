@@ -64,7 +64,9 @@ the CGA's.
 ## What a guest sees
 
 - `F000:FFFE` is `FFh` and `F000:C000` is `21h`, which is how programs
-  tell a 1000 from a PCjr (`FDh`) and a PC.
+  tell a 1000 from a PCjr (`FDh`) and a PC. The name `Tandy` is at
+  `F000:C008`, for the programs that look for it in the BIOS's first
+  bytes instead (Arkanoid searches `FC00:0000`-`0100`).
 - **Eight pages of 16K** and the **page register at 3DFh**: bits 3-5 the
   page the CPU has at `B800:0000`, bits 0-2 the page the screen shows,
   bits 6-7 kept. An even CPU page brings the next one with it at

@@ -26,8 +26,10 @@
 #   make disk-image IMG=path   build/disk/disk.po: XT/GS and a PC diskette image,
 #                         command D; make run-disk boots it in Ample's MAME
 #   make minix-image      the same with the Minix diskette; make run-minix boots it
-#   make lsl-image        build/boot/lsl.po: the release volume as a Tandy 1000 on an
-#                         8 MB disk with release/shared/lsl2 (make run-lsl boots it)
+#   make games-image      build/boot/games.po: the release volume as a Tandy 1000 on
+#                         an 8 MB disk with the games' folders of release/shared
+#                         (GAMES: lsl2, outrun, arkanoid; make run-games boots it;
+#                         lsl-image and run-lsl are the same)
 #   make release          build/release/xtgs-VERSION.po: the volume to hand out, an
 #                         800K disk that boots from ProDOS 8 into FreeDOS and has
 #                         the GS/OS application and its icon as well;
@@ -67,7 +69,7 @@ CORE_SRCS := src/core/core.s src/core/probe.s src/core/run.s src/core/jit.s src/
              src/core/ops_mov.s src/core/ops_ctrl.s src/core/ops_grp.s src/core/ops_str.s \
              src/core/ops_misc.s src/core/ega.s src/core/harness.s $(CORE_GEN) $(INCLUDES)
 
-.PHONY: all image finder test-m0 test-cpu test-com test-dos test-share test-clock test-minix test-psg test-layout test-gsos test-s16 check-s16 bench boot-dos boot-shared run run-dos dos-image tandy-image run-tandy release run-release test-release lsl-image run-lsl test-joy test-mouse test-serial disk-image run-disk clean lint minix-image run-minix
+.PHONY: all image finder test-m0 test-cpu test-com test-dos test-share test-clock test-minix test-psg test-layout test-gsos test-s16 check-s16 bench boot-dos boot-shared run run-dos dos-image tandy-image run-tandy release run-release test-release lsl-image run-lsl games-image run-games test-joy test-mouse test-serial disk-image run-disk clean lint minix-image run-minix
 
 all: $(PO)
 
@@ -355,29 +357,32 @@ run-tandy: $(B)/boot/tandy.po
 # the Finder; SHARED holds FreeDOS, GW-BASIC (required, as for finder) and
 # the demos, with release/shared's AUTOEXEC.BAT. run-release boots it in
 # Ample's MAME; test-release boots it headless both ways (tools/release_test.py).
+# the folders of release/shared that are games: off the release, on games-image
+GAMES := lsl2 outrun arkanoid
 RELEASE := $(B)/release/xtgs-$(XTGS_VERSION).po
 release: $(RELEASE)
 $(RELEASE): $(B)/xtgs $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/core $(B)/svc $(FDIMG) tools/release_image.py \
-            tools/gsos_rfork.py res/PRODOS release/READ.ME $(shell find release/shared -type f -not -path 'release/shared/lsl2/*') Makefile
+            tools/gsos_rfork.py res/PRODOS release/READ.ME $(shell find release/shared -type f $(foreach g,$(GAMES),-not -path 'release/shared/$(g)/*')) Makefile
 	@[ -f $(GWBASIC) ] || { echo "release: no $(GWBASIC) for the FreeDOS folder"; exit 1; }
 	@mkdir -p $(B)/release
-	$(PY) tools/release_image.py $@ $(XTGS_VERSION) --without LSL2
+	$(PY) tools/release_image.py $@ $(XTGS_VERSION) $(foreach g,$(GAMES),--without $(g))
 
-# lsl-image: build/boot/lsl.po, the release volume as a Tandy 1000 (the line
-# VIDEO=TANDY) on a larger disk (LSLSIZE), with release/shared/lsl2 on it as
-# C:\LSL2: a Sierra game set up for the Tandy's graphics and sound
-# (RESOURCE.CFG there: TANDY320.DRV, JR.DRV). The folder is not in the tree
-# (.gitignore) and make release leaves it out. run-lsl boots it in Ample's MAME.
-LSLSIZE ?= 8192KB
-lsl-image: $(B)/boot/lsl.po
-$(B)/boot/lsl.po: $(B)/xtgs $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/core $(B)/svc $(FDIMG) tools/release_image.py \
+# games-image: build/boot/games.po, the release volume as a Tandy 1000 (the
+# line VIDEO=TANDY) on a larger disk (GAMESIZE), with the games' folders of
+# release/shared on it (GAMES; C:\LSL2, a Sierra game whose RESOURCE.CFG
+# names TANDY320.DRV and JR.DRV, C:\OUTRUN, C:\ARKANOID): whichever are
+# there. They are not in the tree (.gitignore) and make release leaves them
+# out. run-games boots it in Ample's MAME; lsl-image and run-lsl are the
+# older names.
+GAMESIZE ?= 8192KB
+games-image lsl-image: $(B)/boot/games.po
+$(B)/boot/games.po: $(B)/xtgs $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/core $(B)/svc $(FDIMG) tools/release_image.py \
             tools/gsos_rfork.py res/PRODOS release/READ.ME $(shell find release/shared -type f) Makefile
-	@[ -d release/shared/lsl2 ] || { echo "lsl-image: no release/shared/lsl2 (the game's files)"; exit 1; }
 	@mkdir -p $(B)/boot
-	VOLSIZE=$(LSLSIZE) $(PY) tools/release_image.py $@ $(XTGS_VERSION) --cmd VIDEO=TANDY
+	VOLSIZE=$(GAMESIZE) $(PY) tools/release_image.py $@ $(XTGS_VERSION) --cmd VIDEO=TANDY
 
-run-lsl: $(B)/boot/lsl.po
-	tools/mame/run-mame.sh $(B)/boot/lsl.po
+run-games run-lsl: $(B)/boot/games.po
+	tools/mame/run-mame.sh $(B)/boot/games.po
 
 run-release: $(RELEASE)
 	tools/mame/run-mame.sh $(RELEASE)
