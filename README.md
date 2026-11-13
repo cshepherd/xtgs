@@ -35,6 +35,8 @@ drives the PC's interrupt controller, diskette controller and 6845 itself.
 | 688 Attack Sub (a preview edition) in EGA mode 0Dh: the control room, the stations reached by Option and a digit as F2 to F8 | Its ship control panel, the sea bottom ahead drawn by the contour mapping display |
 | ![Where in the U.S.A. is Carmen Sandiego?, Denver](assets/carmen.png) | ![A witness in Miami](assets/carmen-witness.png) |
 | Where in the U.S.A. is Carmen Sandiego? in EGA mode 0Dh: the first city of a case, the game's arrow on the IIGS's mouse | A witness's clue in Miami |
+| ![Thexder on a Tandy 1000](assets/thexder.png) | ![Thexder in CGA](assets/thexder-cga.png) |
+| Thexder as a Tandy 1000 (`VIDEO=TANDY`), mode 09h with the music on the sound chip | The same game as a PC with a CGA (`VIDEO=CGA`): with an EGA it asks for mode 0Eh, which XT/GS does not have |
 
 The screenshots are the emulated IIGS's Super Hi-Res screen, captured from
 headless MAME runs and doubled in height (the SHR screen is 640x200 or

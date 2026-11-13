@@ -28,7 +28,7 @@
 #   make minix-image      the same with the Minix diskette; make run-minix boots it
 #   make games-image      build/boot/games.po: the release volume as a Tandy 1000 on
 #                         an 8 MB disk with the games' folders of release/shared
-#                         (GAMES: lsl2, outrun, arkanoid, keen1, mech, sub688, carmen; make run-games boots it;
+#                         (GAMES: lsl2, outrun, arkanoid, keen1, mech, sub688, carmen, thexder; make run-games boots it;
 #                         lsl-image and run-lsl are the same)
 #   make release          build/release/xtgs-VERSION.po: the volume to hand out, an
 #                         800K disk that boots from ProDOS 8 into FreeDOS and has
@@ -358,7 +358,7 @@ run-tandy: $(B)/boot/tandy.po
 # the demos, with release/shared's AUTOEXEC.BAT. run-release boots it in
 # Ample's MAME; test-release boots it headless both ways (tools/release_test.py).
 # the folders of release/shared that are games: off the release, on games-image
-GAMES := lsl2 outrun arkanoid keen1 mech sub688 carmen
+GAMES := lsl2 outrun arkanoid keen1 mech sub688 carmen thexder
 RELEASE := $(B)/release/xtgs-$(XTGS_VERSION).po
 release: $(RELEASE)
 $(RELEASE): $(B)/xtgs $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/core $(B)/svc $(FDIMG) tools/release_image.py \

@@ -104,7 +104,7 @@ make games-image  build/boot/games.po: the release volume as a Tandy 1000
                   (VIDEO=TANDY) on an 8 MB disk (GAMESIZE=), with the games'
                   folders of release/shared on it (the Makefile's GAMES:
                   lsl2, a Sierra game whose RESOURCE.CFG names TANDY320.DRV
-                  and JR.DRV, outrun, arkanoid, keen1, mech, sub688, carmen: whichever are there), which
+                  and JR.DRV, outrun, arkanoid, keen1, mech, sub688, carmen, thexder: whichever are there), which
                   make release leaves out and .gitignore keeps out of the
                   tree (release_image.py's --without and --cmd); make
                   run-games boots it in Ample's MAME; lsl-image and run-lsl
