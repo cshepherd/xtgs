@@ -47,10 +47,26 @@
 * the CPU has. DBR=SVC.
 *----------------------------------------------------------
 TDY_WIN    = 6               ; the slots at B800 and BC00
-TDY_NSLOT  = 9
 tdy_cfg    dw 0              ; XTGS.CMD's VIDEO=TANDY (rd_readcfg)
-tdy_where  ds 16             ; the slot each page is in (words)
-tdy_held   ds 18             ; the page in each slot; $FFFF the one to spare
+tdy_where  ds 16             ; the slot each page is in (words): its home or the window's
+tdy_held   ds 18             ; the page in each half of the window (slots 6 and 7 of
+                             ; these words; the others are not used); $FFFF none
+tdy_hs     dw 0,1,2,3,4,5,8,9   ; a page's home slot
+tdy_wr     ds 128            ; a 256 of the window was written since that half and its
+                             ; page's home were the same (modes 09h and 0Ah: tdy_hv)
+tdy_wall   ds 4              ; (words) nonzero: all of the half is to go home
+tdy_dh     ds 16             ; (words) the half a page's home is known against, or $FFFF
+tdy_df     ds 512            ; page * 64 + n: that home's 256 n may differ from the half's
+tdy_sd     ds 128            ; a 256 of the two pages shown is to be drawn (64 a page)
+tdy_sdn    dw 0              ; nonzero: some are
+tdy_ch     ds 128            ; tdy_setpage: the 256s the pages it brought differed in
+tdy_full   dw 0              ; and nonzero when one came whole, nothing compared
+tdy_np     dw 0              ; the register's new value and its old one
+tdy_op     dw 0
+tdy_cs     dw 0              ; tdy_c256: the slots and the 256
+tdy_cd     dw 0
+tdy_cc     dw 0
+tdy_x      dw 0              ; tdy_dfall: the page that is not marked
 tdy_pald   dw 0              ; nonzero: a palette register or the mask changed
 tdy_alld   dw 0              ; nonzero: the whole screen is to be drawn
 tdy_nx     dw 0              ; the partial flush: the 8K's first row not yet drawn
@@ -61,9 +77,8 @@ tdy_sb     dw 0
 tdy_c      dw 0              ; tdy_setpage: the CPU's page
 tdy_p      dw 0              ; tdy_bring: the page and the slot
 tdy_t      dw 0
-tdy_e      dw 0              ; tdy_evict: the slot, its page, the spare slot
+tdy_e      dw 0              ; tdy_wback: the half and its page
 tdy_q      dw 0
-tdy_s      dw 0
 tdy_t0     dw 0
 tdy_w      dw 0              ; a pixel's bits and the mask of the others
 tdy_m      dw 0
@@ -107,22 +122,20 @@ tdy_setup
  ldx #0
  txa
 :p
- sta tdy_where,x           ; pages 0-5 in slots 0-5
- sta tdy_held,x
- inc
+ lda tdy_hs,x              ; every page at its home, but page 7: at B800
+ sta tdy_where,x           ; (text is there), and nothing at BC00
  inx
  inx
- cpx #12
+ cpx #16
  bcc :p
- lda #8                    ; page 6 in slot 8, page 7 at B800 (text is
- sta tdy_where+12          ; there), nothing at BC00
- lda #6
- sta tdy_held+16
+ lda #TDY_WIN
  sta tdy_where+14
  lda #7
- sta tdy_held+12
+ sta TDY_WIN*2+tdy_held
  lda #$FFFF
- sta tdy_held+14
+ sta TDY_WIN*2+2+tdy_held
+ stz tdy_sdn
+ jsr tdy_unsync            ; (and its home is not it yet)
  lda #$003F
  sta >TDY_PAGE
  jsr tdy_publish
@@ -228,6 +241,18 @@ tdy_modeset
 * BC00; with an odd one nothing is at BC00 (the Tandy shows the same
 * 16K there again). Bits 0-2 are the page shown, which tdy_flush
 * finds wherever it is.
+*
+* A page has a home (tdy_hs) and the window holds a copy of the CPU's.
+* In modes 09h and 0Ah the 256s written are known (tdy_hv), so a page
+* that leaves the window takes home only those (tdy_wback), and one
+* that comes is compared with what the window holds in the 256s where
+* the two may differ and copied where they do (tdy_load): a program
+* that shows two pages and draws two others, changing them over every
+* frame, moves what it drew and no more. Then the screen: nothing when
+* the same pages are shown, the 256s that differed when the pairs
+* changed places, all of it otherwise. In any other mode somebody
+* else takes VID_DIRTY's flags, nothing is known and whole pages move
+* (tdy_unsync).
 tdy_setpage
  mx %00
  and #$00FF
@@ -235,6 +260,20 @@ tdy_setpage
  bne :new
  rts
 :new
+ sta tdy_np
+ lda gfx_mode
+ cmp #GFX_TDY9
+ beq :hv
+ cmp #GFX_TDYA
+ beq :hv
+ jsr tdy_unsync
+ bra :set
+:hv
+ jsr tdy_hv                ; (while the register still says whose the flags are)
+:set
+ lda >TDY_PAGE
+ sta tdy_op
+ lda tdy_np
  sta >TDY_PAGE
  lsr
  lsr
@@ -242,21 +281,33 @@ tdy_setpage
  and #$0007
  sta tdy_c
  stz tdy_moved
- ldx #TDY_WIN
+ stz tdy_full
+ ldx #126
+:cl
+ stz tdy_ch,x
+ dex
+ dex
+ bpl :cl
+ lda tdy_c
+ ldx #0
  jsr tdy_bring
  lda tdy_c
  lsr
  bcs :odd
  lda tdy_c
  inc
- ldx #TDY_WIN+1
+ ldx #1
  jsr tdy_bring
  bra :done
 :odd
- lda #TDY_WIN+1
  jsr tdy_evict
 :done
  jsr tdy_publish
+ lda gfx_mode
+ cmp #GFX_TDY9
+ beq :pg
+ cmp #GFX_TDYA
+ beq :pg
  lda #1
  sta tdy_alld
  lda tdy_moved             ; B800 is other bytes now: a text screen or the
@@ -277,92 +328,412 @@ tdy_setpage
  bcc :m
 :out
  rts
+:pg
+ lda tdy_op                ; the same two pages shown: nothing to draw
+ eor tdy_np
+ and #$0006
+ beq :out
+ lda tdy_full              ; others. The pair that was shown is the CPU's
+ bne :all                  ; now and the CPU's is the one shown: the screen
+ lda tdy_c                 ; changes where the pages brought differed from
+ lsr                       ; what the window held
+ bcs :all
+ lda tdy_op
+ and #$0006
+ cmp tdy_c
+ bne :all
+ lda tdy_op
+ lsr
+ lsr
+ lsr
+ and #$0007
+ sta tdy_t0
+ lda tdy_np
+ and #$0006
+ cmp tdy_t0
+ bne :all
+ ldx #126
+:sw
+ lda tdy_ch,x
+ beq :sn
+ ora tdy_sd,x
+ sta tdy_sd,x
+ sta tdy_sdn
+:sn
+ dex
+ dex
+ bpl :sw
+ rts
+:all
+ lda #1
+ sta tdy_alld
+ rts
 
-* tdy_bring - page A to slot X of the window. What the slot held goes
-* to the spare slot first, and the slot the page leaves is the spare.
+* tdy_unsync - nothing is known of the window against the homes: each
+* half goes home whole, and a page comes whole
+tdy_unsync
+ mx %00
+ lda #1
+ sta tdy_wall
+ sta tdy_wall+2
+ lda #$FFFF
+ ldx #14
+:l
+ sta tdy_dh,x
+ dex
+ dex
+ bpl :l
+ rts
+
+* tdy_hv - modes 09h and 0Ah: VID_DIRTY's flags are taken. A 256 that
+* was written is noted for its half of the window (tdy_wr) and, when
+* that half's page is one of the two shown, for the screen (tdy_sd).
+tdy_hv
+ mx %00
+ ldx #0
+:q
+ lda >VID_DIRTY,x          ; two flags a turn
+ bne :some
+:nx
+ inx
+ inx
+ cpx #128
+ bcc :q
+ rts
+:some
+ and #$00FF
+ beq :b
+ jsr :one
+:b
+ inx
+ lda >VID_DIRTY,x
+ and #$00FF
+ beq :c
+ jsr :one
+:c
+ dex
+ bra :nx
+:one
+ sep #$20
+ mx %10
+ lda #0
+ sta >VID_DIRTY,x
+ lda #1
+ sta tdy_wr,x
+ rep #$20
+ mx %00
+ ldy #TDY_WIN*2            ; the page in this half
+ cpx #64
+ bcc :h0
+ ldy #TDY_WIN*2+2
+:h0
+ lda >TDY_PAGE
+ and #$0006
+ eor tdy_held,y            ; 0: the first page shown, 1: the second
+ cmp #2
+ bcs :no                   ; another, or none: not on the screen
+ lsr
+ txa
+ and #$003F
+ bcc :p0
+ ora #$0040
+:p0
+ tay
+ sep #$20
+ mx %10
+ lda #1
+ sta tdy_sd,y
+ sta tdy_sdn
+ rep #$20
+ mx %00
+:no
+ rts
+
+* tdy_bring - page A to half X of the window (0: B800, 1: BC00)
 tdy_bring
  mx %00
  sta tdy_p
  stx tdy_t
+ txa
  asl
- tay
- lda tdy_where,y
- cmp tdy_t
+ tax
+ lda TDY_WIN*2+tdy_held,x
+ cmp tdy_p
  bne :go
  rts
 :go
- lda tdy_t
- jsr tdy_evict
- lda tdy_p
+ lda tdy_t                 ; the page is in the other half (an odd page the
+ eor #$0001                ; CPU takes, that was the second of two): it goes
+ pha                       ; home from there first, with what was written
  asl
- tay
- lda tdy_where,y
- pha
- ldx tdy_t
- jsr tdy_move
- lda tdy_p
+ tax
+ lda TDY_WIN*2+tdy_held,x
+ cmp tdy_p
+ bne :nother
+ lda 1,s
+ jsr tdy_wback
+ lda 1,s
  asl
- tay
- lda tdy_t
- sta tdy_where,y
- asl
- tay
- lda tdy_p
- sta tdy_held,y
- pla
- asl
- tay
+ tax
  lda #$FFFF
- sta tdy_held,y
- rts
+ sta TDY_WIN*2+tdy_held,x
+:nother
+ pla
+ lda tdy_t
+ jsr tdy_wback
+ jmp tdy_load
 
-* tdy_evict - the page in slot A to the spare slot; A is the spare then
+* tdy_evict - nothing at BC00: the page there goes home
 tdy_evict
  mx %00
- sta tdy_e
- asl
- tay
- lda tdy_held,y
+ lda TDY_WIN*2+2+tdy_held
  cmp #$FFFF
  bne :has
  rts
 :has
+ lda #1
+ jsr tdy_wback
+ lda #$FFFF
+ sta TDY_WIN*2+2+tdy_held
+ rts
+
+* tdy_wback - half A's page goes home: the 256s written, or all of it
+* when nothing is known (tdy_wall). Its home is the half's twin then.
+* A 256 that was written is one where every other home against this
+* half may differ from now on.
+tdy_wback
+ mx %00
+ sta tdy_e
+ asl
+ tax
+ lda TDY_WIN*2+tdy_held,x
  sta tdy_q
- ldy #0
-:f
- lda tdy_held,y
+ lda tdy_wall,x
+ beq :some
+ stz tdy_wall,x
+ lda tdy_q
  cmp #$FFFF
- beq :sp
- iny
- iny
- cpy #TDY_NSLOT*2
- bcc :f
- rts                       ; (there is always one)
-:sp
- tya
- lsr
- sta tdy_s
+ beq :wclr
+ asl
+ tax
+ lda tdy_hs,x
  tax
  lda tdy_e
- jsr tdy_move
- lda tdy_s
- asl
- tay
- lda tdy_q
- sta tdy_held,y
- asl
- tay
- lda tdy_s
- sta tdy_where,y
+ clc
+ adc #TDY_WIN
+ jsr tdy_move              ; (16K, the window's slot to the home)
+:wclr
+ lda tdy_e                 ; (tdy_unsync left no home known against it)
+ xba
+ lsr
+ lsr
+ tax                       ; half * 64
+ ldy #32
+:wz
+ stz tdy_wr,x
+ inx
+ inx
+ dey
+ bne :wz
+ bra :fin
+:some
+ stz tdy_cc
+:n
  lda tdy_e
+ xba
+ lsr
+ lsr
+ ora tdy_cc
+ tax
+ lda tdy_wr,x
+ and #$00FF
+ beq :next
+ sep #$20
+ mx %10
+ lda #0
+ sta tdy_wr,x
+ rep #$20
+ mx %00
+ lda tdy_q
+ sta tdy_x
+ cmp #$FFFF
+ beq :nohome
  asl
+ tax
+ lda tdy_hs,x
+ sta tdy_cd
+ lda tdy_e
+ clc
+ adc #TDY_WIN
+ sta tdy_cs
+ jsr tdy_c256
+:nohome
+ jsr tdy_dfall
+:next
+ inc tdy_cc
+ lda tdy_cc
+ cmp #64
+ bcc :n
+:fin
+ lda tdy_q
+ cmp #$FFFF
+ beq :out
+ asl
+ tax
+ lda tdy_e
+ sta tdy_dh,x
+ lda tdy_hs,x
+ sta tdy_where,x
+ lda tdy_q
+ jsr tdy_dfclr
+:out
+ rts
+
+* tdy_load - page tdy_p to half tdy_t, whose own page has gone home.
+* A home known against this half is compared with it in the 256s that
+* may differ and copied where they do (noted in tdy_ch); any other
+* comes whole, and then every 256 of the half is new to the others.
+tdy_load
+ mx %00
+ lda tdy_p
+ sta tdy_x
+ asl
+ tax
+ lda tdy_dh,x
+ cmp tdy_t
+ beq :part
+ lda tdy_t
+ clc
+ adc #TDY_WIN
+ pha
+ lda tdy_hs,x
+ plx
+ jsr tdy_move              ; (16K, the home to the window's slot)
+ inc tdy_full
+ lda tdy_t
+ sta tdy_e
+ stz tdy_cc
+:fa
+ jsr tdy_dfall
+ inc tdy_cc
+ lda tdy_cc
+ cmp #64
+ bcc :fa
+ lda tdy_p
+ jsr tdy_dfclr
+ bra :fin
+:part
+ lda tdy_t
+ sta tdy_e
+ lda tdy_hs,x
+ sta tdy_cs
+ lda tdy_t
+ clc
+ adc #TDY_WIN
+ sta tdy_cd
+ stz tdy_cc
+:n
+ lda tdy_p
+ xba
+ lsr
+ lsr
+ ora tdy_cc
+ tax
+ lda tdy_df,x
+ and #$00FF
+ beq :next
+ sep #$20
+ mx %10
+ lda #0
+ sta tdy_df,x
+ rep #$20
+ mx %00
+ jsr tdy_cmp               ; (sets the two pointers)
+ beq :next
+ jsr tdy_c256
+ inc tdy_moved
+ lda tdy_t
+ xba
+ lsr
+ lsr
+ ora tdy_cc
+ tax
+ sep #$20
+ mx %10
+ lda #1
+ sta tdy_ch,x
+ rep #$20
+ mx %00
+ jsr tdy_dfall
+:next
+ inc tdy_cc
+ lda tdy_cc
+ cmp #64
+ bcc :n
+:fin
+ lda tdy_p
+ asl
+ tax
+ lda tdy_t
+ sta tdy_dh,x
+ clc
+ adc #TDY_WIN
+ sta tdy_where,x
+ asl
+ tax
+ lda tdy_p
+ sta tdy_held,x
+ rts
+
+* tdy_dfall - the 256 tdy_cc of half tdy_e changed: every home known
+* against that half may differ there, but page tdy_x's
+tdy_dfall
+ mx %00
+ ldx #0
+ ldy tdy_cc
+:q
+ txa
+ lsr
+ cmp tdy_x
+ beq :no
+ lda tdy_dh,x
+ cmp tdy_e
+ bne :no
+ sep #$20
+ mx %10
+ lda #1
+ sta tdy_df,y
+ rep #$20
+ mx %00
+:no
+ tya
+ clc
+ adc #64
  tay
- lda #$FFFF
- sta tdy_held,y
+ inx
+ inx
+ cpx #16
+ bcc :q
+ rts
+
+* tdy_dfclr - page A's home is its half's twin: none of its 256s differs
+tdy_dfclr
+ mx %00
+ xba
+ lsr
+ lsr
+ tax
+ ldy #32
+:z
+ stz tdy_df,x
+ inx
+ inx
+ dey
+ bne :z
  rts
 
 * tdy_slot - slot A: its offset in tdy_off, A = its host bank.
-* Keeps Y.
+* Keeps X and Y.
 tdy_slot
  mx %00
  cmp #8
@@ -388,10 +759,73 @@ tdy_slot
  lda #^H_TXTBANK
  rts
 :c8
+ beq :s8
+ lda #$C000                ; slot 9
+ bra :so
+:s8
  lda #$8000
+:so
  sta tdy_off
 :c
  lda #^H_TDYC
+ rts
+
+* tdy_ptrs - gSRC and gDST: the 256 tdy_cc of slots tdy_cs and tdy_cd
+tdy_ptrs
+ mx %00
+ lda tdy_cs
+ jsr tdy_slot
+ sta gSRC+2
+ lda tdy_cc
+ xba
+ clc
+ adc tdy_off
+ sta gSRC
+ lda tdy_cd
+ jsr tdy_slot
+ sta gDST+2
+ lda tdy_cc
+ xba
+ clc
+ adc tdy_off
+ sta gDST
+ rts
+
+* tdy_cmp - are they the same? Z when they are.
+tdy_cmp
+ mx %00
+ jsr tdy_ptrs
+ ldy #254
+:l
+ lda [gSRC],y
+ cmp [gDST],y
+ bne :out
+ dey
+ dey
+ bpl :l
+ lda #0
+:out
+ rts
+
+* tdy_c256 - the 256 tdy_cc of slot tdy_cs to slot tdy_cd
+tdy_c256
+ mx %00
+ jsr tdy_ptrs
+ sep #$20
+ mx %10
+ lda gDST+2
+ sta :mvn+1                ; destination bank
+ lda gSRC+2
+ sta :mvn+2                ; source bank
+ rep #$20
+ mx %00
+ phb
+ ldx gSRC
+ ldy gDST
+ lda #$00FF
+:mvn
+ dfb $54,$00,$00
+ plb
  rts
 
 * tdy_move - the 16K of slot A to slot X
@@ -565,10 +999,13 @@ tdy_enter
  plb
 :show
  pla
-* tdy_show - the screen is mode A's from the next frame
+* tdy_show - the screen is mode A's from the next frame (and what the
+* window holds against the pages' homes is anybody's guess: the mode
+* set cleared it, or another mode's drawing took the flags)
 tdy_show
  mx %00
  sta gfx_mode
+ jsr tdy_unsync
  jsr shd_inval             ; the text pixels are gone
  ldx #0
  ldy #0                    ; 320 mode, palette 0, on every line
@@ -684,9 +1121,10 @@ tdy_0B
 
 * tdy_flush - the frame of modes 08h, 09h and 0Ah: the palette if it
 * changed, then the lines. Modes 09h and 0Ah: the two pages shown are
-* found in their slots; all 200 lines are drawn when tdy_alld, and
-* otherwise those of the 256s the core marked, when the half of the
-* window they are in is a page shown.
+* found where they are (the window or their homes); VID_DIRTY's flags
+* are taken (tdy_hv); all 200 lines are drawn when tdy_alld, and
+* otherwise those of the 256s of the pages shown that tdy_sd names:
+* the ones written, and the ones tdy_setpage found different.
 tdy_flush
  mx %00
  lda tdy_pald
@@ -699,6 +1137,15 @@ tdy_flush
  bne :m9
  jmp tdy_flush8
 :m9
+ lda tdy_alld
+ bne :go
+ lda tdy_sdn
+ bne :go
+ jsr tdy_dirty
+ bne :go
+ rts                       ; (most frames)
+:go
+ jsr tdy_hv
  lda >TDY_PAGE             ; the pages shown: an even one and the next
  and #$0006
  sta tdy_d0
@@ -725,14 +1172,13 @@ tdy_flush
  lda tdy_alld
  beq :part
  stz tdy_alld
- ldx #0
- lda #0
+ stz tdy_sdn
+ ldx #126
 :cf
- sta >VID_DIRTY,x
- inx
- inx
- cpx #128
- bcc :cf
+ stz tdy_sd,x
+ dex
+ dex
+ bpl :cf
  stz gPAR
 :ab
  stz gROW
@@ -748,10 +1194,11 @@ tdy_flush
  bcc :ab
  rts
 :part
- jsr tdy_dirty
+ lda tdy_sdn
  bne :some
- rts                       ; (most frames)
+ rts
 :some
+ stz tdy_sdn
  stz gPG
 :pg
  lda gPG
@@ -760,32 +1207,22 @@ tdy_flush
  stz tdy_nx                ; an 8K begins: none of its rows is drawn
 :same
  ldx gPG
- lda >VID_DIRTY,x
+ lda tdy_sd,x
  and #$00FF
  beq :next
  sep #$20
  mx %10
  lda #0
- sta >VID_DIRTY,x
+ sta tdy_sd,x
  rep #$20
  mx %00
- ldy #TDY_WIN*2            ; the page in this half of the window
- lda gPG
- cmp #64
- bcc :h0
- ldy #TDY_WIN*2+2
-:h0
- lda tdy_held,y
- eor tdy_d0                ; 0: the first page shown, 1: the second
- cmp #2
- bcs :next                 ; another, or none: not on the screen
+ lda gPG                   ; the page's line banks are 0 and 1, or 2 and 3
+ and #$0060
  asl
- sta gPAR                  ; its line banks are 0 and 1, or 2 and 3
- lda gPG
- and #$0020
- beq :lo
- inc gPAR                  ; the page's second 8K
-:lo
+ asl
+ asl
+ xba
+ sta gPAR
  lda gPG
  and #$001F
  tax

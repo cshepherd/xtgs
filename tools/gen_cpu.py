@@ -465,15 +465,15 @@ def gen_alu():
         else:
             # push16 inline; SP = 1 (the word split across the segment's end) through push16
             lines += [f"op_{hx(0x50 + r)}       ; push {N16[r]}", " mx %00", " lda rSP", " dec", " dec",
-                      " cmp #$FFFF", " beq :split", " sta rSP", " clc", " adc bSS", " sta pSTK", " lda bSS+2",
+                      " cmp #$FFFF", " beq :split", " sta rSP", " adc bSS", " sta pSTK", " lda bSS+2",   # (the compare cleared the carry)
                       " bcs :carry", ":bank", " sta pSTK+2", f" lda {R16[r]}", " sta [pSTK]", " jmp (NEXTVEC)",
-                      ":carry", " jsr stk_carry", " bra :bank",
+                      ":carry", " adc #0", " and #$000F", " ora #GUEST_BANK", " bra :bank",   # stk_carry, inline
                       ":split", f" lda {R16[r]}", " jsr push16", " jmp (NEXTVEC)"]
         # pop16 inline; SP = $FFFF through pop16
         lines += [f"op_{hx(0x58 + r)}       ; pop {N16[r]}", " mx %00", " lda rSP", " cmp #$FFFF", " beq :split",
-                  " tax", " inx", " inx", " stx rSP", " clc", " adc bSS", " sta pSTK", " lda bSS+2",
+                  " tax", " inx", " inx", " stx rSP", " adc bSS", " sta pSTK", " lda bSS+2",   # (carry clear from the compare)
                   " bcs :carry", ":bank", " sta pSTK+2", " lda [pSTK]", f" sta {R16[r]}", " jmp (NEXTVEC)",
-                  ":carry", " jsr stk_carry", " bra :bank",
+                  ":carry", " adc #0", " and #$000F", " ora #GUEST_BANK", " bra :bank",
                   ":split", " jsr pop16", f" sta {R16[r]}", " jmp (NEXTVEC)"]
     for r in range(8):
         lines += [f"op_{hx(0xB0 + r)}       ; mov {N8[r]}, imm8", " mx %00", " lda [bCS],y", " iny",
@@ -485,14 +485,23 @@ def gen_alu():
                   f" ldx {R16[r]}", " stx rAX", f" sta {R16[r]}", " jmp (NEXTVEC)"]
     # The taken tail sits inside the block so every Jcc's short branch
     # reaches it. IP + 1 + rel8 as (rel8 ^ $80) + IP - $7F.
+    # Forward and back apart: a jump back is where a loop closes, and the
+    # translator's probe is there (jit_bk, jitc.s) when it is on. The back
+    # half is out of the way (jcc_back, after the handlers): the tail has to
+    # stay within a short branch of every Jcc on both sides of it.
     tails = ["jcc_taken                  ; IP += sign-extended rel8", " mx %00", " lda [bCS],y",
-             " and #$00FF", " eor #$0080", " sty tmp0", " clc", " adc tmp0", " sec", " sbc #$007F",
-             " tay", " dec vSLOT               ; a transfer taken counts the slot (next_ct)",
-             " beq :due", " jmp (NEXTVEC)", ":due", " jmp next_due"]
+             " and #$00FF", " cmp #$0080", " bcs :back", " sty tmp0", " sec               ; + 1: the byte itself",
+             " adc tmp0", " tay", " dec vSLOT               ; a transfer taken counts the slot (next_ct)",
+             " beq :due", " jmp (NEXTVEC)", ":due", " jmp next_due", ":back", " jmp jcc_back"]
+    back = ["jcc_back                   ; a jump back: A = rel8 (128-255), the carry set", " mx %00",
+            " ora #$FF00", " sty tmp0", " adc tmp0            ; (+ 1: the carry)", " tay",
+            "jcc_hook                   ; (jit_start makes these three bytes JMP jit_bk)", " mx %00",
+            " dec vSLOT", " beq :due", " jmp (NEXTVEC)", ":due", " jmp next_due"]
     for cc, (name, body) in enumerate(JCC):
         if cc == 11:
             lines += tails
         lines += [f"op_{hx(0x70 + cc)}       ; {name} rel8", " mx %00"] + body
+    lines += back
     return "\n".join(lines) + "\n"
 
 

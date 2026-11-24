@@ -541,6 +541,7 @@ com_ch
  beq :noirq
  lda #1
  sta >PIC_IRQ4,x
+ sta >PIC_PEND             ; (the slot looks at the lines only when this is set)
 :noirq
  sep #$20
  mx %10
@@ -582,6 +583,7 @@ com_level
 :high
  lda #1
  sta >PIC_IRQ4,x
+ sta >PIC_PEND
  plp
  rts
 

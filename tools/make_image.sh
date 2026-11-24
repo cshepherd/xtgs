@@ -13,6 +13,9 @@
 # before the command in XTGS.CMD (tools/layout.py; the harness translates
 # addresses to match).
 #
+# XTGS_JIT=1 (environment) is every volume with the translator (docs/jit.md):
+# the file JIT beside CORE, and the line JIT=ON at XTGS.CMD's end.
+#
 # XTGS_FRONT=s16 (environment) makes it a GS/OS volume instead, booting
 # into the native front end: tools/gsos_image.sh with the System 6 volume
 # SYSTEM6 (environment; default ../ddiigs/assets/system6.hdv), the files
@@ -46,8 +49,17 @@ for f in "$@"; do
     else
         cp "$f" "$stage/$name"
     fi
+    if [ "$name" = "XTGS.CMD#040000" ]; then havecmd=1; fi
+    if [ "$name" = "JIT#060000" ]; then havejit=1; fi
     files+=("$stage/$name")
 done
+if [ -n "${XTGS_JIT:-}" ] && [ -n "${havecmd:-}" ]; then
+    grep -q 'JIT=ON' "$stage/XTGS.CMD#040000" || printf 'JIT=ON\r' >> "$stage/XTGS.CMD#040000"
+    if [ -z "${havejit:-}" ]; then
+        cp "$here/../build/stage/JIT#060000" "$stage/JIT#060000"
+        files+=("$stage/JIT#060000")
+    fi
+fi
 if [ "${XTGS_FRONT:-}" = s16 ]; then
     sys6="${SYSTEM6:-$here/../../ddiigs/assets/system6.hdv}"
     [ -f "$sys6" ] || { echo "make_image: no System 6 volume at $sys6 (set SYSTEM6=)" >&2; exit 1; }
@@ -63,4 +75,4 @@ done
 for d in ${dirs[@]+"${dirs[@]}"}; do
     "$CADIUS" ADDFOLDER "$image" "/XTGS/$(basename "$d")" "$d" --quiet >/dev/null
 done
-"$CADIUS" CATALOG "$image" | grep -E "XTGS|CORE|SVC|VEC|CMD|COM|Free"
+"$CADIUS" CATALOG "$image" | grep -E "XTGS|CORE|SVC|JIT|VEC|CMD|COM|Free"

@@ -37,6 +37,13 @@ eg_cnt     dw 0
 eg_keep    dw 0              ; mode set: AL's bit 7, the planes are not cleared
 eg_f       ds 8              ; a fill: each plane's byte (words)
 eg_fw      dw 0              ; and the SHR's two bytes
+eg_part    dw 0              ; the wide draw: 0 all the lines, 1 those of flagged 256s,
+                             ; 2 those and the ones that differ from eg_from's
+eg_mv      dw 0              ; nonzero: the start address changed since the last draw
+eg_from    dw 0              ; the screen's first byte in the planes as the SHR has it
+eg_la      dw 0              ; a line's first byte there
+eg_ro      dw 0              ; and a line's first byte from the screen's, its place
+eg_dl      dw 0              ; on the SHR
 eg_si      dw 0              ; a line moved: its source and destination on
 eg_di      dw 0              ; the screen
 FONT_OFF   = $F000           ; F000:F000, the font where a guest can read it
@@ -296,9 +303,13 @@ ega_flush
  xba
  cmp >EGA_START
  beq :same
+ pha                       ; the screen is somewhere else in the planes: what it
+ lda >EGA_START            ; shows is where it was (eg_from), and eg_wide draws
+ sta eg_from               ; the lines that are not the same there and here
+ pla
  sta >EGA_START
  lda #1
- sta >EGA_ALLD
+ sta eg_mv
 :same
  lda >CRTC_REG+$13         ; the offset register: words from a line to the next
  and #$00FF
@@ -334,34 +345,10 @@ ega_flush
  jmp eg_wide
 :narrow
  lda >EGA_ALLD
+ ora eg_mv
  beq :pages
- lda #0
- sta >EGA_ALLD
- ldx #0
-:cv
- sta >VID_DIRTY,x
- inx
- inx
- cpx #32
- bcc :cv
- jsr eg_noflags
- stz gROW
- stz gL
-:all
- lda gROW
- clc
- adc >EGA_START
- tax
- jsr eg_conv
- lda gL
- clc
- adc #4
- sta gL
- inc gROW
- lda gROW
- cmp #EGA_LEN
- bcc :all
- rts
+ jsr eg_wide               ; all of it, or what a new start address changed:
+ jmp eg_noflags            ; a line at a time, and no byte is flagged after
 :pages
  stz gPG
 :pg
@@ -459,88 +446,234 @@ eg_winlen
  sta >EGA_WINLEN
  rts
 
-* eg_wide - the frame's drawing when a line of the planes is not 40
-* bytes from the next or the screen is panned (a program that scrolls
-* by the 6845's start address and offset register and the attribute
-* controller's panning: a window on a buffer wider than the screen).
-* No byte has a flag then: anything written in the window, or the
-* window moved, and all of it is drawn, 40 bytes of each line.
+* eg_wide - the frame's drawing a line at a time: when a line of the
+* planes is not 40 bytes from the next or the screen is panned (a
+* program that scrolls by the 6845's start address and offset register
+* and the attribute controller's panning: a window on a buffer wider
+* than the screen), and in any shape when the whole is to be drawn or
+* the start address changed. No byte has a flag in a wide window, but
+* its 256s do (VID_DIRTY, by the byte's place from the screen's first:
+* eg_mark, eg_markrng in the core, eg_mk1 here). So:
+*   EGA_ALLD        all 200 lines;
+*   eg_mv           the start address changed and nothing else (a
+*                   program that draws in one part of the planes while
+*                   another is shown, and changes them over): the SHR
+*                   has the lines from eg_from, so a line is drawn when
+*                   a 256 of it was written since, or when its bytes
+*                   there and here are not the same (eg_lcmp);
+*   neither         the lines whose first or last byte is in a 256
+*                   that was written.
+* A window longer than the flags reach (32K) is drawn whole whenever
+* anything in it was written.
 eg_wide
  mx %00
  lda >EGA_ALLD
- bne :draw
+ bne :all
  ldx #0
 :chk
  lda >VID_DIRTY,x
- bne :draw
+ bne :some
  inx
  inx
- cpx #32
+ cpx #128
  bcc :chk
+ lda eg_mv                 ; nothing written
+ bne :mv
  rts
-:draw
+:some
+ lda >EGA_WINLEN
+ cmp #$7F01
+ bcs :all
+ lda #1
+ sta eg_part
+ lda eg_mv
+ beq :go
+:mv
+ lda #2
+ sta eg_part
+ bra :go
+:all
+ stz eg_part
  lda #0
  sta >EGA_ALLD
- ldx #0
-:cv
- sta >VID_DIRTY,x
- inx
- inx
- cpx #32
- bcc :cv
- stz gL
+:go
+ stz eg_mv
  lda >EGA_START
  sta eg_ln
+ lda eg_from
+ sta eg_la
+ stz eg_ro
+ lda #<SHR_PIX
+ sta eg_dl
  lda #200
  sta eg_cnt
 :line
- lda eg_ln
- sta gROW
- lda #40
- sta gR1
- lda eg_pan
- bne :pan
-:byte
- ldx gROW
- jsr eg_conv
- lda gL
+ lda eg_part
+ beq :draw
+ lda eg_ro
+ xba
+ and #$00FF
+ tax
+ lda >VID_DIRTY,x
+ and #$00FF
+ bne :draw
+ lda eg_ro
  clc
- adc #4
- sta gL
- inc gROW
- dec gR1
- bne :byte
- bra :next
-:pan
- ldx gROW
- jsr eg_convp
- lda gL
- clc
- adc #4
- sta gL
- inc gROW
- dec gR1
- bne :pan
-:next
+ adc #40
+ xba
+ and #$00FF
+ tax
+ lda >VID_DIRTY,x
+ and #$00FF
+ bne :draw
+ lda eg_part
+ cmp #2
+ bne :skip
+ jsr eg_lcmp
+ beq :skip
+:draw
+ jsr eg_wline
+:skip
  lda eg_ln
  clc
  adc eg_stride
  sta eg_ln
+ lda eg_la
+ clc
+ adc eg_stride
+ sta eg_la
+ lda eg_ro
+ clc
+ adc eg_stride
+ sta eg_ro
+ lda eg_dl
+ clc
+ adc #160
+ sta eg_dl
  dec eg_cnt
  bne :line
+ lda >EGA_START
+ sta eg_from
+ ldx #0
+ lda #0
+:cv
+ sta >VID_DIRTY,x
+ inx
+ inx
+ cpx #128
+ bcc :cv
  rts
 
-* eg_convp - as eg_conv, the eight pixels that begin eg_pan (1-7)
-* pixels into the byte at X: each plane's byte and the next, shifted.
-eg_convp
+* eg_lcmp - are the line at eg_la and the line at eg_ln the same, all
+* four planes, the 41 bytes a line can show (42 are looked at)? Z when
+* they are. A line that lies across the planes' end is not looked at.
+eg_lcmp
  mx %00
+ lda eg_la
+ cmp #$FFD6
+ bcs :ne
+ sta gSRC
+ lda eg_ln
+ cmp #$FFD6
+ bcs :ne
+ sta gDST
+ lda #^H_EGA
+ jsr :pl
+ bne :out
+ lda #^H_EGA1
+ jsr :pl
+ bne :out
+ lda #^H_EGA2
+ jsr :pl
+ bne :out
+ lda #^H_EGA3
+:pl
+ sta gSRC+2
+ sta gDST+2
+ ldy #40
+:c
+ lda [gSRC],y
+ cmp [gDST],y
+ bne :out
+ dey
+ dey
+ bpl :c
+ lda #0
+:out
+ rts
+:ne
+ lda #1
+ rts
+
+* eg_wline - the line of the planes from eg_ln to the SHR's line at
+* eg_dl, panned eg_pan pixels. Its 41 bytes are done from the right,
+* each as eg_conv does one, and their four SHR bytes pushed: 164 bytes
+* on the stack, the screen's 160 among them from the pan's whole
+* bytes on (two pixels a byte), which one MVN puts on the screen. An
+* odd pan is a bit more: then each plane's byte is taken with the top
+* bit of the next, shifted once.
+eg_wline
+ mx %00
+ phb
+ lda eg_ln
+ clc
+ adc #40
+ tax
+ lda #41
+ sta gR1
+ lda eg_pan
+ lsr
+ bcc :ev
+ jmp :ov
+:ev
+ lda >H_EGA,x
+ and #$00FF
+ asl
+ tay
+ lda eg_t0lo,y
+ sta gE
+ lda eg_t0hi,y
+ sta gO
+ lda >H_EGA1,x
+ and #$00FF
+ beq :e2
+ asl
+ tay
+ lda eg_t1lo,y
+ tsb gE
+ lda eg_t1hi,y
+ tsb gO
+:e2
+ lda >H_EGA2,x
+ and #$00FF
+ beq :e3
+ asl
+ tay
+ lda eg_t2lo,y
+ tsb gE
+ lda eg_t2hi,y
+ tsb gO
+:e3
+ lda >H_EGA3,x
+ and #$00FF
+ beq :e4
+ asl
+ tay
+ lda eg_t3lo,y
+ tsb gE
+ lda eg_t3hi,y
+ tsb gO
+:e4
+ pei (gO)
+ pei (gE)
+ dex
+ dec gR1
+ beq :blit
+ jmp :ev
+:ov
  lda >H_EGA,x
  xba
- ldy eg_pan
-:s0
  asl
- dey
- bne :s0
  xba
  and #$00FF
  asl
@@ -550,61 +683,66 @@ eg_convp
  lda eg_t0hi,y
  sta gO
  lda >H_EGA1,x
- beq :p2
  xba
- ldy eg_pan
-:s1
  asl
- dey
- bne :s1
  xba
  and #$00FF
+ beq :o2
  asl
  tay
  lda eg_t1lo,y
  tsb gE
  lda eg_t1hi,y
  tsb gO
-:p2
+:o2
  lda >H_EGA2,x
- beq :p3
  xba
- ldy eg_pan
-:s2
  asl
- dey
- bne :s2
  xba
  and #$00FF
+ beq :o3
  asl
  tay
  lda eg_t2lo,y
  tsb gE
  lda eg_t2hi,y
  tsb gO
-:p3
+:o3
  lda >H_EGA3,x
- beq :out
  xba
- ldy eg_pan
-:s3
  asl
- dey
- bne :s3
  xba
  and #$00FF
+ beq :o4
  asl
  tay
  lda eg_t3lo,y
  tsb gE
  lda eg_t3hi,y
  tsb gO
-:out
- ldx gL
- lda gE
- sta >SHR_PIX,x
- lda gO
- sta >SHR_PIX+2,x
+:o4
+ pei (gO)
+ pei (gE)
+ dex
+ dec gR1
+ beq :blit
+ jmp :ov
+:blit
+ lda eg_pan
+ lsr
+ sta gE
+ tsc
+ sec                       ; the first pushed byte is at S + 1
+ adc gE
+ tax
+ ldy eg_dl
+ lda #159
+ dfb $54,^SHR_PIX,$00      ; mvn: from bank 0 (the stack) to the SHR's
+ tsc
+ clc
+ adc #164
+ tcs
+ plb
  rts
 
 * eg_one - the screen's byte X is flagged: not any more, and drawn
@@ -682,11 +820,21 @@ eg_mk1
  sbc >EGA_START
  cmp #EGA_LEN
  bcc :in
- cmp >EGA_WINLEN           ; (longer or panned lines: ega_flush's wide path)
- bcs :out
- lda >VID_DIRTY
- ora #$0001
- sta >VID_DIRTY
+ cmp >EGA_WINLEN           ; (longer or panned lines: ega_flush's wide path,
+ bcs :out                  ; which draws the lines of the 256s flagged)
+ xba
+ and #$00FF
+ cmp #128
+ bcc :ix
+ lda #127
+:ix
+ tax
+ sep #$20
+ mx %10
+ lda #1
+ sta >VID_DIRTY,x
+ rep #$20
+ mx %00
  bra :out
 :in
  tax

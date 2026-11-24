@@ -60,7 +60,7 @@ RD_NDIRS   = 8
 rd_state   dw 0              ; 0 off, 1 waiting for DOS's INT 21h, 2 for its EXEC,
                              ; 3 installing, 4 the drive is there, 5 it could not be
 rd_cfg     dw 0              ; 0 no share asked for, 1 found, 2 not a directory
-rd_kx      dw 0              ; rd_readcfg: the line is XMS=, not MOUSE=
+rd_kx      dw 0              ; rd_readcfg: the line is MOUSE= (0), XMS= (1) or JIT= (2)
 rd_boot    dw 0              ; the S command: DOS itself comes from the share
 rd_early   dw 0              ; while it boots from there: hook21 goes in at the
                              ; first BIOS call and stays until the shell's EXEC
@@ -286,6 +286,8 @@ rd_readcfg
  lda #1
  sta ms_cfg
  sta xms_cfg
+ lda #0
+ sta >JIT_CFG
  ldx #0
  lda #0
  jsr p_open
@@ -443,6 +445,12 @@ rd_readcfg
  inc rd_kx
  bra :mk
 :notx
+ cmp #'J'                  ; "JIT=ON": the translator (the core's jit_start)
+ bne :notj
+ inc rd_kx
+ inc rd_kx
+ bra :mk
+:notj
  cmp #'M'                  ; "MOUSE=OFF": no mouse driver (mouse.s)
  bne :wno3
 :mk
@@ -466,6 +474,17 @@ rd_readcfg
  jsr rd_cfgch
  beq :none3
  sta sv1
+ lda rd_kx
+ cmp #2
+ bne :off
+ lda sv1                   ; JIT=ON
+ cmp #'N'
+ bne :wno3
+ lda #1
+ sta >JIT_CFG
+ bra :wno3
+:off
+ lda sv1
  cmp #'F'
  bne :wno3
  lda rd_kx

@@ -1732,36 +1732,36 @@ gfx_blit_line
  sta gSRC
  lda #^CGA_SRC
  sta gSRC+2
- ldy #80                   ; 80 CGA bytes -> 160 SHR bytes
+ lda gDST                  ; 80 CGA bytes -> 160 SHR bytes, from the right:
+ clc                       ; byte Y goes to the line's 2Y, which is [gDST],y
+ adc #79                   ; with gDST the line's Y
+ sta gDST
+ ldy #79
  lda gfx_mode
  cmp #6
  beq :px6
 :px3                       ; 320 mode: one byte -> two 4bpp bytes
- lda [gSRC]
+ lda [gSRC],y
  and #$00FF
  asl
  tax
  lda cga320_tab,x
- sta [gDST]
- inc gSRC
- inc gDST
- inc gDST
+ sta [gDST],y
+ dec gDST
  dey
- bne :px3
+ bpl :px3
  pla
  rts
 :px6                       ; 640 mode: one byte -> two 2bpp (mono) bytes
- lda [gSRC]
+ lda [gSRC],y
  and #$00FF
  asl
  tax
  lda cga640_tab,x
- sta [gDST]
- inc gSRC
- inc gDST
- inc gDST
+ sta [gDST],y
+ dec gDST
  dey
- bne :px6
+ bpl :px6
  pla
  rts
 

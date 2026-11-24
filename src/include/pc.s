@@ -103,6 +103,8 @@ CLK_MADE   = RES_BASE+$8AA   ; u16 ticks added in all (diagnostic, as CLK_PAID)
 PIC_BASE   = RES_BASE+$8AC   ; u16 the vector of IRQ0 (ICW2): 8 on a PC, 28h under Minix
 PIC_MASK   = RES_BASE+$8AE   ; u16 the mask register (port 21h): bit n set holds IRQn back
 PIC_IRQ6   = RES_BASE+$8B0   ; u16 nonzero: the diskette controller's interrupt is waiting
+JIT_CFG    = RES_BASE+$8B6   ; u16 nonzero: XTGS.CMD says JIT=ON (rd_readcfg; the core's jit_start)
+PIC_PEND   = RES_BASE+$8B4   ; u16 nonzero: a line other than IRQ0 was raised and the slot has not found them all idle since (cpu.s: whoever raises PIC_IRQ3/4/6 or PIC_MOUSE, or queues a scancode, sets it)
 CRTC_CUR   = RES_BASE+$8B2   ; u16 nonzero: the cursor is where the 6845's R14/R15 put it
                              ; (the guest wrote them after the BIOS last moved it)
 TICK_OFF   = $0510           ; F000:0510, INT 08h: hypercall 8 / int 1Ch / iret
@@ -132,6 +134,7 @@ CAP_MAX    = $7000
 * reads those segments sees planes 1-3. The registers are as the guest
 * (the core's port handlers) or the BIOS (src/svc/ega.s) last wrote them.
 H_EGA      = GUEST_BASE+$A0000   ; plane 0
+H_HIGH9    = GUEST_BASE+$90000   ; (the translator: a segment based below here reaches no video memory, src/jit)
 H_EGA1     = GUEST_BASE+$C0000   ; plane 1
 H_EGA2     = GUEST_BASE+$D0000   ; plane 2
 H_EGA3     = GUEST_BASE+$E0000   ; plane 3
@@ -162,19 +165,20 @@ EGA_DIRTY  = RES_BASE+$C000  ; EGA_LEN flags (and a word to spare), by place on 
 * The Tandy 1000's video (docs/tandy.md; XTGS.CMD's VIDEO=TANDY): eight
 * pages of 16K, of which the page register (3DFh) says which the CPU
 * has at B800 (two when its number is even) and which the screen shows.
-* Here a page is moved to the window when it is asked for, so the core
-* knows nothing of it: nine 16K slots, 0-3 at A000-AFFF, 4 and 5 at
-* C000 and C400, 6 and 7 the window, 8 at C800 (no EGA: its banks are
-* free, and nothing writes there as a program looking for a monochrome
-* card writes B000), eight pages in them and one slot to spare
-* (src/svc/tandy.s).
+* Here a page is copied to the window when it is asked for, so the core
+* knows nothing of it: ten 16K slots, 0-3 at A000-AFFF, 4 and 5 at
+* C000 and C400, 6 and 7 the window, 8 and 9 at C800 and CC00 (no EGA:
+* its banks are free, and nothing writes there as a program looking
+* for a monochrome card writes B000). Pages 0-5 have slots 0-5 for
+* their homes and pages 6 and 7 slots 8 and 9; TDY_SLOT says where a
+* page is whole, its home or the window (src/svc/tandy.s).
 GFX_TDY8   = 8               ; gfx_mode in mode 08h, 160x200 in 16 colours
 GFX_TDY9   = 9               ; gfx_mode in mode 09h, 320x200 in 16 colours
  err GFX_TDY9-GFX_TDY8-1     ; (tdy_mode: bit 0 of 3D8h is the difference)
 GFX_TDYA   = $0A             ; gfx_mode in mode 0Ah, 640x200 in 4 colours
  err GFX_TDYA-GFX_TDY9-1     ; (tdy_mode: the three are one range)
 H_TDYA     = H_EGA           ; slots 0-3
-H_TDYC     = H_EGA1          ; slots 4, 5 and 8
+H_TDYC     = H_EGA1          ; slots 4, 5, 8 and 9
 TDY_ON     = RES_BASE+$990   ; u16 nonzero: the PC is a Tandy 1000
 TDY_IDX    = RES_BASE+$992   ; u16 the video array's register, as chosen at 3DAh
 TDY_PAGE   = RES_BASE+$994   ; u16 the page register as last written (3DFh)

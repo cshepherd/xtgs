@@ -425,6 +425,8 @@ sc_enq
  cmp >KBD_QHEAD            ; next tail == head -> ring full, drop
  beq :full
  sta >KBD_QTAIL
+ lda #1                    ; (the slot looks at the lines only when this is set)
+ sta >PIC_PEND
 :full
  rts
 

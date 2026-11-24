@@ -185,6 +185,87 @@ the mode off the five programs measure what they did before it: stock
 `str` and `strs`. What an access to the planes costs in the mode is in
 docs/ega.md.
 
+## The slot's look, a string instruction alone, the stack's carry (2026-11-24)
+
+The profiles of real programs (docs/jit.md, "M6 revisited") showed three
+costs that every program pays and no benchmark here had measured, because
+the benchmarks run with no PC behind them.
+
+- **The slot.** Every fourth control transfer it looked at each interrupt
+  line in turn: five long loads and their tests, about 130 cycles a look,
+  3.5% to 7.5% of all time in a running program. Now the lines other than
+  IRQ0 are behind one word, `PIC_PEND`, which whoever raises a line sets,
+  and a look that finds it clear (and no IRQ0 owed) goes straight to the
+  vertical blank's test. `irq_owed`, which `IRET`, `POPF` and `STI` call,
+  takes the same short way. The count the slot keeps for `B` is of slots
+  now, an `INC`, made into transfers at the end.
+- **`MOVS`, `STOS` and `LODS` without `REP`.** A destination in the text
+  buffer's bank (a Tandy's or a CGA's screen) was worked out twice, once
+  inline and once more by `str_dst` on the way to marking its page, and so
+  was any pointer whose add carried into the next bank. Both are finished
+  on the spot now, the word forms' test for offset `$FFFF` is the load the
+  add uses, and the pointers step by a load and a store.
+- **The stack's carry.** A push or a pop whose `SS:SP` add carries into the
+  next host bank called `stk_carry` for three instructions; a stack that
+  sits across a bank's end takes that path every time (10% of Keen's start
+  was pushes and pops). They are inline, in `push16`/`pop16` and in the
+  generated `PUSH`/`POP r16`.
+
+Measured on the real workloads of docs/jit.md at 16 MHz (`tools/jit_profile.py
+compare`: the interpreter's cycles for the same guest instructions, weighted
+as the earlier run executed them, the slot's share with them; instructions
+a second agree where the program does the same thing in both runs):
+
+| workload | faster by | the slot's share of all time |
+|---|---:|---|
+| Commander Keen 1 decompressing its graphics | 4.0% | 4.4% -> 2.7% |
+| GW-BASIC's arithmetic loop | 4.5% | 7.1% -> 4.2% |
+| FreeDOS booting | 3.1% | 7.1% -> 4.5% |
+| FreeDOS's shell at its prompt | 3.2% | 7.5% -> 4.9% |
+| Thexder, CGA | 5.6% | 5.1% -> 3.2% |
+| Thexder, Tandy | 6.9% | 6.4% -> 4.2% |
+| Arkanoid, Tandy | 2.7% | 1.9% -> 1.4% |
+
+Thexder's demo does not take the same course twice (it depends on the tick
+count the machine starts with and on a cycle here or there), so its row
+compares two runs that happened to take the same one; the first four rows
+are programs that do exactly the same work every run. The gain is small
+because most of what the slot does is still there: the count, the test of
+the vertical blank, the way in from `next_ct`.
+
+## Three video paths (2026-11-24)
+
+Three of the profiled games spent more of the machine on video than on the
+8088 (docs/jit.md, "Where the time goes"). What was changed, and what the
+same 30 seconds of each look like before and after at 16 MHz
+(`tools/jit_profile.py compare`; the guest's instructions a second, which
+for these programs is how fast the game runs):
+
+| workload | what it was doing | video's share | instructions a second |
+|---|---|---|---:|
+| Arkanoid, Tandy | shows two pages, draws two others, changes them over 14 times a second: four 16K moves and a whole screen each time | 69% -> 30% | 40,800 -> 98,900 (2.4x) |
+| Commander Keen 1, its title | draws each picture in a part of the EGA's planes that is not shown, then moves the start address there: a whole screen converted each time | 58% -> 41% | 34,900 -> 47,700 (1.37x) |
+| Thexder, CGA | redraws most of a mode 4 screen every frame: 52 cycles a byte of it | 38% -> 32% | 98,400 -> 108,600 (1.10x) |
+
+- **The Tandy's pages** (docs/tandy.md, "The pages have homes"): a page
+  goes home with only the 256s that were written, comes back compared in
+  the 256s that may differ, and the screen is drawn where the two pairs
+  differ.
+- **The EGA's start address** (docs/ega.md, "The window on a wider
+  buffer"): a line is drawn when it is not the same where the screen was
+  and where it is now. Lines are done whole, through the stack, and an odd
+  pan is a one-bit shift where it was a loop.
+- **The CGA's line** (`gfx_blit_line`): the source by `Y` and the
+  destination's pointer stepped once a byte, 38 cycles where there were 52.
+
+What is left in each: Arkanoid's 17% is the copying and comparing of the
+256s it draws in, twice a picture; Keen's 24% is the comparing of 200
+lines a picture, which knowing what was written in the hidden part would
+mostly save; Thexder's 30% is still the blit, which only a faster way to
+put bytes on the SHR would change. On a IIGS itself the SHR is slow
+memory, about a microsecond a byte whatever the accelerator, so there the
+drawing that was avoided is worth more than these figures say.
+
 ## Throughput
 
 MAME 0.284 `apple2gs` (ROM 03), 8 MB, stock 2.8 MHz and the ZipGS 16 MHz
@@ -220,3 +301,11 @@ its prompt 73 emulated seconds after a stock machine starts it from a folder
 (above). The plan's own gate (is a measured speed sufficient to pursue a full
 boot) was met at 15,600 IPS for an accelerated machine, and the boot has been
 done since (`docs/mode-b.md`, `docs/share.md`).
+
+## With the translator (2026-11-24)
+
+`JIT=ON` (docs/jit.md, "M6.3 and M6.4") is measured by the guest's writes a
+second, on a 16 MHz ZipGS in MAME: Keen 1's start 2.69x, a GW-BASIC `FOR`
+loop 2.66x, Larry 2's title 1.46x, Thexder on a Tandy 1.36x, Arkanoid 1.13x
+(it waits for its timer). The numbers above are without it and have not
+moved (reg 28,150, mem 22,547, jmp 33,971 IPS at stock speed).

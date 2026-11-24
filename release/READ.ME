@@ -32,6 +32,10 @@ XTGS.CMD is a text file, one line each:
   XMS=OFF        the PC has 1472K of XMS memory (the driver is built
                  in: load no HIMEM), which FreeDOS's COMMAND.COM moves
                  into while a program runs; this line takes it away
+  JIT=ON         add this line and the code a program runs most is
+                 translated into the IIGS's own (the file JIT); some
+                 programs run faster for it. It is new: without the
+                 line XT/GS is as it was
 
 Control-Apple-Esc, while the PC runs, has "XTGS Control" among the
 desk accessories: 1 restarts the PC (as Ctrl-Alt-Del does), 2 restarts
@@ -44,6 +48,7 @@ What is on this disk
   XTGS.SYSTEM    XT/GS started from ProDOS 8
   XTGS           XT/GS started from GS/OS, with its Finder icon
   CORE, SVC      the PC: the processor, and the BIOS and devices
+  JIT            the translator that the line JIT=ON turns on
   SHARED/        KERNEL.SYS, SETVER.SYS: the FreeDOS kernel (GNU GPL 2)
                  COMMAND.COM: FreeCOM (GNU GPL 2)
                  NANSI.SYS: the ANSI console driver NANSI 4.0d

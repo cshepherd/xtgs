@@ -10343,7 +10343,6 @@ op_50       ; push AX
  cmp #$FFFF
  beq :split
  sta rSP
- clc
  adc bSS
  sta pSTK
  lda bSS+2
@@ -10354,7 +10353,9 @@ op_50       ; push AX
  sta [pSTK]
  jmp (NEXTVEC)
 :carry
- jsr stk_carry
+ adc #0
+ and #$000F
+ ora #GUEST_BANK
  bra :bank
 :split
  lda rAX
@@ -10369,7 +10370,6 @@ op_58       ; pop AX
  inx
  inx
  stx rSP
- clc
  adc bSS
  sta pSTK
  lda bSS+2
@@ -10380,7 +10380,9 @@ op_58       ; pop AX
  sta rAX
  jmp (NEXTVEC)
 :carry
- jsr stk_carry
+ adc #0
+ and #$000F
+ ora #GUEST_BANK
  bra :bank
 :split
  jsr pop16
@@ -10394,7 +10396,6 @@ op_51       ; push CX
  cmp #$FFFF
  beq :split
  sta rSP
- clc
  adc bSS
  sta pSTK
  lda bSS+2
@@ -10405,7 +10406,9 @@ op_51       ; push CX
  sta [pSTK]
  jmp (NEXTVEC)
 :carry
- jsr stk_carry
+ adc #0
+ and #$000F
+ ora #GUEST_BANK
  bra :bank
 :split
  lda rCX
@@ -10420,7 +10423,6 @@ op_59       ; pop CX
  inx
  inx
  stx rSP
- clc
  adc bSS
  sta pSTK
  lda bSS+2
@@ -10431,7 +10433,9 @@ op_59       ; pop CX
  sta rCX
  jmp (NEXTVEC)
 :carry
- jsr stk_carry
+ adc #0
+ and #$000F
+ ora #GUEST_BANK
  bra :bank
 :split
  jsr pop16
@@ -10445,7 +10449,6 @@ op_52       ; push DX
  cmp #$FFFF
  beq :split
  sta rSP
- clc
  adc bSS
  sta pSTK
  lda bSS+2
@@ -10456,7 +10459,9 @@ op_52       ; push DX
  sta [pSTK]
  jmp (NEXTVEC)
 :carry
- jsr stk_carry
+ adc #0
+ and #$000F
+ ora #GUEST_BANK
  bra :bank
 :split
  lda rDX
@@ -10471,7 +10476,6 @@ op_5A       ; pop DX
  inx
  inx
  stx rSP
- clc
  adc bSS
  sta pSTK
  lda bSS+2
@@ -10482,7 +10486,9 @@ op_5A       ; pop DX
  sta rDX
  jmp (NEXTVEC)
 :carry
- jsr stk_carry
+ adc #0
+ and #$000F
+ ora #GUEST_BANK
  bra :bank
 :split
  jsr pop16
@@ -10496,7 +10502,6 @@ op_53       ; push BX
  cmp #$FFFF
  beq :split
  sta rSP
- clc
  adc bSS
  sta pSTK
  lda bSS+2
@@ -10507,7 +10512,9 @@ op_53       ; push BX
  sta [pSTK]
  jmp (NEXTVEC)
 :carry
- jsr stk_carry
+ adc #0
+ and #$000F
+ ora #GUEST_BANK
  bra :bank
 :split
  lda rBX
@@ -10522,7 +10529,6 @@ op_5B       ; pop BX
  inx
  inx
  stx rSP
- clc
  adc bSS
  sta pSTK
  lda bSS+2
@@ -10533,7 +10539,9 @@ op_5B       ; pop BX
  sta rBX
  jmp (NEXTVEC)
 :carry
- jsr stk_carry
+ adc #0
+ and #$000F
+ ora #GUEST_BANK
  bra :bank
 :split
  jsr pop16
@@ -10555,7 +10563,6 @@ op_5C       ; pop SP
  inx
  inx
  stx rSP
- clc
  adc bSS
  sta pSTK
  lda bSS+2
@@ -10566,7 +10573,9 @@ op_5C       ; pop SP
  sta rSP
  jmp (NEXTVEC)
 :carry
- jsr stk_carry
+ adc #0
+ and #$000F
+ ora #GUEST_BANK
  bra :bank
 :split
  jsr pop16
@@ -10580,7 +10589,6 @@ op_55       ; push BP
  cmp #$FFFF
  beq :split
  sta rSP
- clc
  adc bSS
  sta pSTK
  lda bSS+2
@@ -10591,7 +10599,9 @@ op_55       ; push BP
  sta [pSTK]
  jmp (NEXTVEC)
 :carry
- jsr stk_carry
+ adc #0
+ and #$000F
+ ora #GUEST_BANK
  bra :bank
 :split
  lda rBP
@@ -10606,7 +10616,6 @@ op_5D       ; pop BP
  inx
  inx
  stx rSP
- clc
  adc bSS
  sta pSTK
  lda bSS+2
@@ -10617,7 +10626,9 @@ op_5D       ; pop BP
  sta rBP
  jmp (NEXTVEC)
 :carry
- jsr stk_carry
+ adc #0
+ and #$000F
+ ora #GUEST_BANK
  bra :bank
 :split
  jsr pop16
@@ -10631,7 +10642,6 @@ op_56       ; push SI
  cmp #$FFFF
  beq :split
  sta rSP
- clc
  adc bSS
  sta pSTK
  lda bSS+2
@@ -10642,7 +10652,9 @@ op_56       ; push SI
  sta [pSTK]
  jmp (NEXTVEC)
 :carry
- jsr stk_carry
+ adc #0
+ and #$000F
+ ora #GUEST_BANK
  bra :bank
 :split
  lda rSI
@@ -10657,7 +10669,6 @@ op_5E       ; pop SI
  inx
  inx
  stx rSP
- clc
  adc bSS
  sta pSTK
  lda bSS+2
@@ -10668,7 +10679,9 @@ op_5E       ; pop SI
  sta rSI
  jmp (NEXTVEC)
 :carry
- jsr stk_carry
+ adc #0
+ and #$000F
+ ora #GUEST_BANK
  bra :bank
 :split
  jsr pop16
@@ -10682,7 +10695,6 @@ op_57       ; push DI
  cmp #$FFFF
  beq :split
  sta rSP
- clc
  adc bSS
  sta pSTK
  lda bSS+2
@@ -10693,7 +10705,9 @@ op_57       ; push DI
  sta [pSTK]
  jmp (NEXTVEC)
 :carry
- jsr stk_carry
+ adc #0
+ and #$000F
+ ora #GUEST_BANK
  bra :bank
 :split
  lda rDI
@@ -10708,7 +10722,6 @@ op_5F       ; pop DI
  inx
  inx
  stx rSP
- clc
  adc bSS
  sta pSTK
  lda bSS+2
@@ -10719,7 +10732,9 @@ op_5F       ; pop DI
  sta rDI
  jmp (NEXTVEC)
 :carry
- jsr stk_carry
+ adc #0
+ and #$000F
+ ora #GUEST_BANK
  bra :bank
 :split
  jsr pop16
@@ -10994,18 +11009,19 @@ jcc_taken                  ; IP += sign-extended rel8
  mx %00
  lda [bCS],y
  and #$00FF
- eor #$0080
+ cmp #$0080
+ bcs :back
  sty tmp0
- clc
+ sec               ; + 1: the byte itself
  adc tmp0
- sec
- sbc #$007F
  tay
  dec vSLOT               ; a transfer taken counts the slot (next_ct)
  beq :due
  jmp (NEXTVEC)
 :due
  jmp next_due
+:back
+ jmp jcc_back
 op_7B       ; jnp rel8
  mx %00
  lda vLRES
@@ -11059,3 +11075,16 @@ op_7F       ; jg rel8
 :not
  iny
  jmp (NEXTVEC)
+jcc_back                   ; a jump back: A = rel8 (128-255), the carry set
+ mx %00
+ ora #$FF00
+ sty tmp0
+ adc tmp0            ; (+ 1: the carry)
+ tay
+jcc_hook                   ; (jit_start makes these three bytes JMP jit_bk)
+ mx %00
+ dec vSLOT
+ beq :due
+ jmp (NEXTVEC)
+:due
+ jmp next_due

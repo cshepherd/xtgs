@@ -4,8 +4,11 @@
 *
 * Without REP the common ones (MOVS, STOS, LODS) are inline:
 * the host pointers by one add each (the base's bank word
-* as it is unless the add carried, as in the EA tails) and
-* DF looked at once. CMPS and SCAS go through the element
+* as it is unless the add carried: then the bank past it, on
+* the spot), a destination in the text buffer's bank marked
+* from the pointer just made, and DF looked at once. The
+* word forms' test for offset $FFFF is the load the add
+* uses, and its compare clears the carry for it. CMPS and SCAS go through the element
 * routines at the end of the file, which are also what any
 * awkward case falls back to: they work everything out for
 * one element, wraps and all.
@@ -33,6 +36,21 @@ op_A4                      ; movsb
  ldx #0
  jmp str_rep
 :one
+ lda rDI
+ clc
+ adc bES
+ sta pDST
+ lda bES+2
+ bcc :db
+ adc #0                    ; (C set) the bank past the carry
+ and #$000F
+ ora #GUEST_BANK
+:db
+ sta pDST+2
+ cmp #^H_TXT
+ bne :d1
+ jsr vid_mark_dst          ; the text buffer's bank: its page marked
+:d1
  bit vOVR
  bmi :sgen
  lda rSI
@@ -40,23 +58,13 @@ op_A4                      ; movsb
  adc bDS
  sta pSRC
  lda bDS+2
+ bcc :sb
+ adc #0                    ; (C set) the bank past the carry
+ and #$000F
+ ora #GUEST_BANK
+:sb
  sta pSRC+2
- bcc :s1
-:sgen
- jsr str_src
 :s1
- lda rDI
- clc
- adc bES
- sta pDST
- lda bES+2
- bcs :dgen
- sta pDST+2
- cmp #^H_TXT
- bne :d1
-:dgen
- jsr str_dst
-:d1
  sep #$20
  mx %10
  lda [pSRC]
@@ -73,6 +81,9 @@ op_A4                      ; movsb
  dec rSI
  dec rDI
  jmp (NEXTVEC)
+:sgen
+ jsr str_src
+ bra :s1
 
 op_A5                      ; movsw
  mx %00
@@ -81,52 +92,64 @@ op_A5                      ; movsw
  ldx #2
  jmp str_rep
 :one
- lda rSI                   ; a word at offset $FFFF: the element routine
- inc
+ lda rDI                   ; a word at offset $FFFF: the element routine
+ cmp #$FFFF
  beq :slow
- lda rDI
- inc
- beq :slow
- bit vOVR
- bmi :sgen
- lda rSI
- clc
- adc bDS
- sta pSRC
- lda bDS+2
- sta pSRC+2
- bcc :s1
-:sgen
- jsr str_src
-:s1
- lda rDI
- clc
- adc bES
+ adc bES                   ; (the compare cleared the carry)
  sta pDST
  lda bES+2
- bcs :dgen
+ bcc :db
+ adc #0                    ; (C set) the bank past the carry
+ and #$000F
+ ora #GUEST_BANK
+:db
  sta pDST+2
  cmp #^H_TXT
  bne :d1
-:dgen
- jsr str_dst
+ jsr vid_mark_dst          ; the text buffer's bank: its page marked
 :d1
+ lda rSI                   ; a word at offset $FFFF: the element routine
+ cmp #$FFFF
+ beq :slow
+ bit vOVR                  ; (keeps A, and the carry the compare cleared)
+ bmi :sgen
+ adc bDS
+ sta pSRC
+ lda bDS+2
+ bcc :sb
+ adc #0                    ; (C set) the bank past the carry
+ and #$000F
+ ora #GUEST_BANK
+:sb
+ sta pSRC+2
+:s1
  lda [pSRC]
  sta [pDST]
  lda rFL
  and #F_DF
  bne :down
- inc rSI
- inc rSI
- inc rDI
- inc rDI
+ lda rSI
+ inc
+ inc
+ sta rSI
+ lda rDI
+ inc
+ inc
+ sta rDI
  jmp (NEXTVEC)
 :down
- dec rSI
- dec rSI
- dec rDI
- dec rDI
+ lda rSI
+ dec
+ dec
+ sta rSI
+ lda rDI
+ dec
+ dec
+ sta rDI
  jmp (NEXTVEC)
+:sgen
+ jsr str_src
+ bra :s1
 :slow
  jsr movsw
  jmp (NEXTVEC)
@@ -175,12 +198,15 @@ op_AA                      ; stosb
  adc bES
  sta pDST
  lda bES+2
- bcs :dgen
+ bcc :db
+ adc #0                    ; (C set) the bank past the carry
+ and #$000F
+ ora #GUEST_BANK
+:db
  sta pDST+2
  cmp #^H_TXT
  bne :d1
-:dgen
- jsr str_dst
+ jsr vid_mark_dst          ; the text buffer's bank: its page marked
 :d1
  sep #$20
  mx %10
@@ -204,32 +230,37 @@ op_AB                      ; stosw
  ldx #10
  jmp str_rep
 :one
- lda rDI
- inc
+ lda rDI                   ; a word at offset $FFFF: the element routine
+ cmp #$FFFF
  beq :slow
- lda rDI
- clc
- adc bES
+ adc bES                   ; (the compare cleared the carry)
  sta pDST
  lda bES+2
- bcs :dgen
+ bcc :db
+ adc #0                    ; (C set) the bank past the carry
+ and #$000F
+ ora #GUEST_BANK
+:db
  sta pDST+2
  cmp #^H_TXT
  bne :d1
-:dgen
- jsr str_dst
+ jsr vid_mark_dst          ; the text buffer's bank: its page marked
 :d1
  lda rAX
  sta [pDST]
  lda rFL
  and #F_DF
  bne :down
- inc rDI
- inc rDI
+ lda rDI
+ inc
+ inc
+ sta rDI
  jmp (NEXTVEC)
 :down
- dec rDI
- dec rDI
+ lda rDI
+ dec
+ dec
+ sta rDI
  jmp (NEXTVEC)
 :slow
  jsr stosw
@@ -249,10 +280,12 @@ op_AC                      ; lodsb
  adc bDS
  sta pSRC
  lda bDS+2
+ bcc :sb
+ adc #0                    ; (C set) the bank past the carry
+ and #$000F
+ ora #GUEST_BANK
+:sb
  sta pSRC+2
- bcc :s1
-:sgen
- jsr str_src
 :s1
  sep #$20
  mx %10
@@ -268,6 +301,9 @@ op_AC                      ; lodsb
 :down
  dec rSI
  jmp (NEXTVEC)
+:sgen
+ jsr str_src
+ bra :s1
 
 op_AD                      ; lodsw
  mx %00
@@ -276,33 +312,40 @@ op_AD                      ; lodsw
  ldx #14
  jmp str_rep
 :one
- lda rSI
- inc
+ lda rSI                   ; a word at offset $FFFF: the element routine
+ cmp #$FFFF
  beq :slow
- bit vOVR
+ bit vOVR                  ; (keeps A, and the carry the compare cleared)
  bmi :sgen
- lda rSI
- clc
  adc bDS
  sta pSRC
  lda bDS+2
+ bcc :sb
+ adc #0                    ; (C set) the bank past the carry
+ and #$000F
+ ora #GUEST_BANK
+:sb
  sta pSRC+2
- bcc :s1
-:sgen
- jsr str_src
 :s1
  lda [pSRC]
  sta rAX
  lda rFL
  and #F_DF
  bne :down
- inc rSI
- inc rSI
+ lda rSI
+ inc
+ inc
+ sta rSI
  jmp (NEXTVEC)
 :down
- dec rSI
- dec rSI
+ lda rSI
+ dec
+ dec
+ sta rSI
  jmp (NEXTVEC)
+:sgen
+ jsr str_src
+ bra :s1
 :slow
  jsr lodsw
  jmp (NEXTVEC)

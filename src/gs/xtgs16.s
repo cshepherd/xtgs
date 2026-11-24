@@ -167,6 +167,33 @@ boot_pc
  jsr load_file
  lda mb_filelen
  sta img_len+2
+ stz img_len+4             ; the translator (docs/jit.md), when its banks were
+ lda mb_cmd+1              ; claimed and the file JIT is in the folder: without
+ and #$00FF                ; it the region's word in MB_LAYOUT goes back to 0
+ cmp #'K'
+ beq :jitdone
+ lda mb_layout+RG_JIT+RG_JIT
+ beq :jitdone
+ lda #path_jit
+ sta ld_path
+ stz ld_dst
+ lda mb_layout+RG_JIT+RG_JIT
+ sta ld_dst+2
+ stz ld_alloc
+ lda #1
+ sta ld_max
+ sta ld_opt
+ ldx #$60
+ jsr load_file
+ lda ld_opt
+ stz ld_opt
+ bmi :nojitf
+ lda mb_filelen
+ sta img_len+4
+ bra :jitdone
+:nojitf
+ stz mb_layout+RG_JIT+RG_JIT
+:jitdone
 
  lda rebooting             ; (a reboot keeps what is loaded: the disk image is
  beq :first                ; as the PC left it)
@@ -807,10 +834,21 @@ claim_all
  lda mb_cmd+1
  and #$00FF
  cmp #'K'
- bne :nojit
+ bne :nok
  ldx #RG_JIT+RG_JIT
  jsr claim_region
  bcs :rg_err
+ bra :nojit
+:nok
+ cmp #'C'                  ; a PC: the translator's banks when they can be
+ beq :jit                  ; had (it is done without when they cannot)
+ cmp #'D'
+ beq :jit
+ cmp #'S'
+ bne :nojit
+:jit
+ ldx #RG_JIT+RG_JIT
+ jsr claim_region
 :nojit
  lda mb_cmd+1              ; S has no disk image: its banks are the guest's
  and #$00FF                ; XMS memory (src/svc/xms.s) when they can be had,
@@ -1222,6 +1260,12 @@ load_file
  dw $0010                  ; OPEN
  adrl op_blk
  bcc :opened
+ ldy ld_opt                ; a file that may be missing: ld_opt comes back $FFFF
+ beq :must
+ ldy #$FFFF
+ sty ld_opt
+ rts
+:must
  ldx #1
  jmp :fail
 :opened
@@ -1353,6 +1397,14 @@ reloc_all
  lda img_len+2
  jsr reloc_image
  ldx #$72
+ bcs :out
+ lda img_len+4             ; the translator, when it was loaded
+ beq :out                  ; (the carry is clear)
+ lda mb_layout+RG_JIT+RG_JIT
+ sta ptr+2
+ lda img_len+4
+ jsr reloc_image
+ ldx #$73
 :out
  rts
 
@@ -2265,7 +2317,7 @@ msg_pages  asc 'PAGES',00
 * for, its size in banks (the data region's is set from the
 * file), and the mask its first bank must be clear of.
 rg_asm     dw CORE_BANK,SVC_BANK,RES_BANK,JIT_BANK,GUEST_BANK,DATA_BANK,DISK_BANK
-rg_banks   dw 1,1,1,1,16,0,DISK_BANKS
+rg_banks   dw 1,1,1,3,16,0,DISK_BANKS
 rg_align   dw 0,0,0,0,$000F,0,0
  err rg_banks-rg_asm-RG_BANKS-RG_BANKS
  err rg_align-rg_banks-RG_BANKS-RG_BANKS
@@ -2277,6 +2329,8 @@ path_core  dfb 6
            asc '1/CORE'
 path_svc   dfb 5
            asc '1/SVC'
+path_jit   dfb 5
+           asc '1/JIT'
 path_vec   dfb 5
            asc '1/VEC'
 path_bench dfb 7
@@ -2351,7 +2405,8 @@ rg_h       ds RG_BANKS*4      ; a handle a region
 sb_end     dw 0
 cr_x       dw 0
 cr_bank    dw 0
-img_len    dw 0,0             ; CORE's and SVC's file lengths
+img_len    dw 0,0,0           ; CORE's, SVC's and JIT's file lengths (0: not loaded)
+ld_opt     dw 0               ; load_file: nonzero, the file may be missing
 rl_end     dw 0
 rl_delta   dw 0
 rl_add     dw 0

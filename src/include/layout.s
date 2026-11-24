@@ -29,7 +29,7 @@
 CORE_BANK   = $03            ; the CPU (CORE), one bank
 SVC_BANK    = $04            ; the services (SVC), one bank
 RES_BANK    = $05            ; results, trace ring, queues, capture: one bank
-JIT_BANK    = $06            ; M6 translator's code cache and block map (K only)
+JIT_BANK    = $06            ; the translator: its image, a bank of the code it makes, a bank of map (docs/jit.md; K: the first M6's cache)
 GUEST_BANK  = $20            ; the guest's 1 MiB: 16 banks
 DATA_BANK   = $30            ; the vector file (V only), sized by the file
 DISK_BANK   = $50            ; the Mode B disk image (D only): 23 banks
@@ -72,6 +72,9 @@ DISK_BANKS  = 23             ; 1.44 MB = 2880 sectors = 22.5 banks
 RELOC_MAGIC = $5258          ; "XR": the last word of a relocatable image
 
 CORE_BASE   = CORE_BANK*$10000
+JIT_BASE    = JIT_BANK*$10000        ; the translator's image (src/jit): +0 a PC starts
+JIT_RT      = JIT_BASE+$10000        ; its run-time routines (entries at +0, +3, +6, +9) and the code it makes
+JIT_MAP     = JIT_BASE+$20000        ; a word for a guest IP (jit_bk in the core)
 SVC_BASE    = SVC_BANK*$10000
 RES_BASE    = RES_BANK*$10000        ; harness results / trace ring
 GUEST_BASE  = GUEST_BANK*$10000      ; guest physical memory: 1 MiB, 1 MiB-aligned

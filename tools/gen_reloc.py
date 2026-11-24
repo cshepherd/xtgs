@@ -2,7 +2,7 @@
 """Make an image relocatable: find the bytes that hold a bank or a
 bank-$00 page of the layout, append the list.
 
-    gen_reloc.py LINK BIN OUT        LINK is core, svc or sys
+    gen_reloc.py LINK BIN OUT        LINK is core, svc, jit or sys
 
 CORE and SVC are assembled for the banks and the bank-$00 pages in
 src/include/layout.s, and the front end may put any of them somewhere
@@ -53,7 +53,7 @@ import layout  # noqa: E402
 
 BANK_B = [3, 5, 7, 11, 48, 13, 17]      # the guest's stays 1 MiB-aligned
 PAGE_B = [3, 5, 7, 11, 13]
-LINKS = {"core": ("core", "core"), "svc": ("svc", "svc"), "sys": ("sys", "xtgs")}  # directory, name
+LINKS = {"core": ("core", "core"), "svc": ("svc", "svc"), "jit": ("jit", "jit"), "sys": ("sys", "xtgs")}  # directory, name
 SYS_PAGE = 0x20                         # ProDOS 8 loads a SYS file at $2000
 
 

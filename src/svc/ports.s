@@ -331,6 +331,7 @@ fdc_irq
  beq :off
  lda #1
  sta >PIC_IRQ6
+ sta >PIC_PEND             ; (the slot looks at the lines only when this is set)
 :off
  rts
 * Port 3F2h: motors, drive select; bit 2 going up ends a reset, and
@@ -627,6 +628,7 @@ fdc_result
 * and length in the 8237, the image for the disk.
 fdc_xfer
  mx %00
+ inc jEP                   ; (guest memory is written behind an OUT: the translator's code is not to be trusted, jit.md)
  lda fdc_cmd+2
  and #$00FF
  sta fdc_c

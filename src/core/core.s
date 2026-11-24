@@ -95,6 +95,7 @@ core_entry
  put run.s
  put jit.s
  put jit2.s
+ put jitc.s
  put cpu.s
  put flags.s
  put ops_mov.s

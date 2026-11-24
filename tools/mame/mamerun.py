@@ -140,6 +140,7 @@ at = function(a)
     end
     return a
 end
+local xreport = nil                      -- an extra's own report (below)
 local smx, smy = 128, 128               -- the mouse fields' values (seek)
 local function field(port, name) return manager.machine.ioport.ports[port].fields[name] end
 local function hex(a, n)
@@ -204,6 +205,7 @@ local function report(status)
     end
     for i, row in ipairs(text_screen()) do print("MAMERUN-TEXT " .. (i - 1) .. "|" .. row) end
     for a, n in pairs(prof) do print(string.format("MAMERUN-PROF %%06x %%d", a, n)) end
+    if xreport then xreport() end
     if tapped then taps_off() end
     for _, t in ipairs(taps) do print("MAMERUN-TAP " .. t[1] .. " " .. (t.r or 0) .. " " .. (t.w or 0)) end
     for _, r in ipairs({"PC", "PB", "DB", "D", "S", "A", "X", "Y", "P", "E"}) do
@@ -212,6 +214,7 @@ local function report(status)
     end
     manager.machine:exit()
 end
+%(extra_top)s
 emu.register_frame_done(function()
     if load_state then                      -- load first; count from there
         if not loading then
@@ -306,6 +309,7 @@ emu.register_frame_done(function()
         report("timeout")
     end
 end)
+%(extra_tail)s
 """
 
 
@@ -353,7 +357,7 @@ def lua_value(v):
 def run(image, waits, dumps, seconds, settle, ramsize="8M", timeout=None,
         ready=None, inputs=(), occurrence=1, triggers=None, profile=False,
         state_dir=None, load_state=None, traces=(), garbage=None, zip=False, wav=None,
-        image2=None, find=None, card="scsi", window=None, taps=()):
+        image2=None, find=None, card="scsi", window=None, taps=(), extra=None):
     """zip: emulate a 16 MHz ZipGS, as Ample's configuration does (the
     a2_config CPU type, set through a cfg file in MAME's working folder).
     garbage: a seed; RAM is filled with pseudo-random bytes at frame 1.
@@ -366,7 +370,12 @@ def run(image, waits, dumps, seconds, settle, ramsize="8M", timeout=None,
     A fourth element n logs the first n writes: result["wlog"] = [[name,
     frame, PB:PC (after the write), address, data], ...].
     traces: (name, addr) u16 values logged at each frame they change:
-    result["traces"][name] = [(frame, value), ...]."""
+    result["traces"][name] = [(frame, value), ...].
+    extra: {"top": lua, "tail": lua}: the caller's own Lua, "top" before the
+    frame callback is registered (it sees frame, mem, at and may set
+    xreport, a function the report calls) and "tail" as the script's last
+    lines (a loop on emu.wait there is a clock in emulated time). Every
+    line it prints as "MAMERUN-X ..." comes back in result["extra"]."""
     """occurrence: stop at the n-th time a wait condition becomes true
     (e.g. 2 to see a program finish a second time after a relaunch).
     ready: shorthand for triggers={"ready": ready}."""
@@ -415,6 +424,8 @@ def run(image, waits, dumps, seconds, settle, ramsize="8M", timeout=None,
         "lay_off": layout.mailbox()["MB_LAYOUT"] - layout.mailbox()["MB_BASE"],
         "lay_n": len(regs),
         "occurrence": occurrence,
+        "extra_top": (extra or {}).get("top", ""),
+        "extra_tail": (extra or {}).get("tail", ""),
         "triggers": ",".join(f'["{n}"]={{{a},{v}}}' for n, (a, v) in trig.items()),
         "inputs": ",".join(f'{{{f},"{k}",{lua_value(v)},"{t}",{n}}}'
                            for f, k, v, t, n in expand_inputs(inputs)),
@@ -494,6 +505,8 @@ def run(image, waits, dumps, seconds, settle, ramsize="8M", timeout=None,
         elif line.startswith("MAMERUN-TAP "):
             _, name, r, w = line.split()
             result.setdefault("taps", {})[name] = (int(r), int(w))
+        elif line.startswith("MAMERUN-X "):
+            result.setdefault("extra", []).append(line[10:])
         elif line.startswith("MAMERUN-PROF "):
             _, addr, n = line.split()
             result.setdefault("profile", {})[addr] = int(n)

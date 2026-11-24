@@ -127,7 +127,8 @@ def main():
                 put(os.path.join(B, "xtgs"), "XTGS.SYSTEM#FF2000"),
                 put(os.path.join(B, "xtgs16"), "XTGS#B30000"),
                 put(os.path.join(B, "core"), "CORE#060000"),
-                put(os.path.join(B, "svc"), "SVC#060000")]
+                put(os.path.join(B, "svc"), "SVC#060000"),
+                put(os.path.join(B, "jit"), "JIT#060000")]      # (used only when a line of XTGS.CMD says JIT=ON)
         fork = put(os.path.join(B, "xtgs16.rfork"), "XTGS#B30000_ResourceFork.bin")
         with open(os.path.join(stage, "XTGS.CMD#040000"), "w", newline="") as f:
             f.write("".join(l + "\r" for l in ["S", "C=SHARED"] + lines))

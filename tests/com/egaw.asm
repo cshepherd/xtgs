@@ -7,6 +7,8 @@
 ;   W             48 bytes a line, from FE00h: the screen goes round the
 ;                 planes' end
 ;   P             40 bytes a line, from 0100h, panned 5
+;   E             48 bytes a line, from 0200h, panned 4: an even number, which
+;                 XT/GS draws as whole bytes of the SHR and no shift
 ; After the picture has been drawn once, bytes are written where the
 ; lines of 40 bytes never were (past the 8000th), singly and by REP STOSB,
 ; and before it: stale pixels there are what the judge finds.
@@ -27,7 +29,11 @@
         mov word [start], 0100h
         mov byte [pan], 5
         mov byte [offs], 20
-.np:    mov ax, 000Dh
+.np:    cmp al, 'E'
+        jne .ne
+        mov word [start], 0200h
+        mov byte [pan], 4
+.ne:    mov ax, 000Dh
         int 10h
         mov ax, 0A000h
         mov es, ax

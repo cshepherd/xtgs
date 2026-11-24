@@ -1,0 +1,6 @@
+workload       writes/s with JIT      x     far/s with JIT      x   with it: interpreter / translated code / its routines / translator / video
+thexder-tandy     15548    21096  1.36x        68      138  2.03x    4.1% (was 79.0%) / 43.6% / 26.8% /  0.6% / 21.5% (was 14.5%)
+keen-load         44526   119718  2.69x      3479       73  0.02x    0.8% (was 96.6%) / 60.1% / 38.3% /  0.0% /  0.1% (was  0.1%)
+arkanoid          23444    26517  1.13x       599      599  1.00x    6.4% (was 65.2%) / 16.2% / 29.6% /  0.3% / 46.0% (was 31.2%)
+lsl2              38849    56555  1.46x       335      343  1.02x   44.2% (was 93.8%) / 18.9% / 24.8% /  7.0% /  2.6% (was  2.3%)
+basic             31544    83807  2.66x       110      110  1.00x   15.3% (was 95.3%) / 48.6% / 35.0% /  0.0% /  0.1% (was  0.0%)

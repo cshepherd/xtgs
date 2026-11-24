@@ -116,6 +116,20 @@ cga_pd     DS 2              ; $FC  CGA palette: needs re-applying to the SHR
 vTICK      DS 2              ; $FE  IRQ0s owed: the DOC timer's interrupts not yet delivered
            DEND
 
+* The translator's (src/jit, src/core/jitc.s; docs/jit.md), in the JIT spike's place: a run has
+* one of them or the other.
+jG         = pEMIT           ; $C8  jumps left before the slot gets its turn
+jEP        = pEMIT+2         ; $CA  the epoch: goes on whenever translated code may have been written over
+jT         = jEntry          ; $CC  scratch
+jSV        = pMAP            ; $CE  the epoch before an instruction the interpreter did for a loop
+jCLN       = pMAP+2          ; $D0  SVC: the hypercall it has just done wrote no memory but the BIOS's data and the stack
+jSPS       = jPrevFlag       ; $DA  h_push: the SS, and the two sixteens of offsets under it, that are known to
+jSPO       = pENTER          ; $DC  hold no translated code's bytes and to be plain memory (an odd value: none)
+jSPO2      = pENTER+2        ; $DE
+jSPM       = jLIN            ; $D2  and which bits of the offset say so: FF01 a whole 256 of them, FFF1 a sixteen
+jSTEP      = jLIN+2          ; $D4  what an asking adds to an address's count (16: a piece is made)
+JIT_GUARD  = 24
+
 * JMP (abs) takes a bank-$00 address: the retire vector's.
 * (Numeric offsets: Merlin32 evaluates equates before labels.
 * cpu.s asserts them against vNEXT and vHALTVEC.)

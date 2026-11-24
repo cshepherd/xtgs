@@ -1,0 +1,61 @@
+OUTER=7 (J: 4); IPS = guest instructions / emulated seconds
+program clock  engine  frames       IPS x interp cyc/ins  regs  counts
+reg     stock  B         3898     28245    1.00x   101.4   ok   
+reg     stock  J          187    336441   11.91x     8.5    -   
+reg     stock  U         3174     34688    1.23x    82.6   ok   dispatches=458760 translations=5 links=0 bytes=144 resets=1
+reg     stock  S          385    285975   10.12x    10.0   ok   dispatches=22 translations=5 links=0 bytes=140 resets=1
+reg     stock  L          356    309271   10.95x     9.3   ok   dispatches=3 translations=3 links=2 bytes=110 resets=1
+reg     stock  G          439    250798    8.88x    11.4   ok   dispatches=7169 translations=3 links=7 bytes=140 resets=1
+reg     zip16  B          698    157737    1.00x   101.4   ok   
+reg     zip16  J           34   1850428   11.73x     8.6    -   
+reg     zip16  U          569    193498    1.23x    82.7   ok   dispatches=458760 translations=5 links=0 bytes=144 resets=1
+reg     zip16  S           69   1595659   10.12x    10.0   ok   dispatches=22 translations=5 links=0 bytes=140 resets=1
+reg     zip16  L           64   1720320   10.91x     9.3   ok   dispatches=3 translations=3 links=2 bytes=110 resets=1
+reg     zip16  G           79   1393677    8.84x    11.5   ok   dispatches=7169 translations=3 links=7 bytes=140 resets=1
+mem     stock  B         6072     22666    1.00x   126.3   ok   
+mem     stock  J          797     98674    4.35x    29.0    -   
+mem     stock  U        18740      7344    0.32x   389.9   ok   dispatches=1835016 translations=8 links=0 bytes=114 resets=1
+mem     stock  S        18740      7344    0.32x   389.9   ok   dispatches=1835016 translations=8 links=0 bytes=114 resets=1
+mem     stock  L        15941      8633    0.38x   331.7   ok   dispatches=1376259 translations=6 links=2 bytes=106 resets=1
+mem     stock  G        15979      8613    0.38x   332.5   ok   dispatches=1376259 translations=6 links=2 bytes=112 resets=1
+mem     zip16  B         1087    126610    1.00x   126.4   ok   
+mem     zip16  J          143    549952    4.34x    29.1    -   
+mem     zip16  U         3354     41033    0.32x   389.9   ok   dispatches=1835016 translations=8 links=0 bytes=114 resets=1
+mem     zip16  S         3354     41033    0.32x   389.9   ok   dispatches=1835016 translations=8 links=0 bytes=114 resets=1
+mem     zip16  L         2853     48239    0.38x   331.7   ok   dispatches=1376259 translations=6 links=2 bytes=106 resets=1
+mem     zip16  G         2860     48121    0.38x   332.5   ok   dispatches=1376259 translations=6 links=2 bytes=112 resets=1
+jmp     stock  B         4058     33915    1.00x    84.4   ok   
+jmp     stock  J          127    619238   18.26x     4.6    -   
+jmp     stock  U         5872     23438    0.69x   122.2   ok   dispatches=917512 translations=7 links=0 bytes=150 resets=1
+jmp     stock  S         5872     23438    0.69x   122.2   ok   dispatches=917512 translations=7 links=0 bytes=150 resets=1
+jmp     stock  L          255    539708   15.91x     5.3   ok   dispatches=5 translations=4 links=4 bytes=111 resets=1
+jmp     stock  G          349    394343   11.63x     7.3   ok   dispatches=7171 translations=4 links=7170 bytes=120 resets=1
+jmp     zip16  B          727    189306    1.00x    84.5   ok   
+jmp     zip16  J           23   3419270   18.06x     4.7    -   
+jmp     zip16  U         1051    130947    0.69x   122.2   ok   dispatches=917512 translations=7 links=0 bytes=150 resets=1
+jmp     zip16  S         1051    130947    0.69x   122.2   ok   dispatches=917512 translations=7 links=0 bytes=150 resets=1
+jmp     zip16  L           46   2991861   15.80x     5.3   ok   dispatches=5 translations=4 links=4 bytes=111 resets=1
+jmp     zip16  G           63   2184533   11.54x     7.3   ok   dispatches=7171 translations=4 links=7170 bytes=120 resets=1
+OUTER=3 (J: 4); IPS = guest instructions / emulated seconds
+program clock  engine  frames       IPS x interp cyc/ins  regs  counts
+jlink   stock  B          165         0    1.00x     0.0   ok   
+jlink   stock  U           88         0    1.88x     0.0   ok   dispatches=11345 translations=24 links=0 bytes=813 resets=1
+jlink   stock  S           83         0    1.99x     0.0   ok   dispatches=10451 translations=24 links=0 bytes=809 resets=1
+jlink   stock  L           19         0    8.68x     0.0   ok   dispatches=18 translations=13 links=13 bytes=888 resets=1
+jlink   stock  G           20         0    8.25x     0.0   ok   dispatches=78 translations=13 links=58 bytes=933 resets=1
+jlink   stock  C          813         0    0.20x     0.0   ok   dispatches=11345 translations=11345 links=0 bytes=607445 resets=20
+jlink   zip16  B           30         0    1.00x     0.0   ok   
+jlink   zip16  U           16         0    1.88x     0.0   ok   dispatches=11345 translations=24 links=0 bytes=813 resets=1
+jlink   zip16  S           15         0    2.00x     0.0   ok   dispatches=10451 translations=24 links=0 bytes=809 resets=1
+jlink   zip16  L            4         0    7.50x     0.0   ok   dispatches=18 translations=13 links=13 bytes=888 resets=1
+jlink   zip16  G            4         0    7.50x     0.0   ok   dispatches=78 translations=13 links=58 bytes=933 resets=1
+jlink   zip16  C          146         0    0.21x     0.0   ok   dispatches=11345 translations=11345 links=0 bytes=607445 resets=20
+OUTER=1 (J: 4); IPS = guest instructions / emulated seconds
+program clock  engine  frames       IPS x interp cyc/ins  regs  counts
+reg     stock  U          454     34645             82.7    -   dispatches=65538 translations=4 links=0 bytes=104 resets=1
+reg     stock  C         3175      4954            578.0    -   dispatches=65538 translations=65538 links=0 bytes=2293794 resets=75
+mem     stock  U         2678      7342            390.1    -   dispatches=262146 translations=7 links=0 bytes=100 resets=1
+mem     stock  C         6271      3135            913.4    -   dispatches=262146 translations=262146 links=0 bytes=3080236 resets=101
+jmp     stock  U          839     23434            122.2    -   dispatches=131074 translations=6 links=0 bytes=122 resets=1
+jmp     stock  C         4224      4655            615.2    -   dispatches=131074 translations=131074 links=0 bytes=2883618 resets=94
+done

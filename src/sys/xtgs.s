@@ -320,6 +320,41 @@ boot_pc
  sta img_len+2
  lda mb_filelen+1
  sta img_len+3
+* The translator (docs/jit.md), when its banks were claimed and the
+* file JIT is on the volume: without the file the region's word in
+* MB_LAYOUT goes back to 0, which is what the core asks.
+ stz img_len+4
+ stz img_len+5
+ lda mb_cmd+1
+ cmp #'K'                  ; (K is the first M6's own, in the core)
+ beq :jitdone
+ lda mb_layout+RG_JIT+RG_JIT
+ beq :jitdone
+ lda #<path_jit
+ sta ld_path
+ lda #>path_jit
+ sta ld_path+1
+ stz ld_dst
+ stz ld_dst+1
+ lda mb_layout+RG_JIT+RG_JIT
+ sta ld_dst+2
+ stz ld_alloc
+ lda #1
+ sta ld_opt
+ ldx #$60
+ jsr load_file
+ lda ld_opt
+ stz ld_opt
+ bmi :nojitf
+ lda mb_filelen
+ sta img_len+4
+ lda mb_filelen+1
+ sta img_len+5
+ bra :jitdone
+:nojitf
+ stz mb_layout+RG_JIT+RG_JIT
+ stz mb_layout+RG_JIT+RG_JIT+1
+:jitdone
 
 * A data file, by the command letter (a reboot keeps what is loaded:
 * the disk image is as the PC left it).
@@ -579,7 +614,9 @@ tools_up
  phx
  jsr new_handle
  plx
- bcs :resv_err
+ bcc :resv_ok
+ jmp :resv_err
+:resv_ok
  lda nh_result             ; keep every handle for tools_down
  sta resv_h,x
  lda nh_result+2
@@ -618,10 +655,21 @@ tools_up
  lda mb_cmd+1
  and #$00FF
  cmp #'K'
- bne :nojit
+ bne :nok
  ldx #RG_JIT+RG_JIT
  jsr claim_region
  bcs :rg_err
+ bra :nojit
+:nok
+ cmp #'C'                  ; a PC: the translator's banks when they can be
+ beq :jit                  ; had (it is done without when they cannot)
+ cmp #'D'
+ beq :jit
+ cmp #'S'
+ bne :nojit
+:jit
+ ldx #RG_JIT+RG_JIT
+ jsr claim_region
 :nojit
  jsr claim_xms
  sec
@@ -1265,6 +1313,14 @@ reloc_all
  lda img_len+2
  jsr reloc_image
  ldx #$72
+ bcs :out
+ lda img_len+4             ; the translator, when it was loaded
+ beq :out                  ; (the carry is clear)
+ lda mb_layout+RG_JIT+RG_JIT
+ sta $F2
+ lda img_len+4
+ jsr reloc_image
+ ldx #$73
 :out
  php
  sec
@@ -1485,6 +1541,12 @@ load_file
  dfb $C8                   ; OPEN
  da open_parms
  bcc :opened
+ ldy ld_opt                ; a file that may be missing: ld_opt comes back $FF
+ beq :must
+ ldy #$FF
+ sty ld_opt
+ rts
+:must
  ldx #1
  jmp :fail
 :opened
@@ -1831,7 +1893,7 @@ resv_end
 * for, its size in banks (the data region's is set from the
 * file), and the mask its first bank must be clear of.
 rg_asm     dw CORE_BANK,SVC_BANK,RES_BANK,JIT_BANK,GUEST_BANK,DATA_BANK,DISK_BANK
-rg_banks   dw 1,1,1,1,16,0,DISK_BANKS
+rg_banks   dw 1,1,1,3,16,0,DISK_BANKS
 rg_align   dw 0,0,0,0,$000F,0,0
  err rg_banks-rg_asm-RG_BANKS-RG_BANKS
  err rg_align-rg_banks-RG_BANKS-RG_BANKS
@@ -1868,6 +1930,7 @@ quit_parms dfb 4,0,0,0,0,0,0
 
 path_core  str 'CORE'
 path_svc   str 'SVC'
+path_jit   str 'JIT'
 path_vec   str 'VEC'
 path_bench str 'BENCH'
 path_disk  str 'DISK'
@@ -1889,7 +1952,8 @@ rg_h       ds RG_BANKS*4          ; a handle a region
 sb_end     dfb 0
 cr_x       dw 0
 cr_bank    dw 0
-img_len    dw 0,0                 ; CORE's and SVC's file lengths
+img_len    dw 0,0,0               ; CORE's, SVC's and JIT's file lengths (0: not loaded)
+ld_opt     dfb 0                  ; load_file: nonzero, the file may be missing
 rl_end     dw 0
 rl_delta   dw 0
 rl_add     dw 0

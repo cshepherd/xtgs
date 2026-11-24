@@ -64,6 +64,10 @@ import egashr  # noqa: E402
 import tandyshr  # noqa: E402
 import psgdoc  # noqa: E402
 
+# (XTGS_JIT=1: every test again with the translator, docs/jit.md; tools/make_image.sh puts it on the volume)
+JIT_LINES = []
+JIT_FILES = []
+
 RES_BASE = 0x050000
 CAP_LEN, DIAG_UNH, DIAG_UNHN, DIAG_LAST = RES_BASE + 0x800, RES_BASE + 0x802, RES_BASE + 0x804, RES_BASE + 0x806
 CAP_BUF, CAP_MAX = RES_BASE + 0x1000, 0x7000
@@ -91,8 +95,8 @@ def run_test(path, syms, workdir, seconds):
             g.write(f.read())
     cmd = os.path.join(workdir, "XTGS.CMD#040000")
     with open(cmd, "w") as f:
-        f.write(f"C {t['name']} {t.get('args', '')}".rstrip() + "\r" + "".join(l + "\r" for l in t.get("cmd", [])))
-    extra = []                                       # data files on the volume: NAME#TTAAAA from tests/data
+        f.write(f"C {t['name']} {t.get('args', '')}".rstrip() + "\r" + "".join(l + "\r" for l in t.get("cmd", []) + JIT_LINES))
+    extra = list(JIT_FILES)                          # data files on the volume: NAME#TTAAAA from tests/data
     for fn in t.get("files", []):
         srcf = os.path.join(ROOT, "tests", "data", fn)
         dst = os.path.join(workdir, fn.upper() + "#040000")

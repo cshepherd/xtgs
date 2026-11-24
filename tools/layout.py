@@ -57,10 +57,10 @@ PLACE_LINE = re.compile(r"^(\w+)_(BANK|PAGE)(\s*=\s*)\$([0-9A-Fa-f]{2})\b", re.M
 EQU_LINE = re.compile(r"^(\w+)[ \t]*=[ \t]*([^;\s]+)", re.M)
 
 # banks a region spans (the data region: unknown here)
-BANKS = {"CORE": 1, "SVC": 1, "RES": 1, "JIT": 1, "GUEST": 16, "DISK": 23}
+BANKS = {"CORE": 1, "SVC": 1, "RES": 1, "JIT": 3, "GUEST": 16, "DISK": 23}
 # pages a bank-$00 area spans
 PAGES = {"ZP": 1, "MBX": 1, "PATH": 1, "XFER": 32, "IOB": 32}
-# the '+' banks on a clean 8 MB ProDOS 8 boot (JIT only for K, DISK only for D)
+# the '+' banks on a clean 8 MB ProDOS 8 boot (JIT for K and for a PC, DISK only for D)
 ALT_BANKS = {"GUEST": 0x10, "DISK": 0x20, "CORE": 0x02, "SVC": 0x03, "RES": 0x04, "JIT": 0x05}
 
 

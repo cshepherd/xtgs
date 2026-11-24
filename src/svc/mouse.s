@@ -366,6 +366,7 @@ ms_raise
  bne :no
  lda #1
  sta >PIC_MOUSE
+ sta >PIC_PEND             ; (the slot looks at the lines only when this is set)
 :no
  rts
 

@@ -54,11 +54,20 @@ op_E9                      ; jmp rel16
  clc
  adc tmp0
  tay
+e9_hook                    ; (jit_start makes these three bytes JMP e9_jit)
+ mx %00
  dec vSLOT
  beq :due
  jmp (NEXTVEC)
 :due
  jmp next_due
+e9_jit                     ; a jump back is where the translator's probe is
+ mx %00
+ lda tmp0
+ bmi :back
+ jmp next_ct
+:back
+ jmp jit_bk
 op_E8                      ; call rel16
  mx %00
  lda [bCS],y

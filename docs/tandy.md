@@ -165,50 +165,79 @@ the CGA's.
 
 ## How it works
 
-### The pages are moved, not mapped (`tdy_setpage`, `src/svc/tandy.s`)
+### The pages have homes and the window holds copies (`tdy_setpage`, `src/svc/tandy.s`)
 
 The core knows one thing about video memory: a store into `B800-BFFF`
-marks its 256 bytes in `VID_DIRTY`. To leave it at that, **`B800-BFFF` in
-the guest's megabyte is always what the CPU has**, and a write of the page
-register moves 16K pieces between that window and where the other pages
-wait. Nine places hold eight pages (`src/include/pc.s`):
+marks its 256 bytes in `VID_DIRTY` (both 256s, for a word that lies across
+two). To leave it at that, **`B800-BFFF` in the guest's megabyte is always
+what the CPU has**: a copy of its page, or of its two. Each of the eight
+pages has a home, and the window is two more slots (`src/include/pc.s`):
 
 | Slot | Guest address | |
 | --- | --- | --- |
-| 0-3 | `A0000`, `A4000`, `A8000`, `AC000` | `H_TDYA`, the EGA's plane 0 |
-| 4, 5 | `C0000`, `C4000` | `H_TDYC`, the EGA's plane 1 |
-| 6, 7 | `B8000`, `BC000` | the window |
-| 8 | `C8000` | `H_TDYC` again |
+| 0-3 | `A0000`, `A4000`, `A8000`, `AC000` | `H_TDYA`, the EGA's plane 0: the homes of pages 0-3 |
+| 4, 5 | `C0000`, `C4000` | `H_TDYC`, the EGA's plane 1: of pages 4 and 5 |
+| 6, 7 | `B8000`, `BC000` | the window's two halves |
+| 8, 9 | `C8000`, `CC000` | `H_TDYC` again: of pages 6 and 7 |
 
-One slot is always empty. To bring a page to a half of the window, what
-is there goes to the empty slot and the page comes in (two block moves of
-16K); with an odd CPU page the second half is emptied. `tdy_where` is the
-slot of each page, `tdy_held` the page in each slot, and `TDY_SLOT` in the
-results bank is the same for the judge. `B0000` is left alone (a program
-that looks for a monochrome card writes there), and `A000` and `C000` are
-not memory on a real 1000, so nothing a program is entitled to read sees
-the pages in them.
+`tdy_where` is where each page is whole, its home or a half of the window,
+and `TDY_SLOT` in the results bank is the same for the judge; `tdy_held`
+is the page in each half. `B0000` is left alone (a program that looks for
+a monochrome card writes there), and `A000` and `C000` are not memory on a
+real 1000, so nothing a program is entitled to read sees the pages in them.
 
-After a move the bytes at `B800` are other bytes: a text screen is marked
-whole (`mark_all`) and CGA graphics too, so the screen follows the CPU's
-page in those modes (which is right when both pages are the same, the
-usual case; Limits).
+A write of the page register that changes the CPU's page sends the page in
+the window home (`tdy_wback`) and brings the other (`tdy_load`). In modes
+09h and 0Ah neither is the 16K it sounds like, because what was written is
+known. `tdy_hv` takes `VID_DIRTY`'s flags, at every frame and before the
+register changes, and keeps them twice: for the window (`tdy_wr`: this 256
+was written since the half and its page's home were the same) and for the
+screen (`tdy_sd`, below). So:
+
+- the page that leaves takes home only the 256s that were written;
+- a home is known *against a half* (`tdy_dh`), with a flag for each 256
+  where the two may differ (`tdy_df`). Every 256 written in the half, and
+  every 256 of it that a load changes, sets that flag for each other page
+  known against the half (`tdy_dfall`). The page that comes is compared
+  with the window in its flagged 256s only (`tdy_cmp`) and copied where
+  they are not the same; where they are, the flag goes.
+
+A program that shows one pair of pages and draws the other, changing them
+over at every frame (Arkanoid: the register goes `C2h`, `D0h`, `C2h`...
+some fourteen times a second), moves what it drew and looks at what it
+drew last time, and nothing else. Whole 16K moves are what is left when
+nothing is known: after a mode set (which clears the window behind
+everybody's back), in every other mode (text, the CGA's, mode 08h: their
+own drawing takes `VID_DIRTY`'s flags), and for a page that was never in
+that half (`tdy_unsync`, `tdy_wall`).
+
+After the CPU's page changes the bytes at `B800` are other bytes: a text
+screen is marked whole (`mark_all`) and CGA graphics too, so the screen
+follows the CPU's page in those modes (which is right when both pages are
+the same, the usual case; Limits).
 
 ### The picture (`tdy_flush`)
 
 Each frame in mode 09h: the SHR palette if a palette register or the mask
 changed (`tdy_setpal`: entry `n` is `cga_rgb[palette[n & mask]]`), then
-the lines. The two pages shown are found in their slots. After a mode set
-or a write of the page register all 200 lines are moved (`tdy_alld`);
-otherwise, for each set flag of `VID_DIRTY` (128 now: the whole 32K),
-if the half of the window it is in holds a page that is shown, the two
-or three rows its 256 bytes lie in (`tdy_r0`/`tdy_r1`) are moved, a row
-that two flags share once (`tdy_nx`, the 8K's first row not yet drawn).
-A row is 160 bytes by `MVN` from the page to `$E1:2000` (`tdy_row`). A store to a page
-that is the CPU's and not the screen's costs a flag and nothing more.
-A frame in which no flag is set, which is most of them, costs the look
-at the flags eight at a time (`tdy_dirty`: some 0.7 ms of the frame's 17
-at the stock clock).
+the lines. The two pages shown are found where they are, the window or
+their homes. After a mode set all 200 lines are moved (`tdy_alld`).
+Otherwise the lines are those of the 256s `tdy_sd` names (128 flags, 64
+for each page shown): the two or three rows a 256 lies in
+(`tdy_r0`/`tdy_r1`) are moved, a row that two flags share once (`tdy_nx`,
+the 8K's first row not yet drawn). A row is 160 bytes by `MVN` from the
+page to `$E1:2000` (`tdy_row`). `tdy_sd` gets its flags from two places.
+`tdy_hv` sets one for each 256 the core marked (`VID_DIRTY`, 128: the
+whole 32K) when that half of the window holds a page that is shown; a
+store to a page that is the CPU's and not the screen's costs its flag for
+the window and nothing on the screen. And `tdy_setpage`, when the register
+changes which pages are shown: nothing when they are the same pages; when
+the pair shown and the CPU's pair change places, the 256s in which the
+pages it brought differed from what the window held, which is exactly
+where the two pictures differ; all of the screen (`tdy_alld`) in any other
+case. A frame in which no flag is set, which is most of them, costs the
+look at the flags eight at a time (`tdy_dirty`: some 0.7 ms of the frame's
+17 at the stock clock).
 
 Mode 0Ah is drawn by the same routine: the same pages, flags and rows,
 the SHR's lines in 640 mode (`tdy_show` sets the two hundred SCBs), and
@@ -339,6 +368,19 @@ oscillators need. On a PC that is not a Tandy the ports are nobody's.
   on pages 2 and 3 with the palette turned round behind a mask of 7, and
   at the end gives the CPU pages 6 and 7 and fills them, which must not
   show.
+- `tests/com/tandyf.asm` (`tandyf`): the pages changed over as a program
+  does that shows one pair and draws the other, forty times: 171 cases.
+  Each turn draws in the hidden pair (a word across two 256s, across two
+  line banks and across the window's halves; a block; a run of `REP
+  STOSW` that is the same for two turns running, so the pairs are alike
+  there again; the BIOS's pixel) and the pair that comes back must hold
+  what it was left with (four words, and now and then the sum of all
+  32K). Before that, an odd page alone at `B800`, written and found again
+  as the second of its pair. It ends with pages 0 and 1 shown and the CPU
+  on 2 and 3; the last forty frames drew only what changed, so a 256 the
+  screen missed shows in the judge's comparison. (With `tdy_dfall` made
+  to do nothing it reports 166 cases bad and 14,443 bytes of the screen
+  wrong.)
 - `tests/com/tandy8.asm` (`tandy8`, and `tandy8p` with the command line
   `P`): 36 cases in mode 08h: the mode and the BDA (20 columns, page 7),
   the 16K as memory, the pixel calls (the two pixels of a byte, the
@@ -469,6 +511,14 @@ without the work:
 A program that draws on a hidden page and then shows it pays 0.12 s a
 picture; one that changes the CPU's page for every picture pays 0.28 s
 more. A Zip at 16 MHz divides all of it by five or so.
+
+(Those two figures are from before the pages had homes, and they are what
+a change still costs in mode 08h and the CGA's modes. In modes 09h and
+0Ah a program that changes two pairs over pays for the 256s it wrote:
+Arkanoid's demo, which spent 39% of a 16 MHz machine's time moving pages
+and 28% drawing whole screens, spends 17% and 7% on them now and runs
+2.4 times as many of its own instructions a second;
+`tools/jit_profile.py compare`, docs/benchmarks.md.)
 
 Mode 08h, measured the same way:
 

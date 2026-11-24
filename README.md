@@ -316,7 +316,8 @@ A later line is a setting for commands `S` and `D`: `letter=pathname` is
 the shared drive, above, and `VIDEO=CGA` makes the PC one with no EGA, for
 a program that would pick an EGA mode XT/GS does not have (`docs/ega.md`).
 `VIDEO=TANDY` makes it a Tandy 1000 (no EGA either; `docs/tandy.md`), and
-that line command `C` reads too.
+that line command `C` reads too. `JIT=ON` turns the translator on
+(`docs/jit.md`).
 
 ## Keyboard and function keys
 
@@ -488,9 +489,14 @@ the clock: ticks lost while a slow BIOS call ran are added back, so a DOS
 that keeps time by counting ticks stays within a second of the IIGS
 (`docs/clock.md`).
 
-A runtime translator (8086 blocks to 65816 code) was built and measured as
-well. It did not pay for itself on the DOS boot and is not used
-(`docs/jit.md`).
+A runtime translator (8086 code to 65816 code) is there as an option: the
+line `JIT=ON` in `XTGS.CMD`, with the file `JIT` beside `CORE`. The code a
+program runs most is translated a piece at a time and run in place of the
+interpreter. In MAME at 16 MHz it makes Commander Keen's start and a
+GW-BASIC loop some 2.7 times as fast, Leisure Suit Larry 2 and Thexder 1.4
+to 1.5 times, and a game that waits for its timer no faster; the DOS boot
+is the same. It is new, it is off without the line, and it has not run on a
+real IIGS (`docs/jit.md`).
 
 ## Testing and speed
 
@@ -608,7 +614,7 @@ suite: all 324 opcode files, 2,883,807 vectors after the exclusions listed in
 | `docs/serial.md` | the IIGS's modem and printer ports as COM1 and COM2 |
 | `docs/cpu-compatibility.md` | 8088 behaviour learned from the hardware vectors |
 | `docs/benchmarks.md` | measurements and where the time goes |
-| `docs/jit.md` | the translator experiment |
+| `docs/jit.md` | the translator: the experiments, and the one that `JIT=ON` turns on |
 | `docs/relocation.md` | how the loader places XT/GS in whatever banks and bank-`$00` pages it is given; launching from GS/OS; the native GS/OS application |
 | `docs/compatibility-matrix.md` | Mode A program results |
 | `BOOTSTRAP.md`, `apple_iigs_xt_emulator_project_plan.md` | toolchain, design and the plan |

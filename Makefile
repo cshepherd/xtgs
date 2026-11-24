@@ -65,7 +65,7 @@ SVC_GEN   := src/svc/gen/font.s src/svc/gen/tables.s src/svc/gen/dostab.s src/sv
 SVC_SRCS  := src/svc/svc.s src/svc/video.s src/svc/gtext.s src/svc/ega.s src/svc/tandy.s src/svc/pcinit.s src/svc/bios.s src/svc/dos.s \
              src/svc/files.s src/svc/disk.s src/svc/ports.s src/svc/redir.s src/svc/keyboard.s src/svc/sound.s src/svc/clock.s src/svc/joystick.s src/svc/serial.s src/svc/mouse.s src/svc/xms.s src/svc/control.s src/svc/capture.s $(SVC_GEN) $(INCLUDES)
 CORE_GEN  := src/core/gen/optab.s src/core/gen/eatab.s src/core/gen/alu.s src/core/gen/flagtab.s src/core/gen/egaw.s
-CORE_SRCS := src/core/core.s src/core/probe.s src/core/run.s src/core/jit.s src/core/jit2.s src/core/cpu.s src/core/flags.s \
+CORE_SRCS := src/core/core.s src/core/probe.s src/core/run.s src/core/jit.s src/core/jit2.s src/core/jitc.s src/core/cpu.s src/core/flags.s \
              src/core/ops_mov.s src/core/ops_ctrl.s src/core/ops_grp.s src/core/ops_str.s \
              src/core/ops_misc.s src/core/ega.s src/core/harness.s $(CORE_GEN) $(INCLUDES)
 
@@ -147,6 +147,17 @@ $(B)/svc: $(B)/svc.bin $(RELOC_DEPS)
 $(B)/core: $(B)/core.bin $(RELOC_DEPS)
 	$(PY) tools/gen_reloc.py core $< $@
 
+# The translator (docs/jit.md): its own image, in its own bank, which both
+# front ends load when the file JIT is on the volume beside CORE and SVC.
+JIT_SRCS  := src/jit/jit.s src/jit/scan.s src/jit/emit.s src/jit/gen/jtab.s src/jit/gen/jrt.s $(INCLUDES)
+src/jit/gen/jtab.s src/jit/gen/jrt.s: tools/gen_jit.py
+	$(PY) tools/gen_jit.py
+$(B)/jit.bin: $(JIT_SRCS)
+	$(call merlin,src/jit,jit.s,jit,$@)
+
+$(B)/jit: $(B)/jit.bin $(RELOC_DEPS)
+	$(PY) tools/gen_reloc.py jit $< $@
+
 # ---- generated sources ------------------------------------------------------
 
 # (make 3.81 has no grouped targets: the first output is the rule, the rest depend on it)
@@ -160,8 +171,9 @@ src/core/gen/eatab.s src/core/gen/alu.s src/core/gen/flagtab.s src/core/gen/egaw
 
 # ---- images -----------------------------------------------------------------
 
-$(PO): $(B)/xtgs $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/gsos/Start16 $(B)/core $(B)/svc tools/make_image.sh tools/gsos_image.sh
+$(PO): $(B)/xtgs $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/gsos/Start16 $(B)/core $(B)/svc $(B)/jit tools/make_image.sh tools/gsos_image.sh
 	@mkdir -p $(B)/stage
+	cp $(B)/jit  $(B)/stage/JIT\#060000
 	cp $(B)/xtgs $(B)/stage/XTGS.SYSTEM\#FF2000
 	cp $(B)/xtgs16 $(B)/stage/XTGS\#B30000
 	cp $(B)/xtgs16.rfork $(B)/stage/XTGS\#B30000_ResourceFork.bin
@@ -359,9 +371,11 @@ run-tandy: $(B)/boot/tandy.po
 # Ample's MAME; test-release boots it headless both ways (tools/release_test.py).
 # the folders of release/shared that are games: off the release, on games-image
 GAMES := lsl2 outrun arkanoid keen1 mech sub688 carmen thexder
+# JIT=1: the games volumes with the translator on (the line JIT=ON; docs/jit.md)
+JITCMD := $(if $(JIT),--cmd JIT=ON,)
 RELEASE := $(B)/release/xtgs-$(XTGS_VERSION).po
 release: $(RELEASE)
-$(RELEASE): $(B)/xtgs $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/core $(B)/svc $(FDIMG) tools/release_image.py \
+$(RELEASE): $(B)/xtgs $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/core $(B)/svc $(B)/jit $(FDIMG) tools/release_image.py \
             tools/gsos_rfork.py res/PRODOS release/READ.ME $(shell find release/shared -type f $(foreach g,$(GAMES),-not -path 'release/shared/$(g)/*')) Makefile
 	@[ -f $(GWBASIC) ] || { echo "release: no $(GWBASIC) for the FreeDOS folder"; exit 1; }
 	@mkdir -p $(B)/release
@@ -376,10 +390,10 @@ $(RELEASE): $(B)/xtgs $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/core $(B)/svc $(FDIMG) 
 # older names.
 GAMESIZE ?= 8192KB
 games-image lsl-image: $(B)/boot/games.po
-$(B)/boot/games.po: $(B)/xtgs $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/core $(B)/svc $(FDIMG) tools/release_image.py \
+$(B)/boot/games.po: $(B)/xtgs $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/core $(B)/svc $(B)/jit $(FDIMG) tools/release_image.py \
             tools/gsos_rfork.py res/PRODOS release/READ.ME $(shell find release/shared -type f) Makefile
 	@mkdir -p $(B)/boot
-	VOLSIZE=$(GAMESIZE) $(PY) tools/release_image.py $@ $(XTGS_VERSION) --cmd VIDEO=TANDY
+	VOLSIZE=$(GAMESIZE) $(PY) tools/release_image.py $@ $(XTGS_VERSION) --cmd VIDEO=TANDY $(JITCMD)
 
 run-games run-lsl: $(B)/boot/games.po
 	tools/mame/run-mame.sh $(B)/boot/games.po
@@ -388,10 +402,10 @@ run-games run-lsl: $(B)/boot/games.po
 # VIDEO=TANDY: a PC with the EGA (mode 0Dh), for the games that want one
 # (C:\KEEN1, C:\MECH; OutRun's and Arkanoid's EGA choices). run-games-ega boots it.
 games-ega-image: $(B)/boot/gamesega.po
-$(B)/boot/gamesega.po: $(B)/xtgs $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/core $(B)/svc $(FDIMG) tools/release_image.py \
+$(B)/boot/gamesega.po: $(B)/xtgs $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/core $(B)/svc $(B)/jit $(FDIMG) tools/release_image.py \
             tools/gsos_rfork.py res/PRODOS release/READ.ME $(shell find release/shared -type f) Makefile
 	@mkdir -p $(B)/boot
-	VOLSIZE=$(GAMESIZE) $(PY) tools/release_image.py $@ $(XTGS_VERSION)
+	VOLSIZE=$(GAMESIZE) $(PY) tools/release_image.py $@ $(XTGS_VERSION) $(JITCMD)
 
 run-games-ega: $(B)/boot/gamesega.po
 	tools/mame/run-mame.sh $(B)/boot/gamesega.po
@@ -462,7 +476,7 @@ minix-image:
 run-minix:
 	$(MAKE) run-disk IMG=$(MINIX)
 
-lint: $(B)/xtgs $(B)/xtgs16 $(B)/core $(B)/svc
+lint: $(B)/xtgs $(B)/xtgs16 $(B)/core $(B)/svc $(B)/jit
 
 clean:
 	rm -rf $(B) src/sys/error_output.txt src/gs/error_output.txt src/core/error_output.txt src/svc/error_output.txt

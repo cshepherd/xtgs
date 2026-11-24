@@ -91,27 +91,61 @@ the Tandy 1000 of docs/tandy.md.
 While a line is 40 bytes from the next and nothing is panned, the flush is
 the one below: a flag a byte, by place on the screen. Otherwise
 (`EGA_WINLEN` is not `EGA_LEN`; `ega_flush` works it out from the two
-registers each frame) no byte has a place of its own, and the rule is
-simpler: when the window moved, or anything was written inside it, **all
-of the screen is drawn** (`eg_wide`: 200 lines of 40 bytes from where each
-begins, through `eg_conv`, or `eg_convp` when panned, which takes each
-plane's byte and the next and shifts). A write inside the window but past
-the 8000th byte has no flag to set, so it sets `VID_DIRTY`'s first
-(`eg_mark`, `eg_markrng` in the core, `eg_mk1` in SVC), and that is all the
-wide path asks: is any of `VID_DIRTY`'s 32 set.
+registers each frame) no byte has a place of its own, and the screen is
+drawn a line at a time (`eg_wide`, `eg_wline`). What is flagged then is
+the 256s of the window: a write inside it sets `VID_DIRTY`'s flag for the
+256 of its place from the screen's first byte (`eg_mark`, `eg_markrng` in
+the core, `eg_mk1` in SVC; 128 flags, so a window of up to 32K). Three
+cases:
 
-What that costs: a scroll step is a whole screen, some 2 million cycles
-(0.7 s on the stock clock, a seventh of a second at 16 MHz). The split
-screen (line compare) is not there, the start address is taken when the
-frame's flush runs (a flush between a program's two writes of R12 and R13
-draws one frame from a wrong place), and the BIOS's text and scrolls
-(`INT 10h`) still take a line for 40 bytes.
+- **The window's shape changed** (the offset register, the panning) or
+  the mode was set: all 200 lines.
+- **Only the start address changed.** The SHR has the lines from where the
+  screen was (`eg_from`). A line is drawn when one of its 256s was written
+  since, or when its 41 bytes there and here are not the same in all four
+  planes (`eg_lcmp`). This is for the program that draws each picture in a
+  part of the planes that is not shown and then changes the start address
+  over to it (Commander Keen does, between `0604h` and `3604h`, eight
+  times a second on its title): what it pays for is the lines that
+  differ, not the screen. A program that scrolls finds every line
+  different, and pays a look at each line's first bytes more than before.
+  The same is done when a line is 40 bytes and nothing is panned (the
+  BIOS's pages, `INT 10h AH=05h`), and the bytes' own flags are cleared
+  after it.
+- **Neither**: the lines whose first or last byte is in a flagged 256.
 
-`tests/com/egaw.asm` (`egaw`, `egaww`, `egawp`) is the test: 48 bytes a
-line from `3604h` panned 3, the same from `FE00h` round the planes' end,
-and 40 bytes panned 5; each draws, waits for the flush and then writes
-past the 8000th byte, singly and by `REP STOSB`. `tools/egashr.py` takes
-the offset register and the panning from the registers.
+A line (`eg_wline`) is its 41 bytes from the right, each as `eg_conv`
+does one byte, their four SHR bytes pushed: 164 bytes on the stack, of
+which one `MVN` puts 160 on the screen, from the pan's whole bytes on (two
+pixels a byte). An odd pan is one bit more, so then each plane's byte is
+taken with the top bit of the next and shifted once. (Before, a panned
+byte was each plane's byte and the next shifted the whole pan, a loop a
+plane.)
+
+What it costs, measured on Commander Keen's title at 16 MHz
+(`tools/jit_profile.py`): a whole screen of it, mostly black, was 1.1
+million cycles, and each of the eight pictures a second was one; now a
+picture is some 0.57 million, 0.35 of them the comparing of 200 lines
+and the rest the lines that had changed, and the program runs 37% more
+of its own instructions a second. A fuller picture costs more to draw
+and the same to compare. The split screen (line compare) is not there,
+the start address is taken when the frame's flush runs (a flush between a
+program's two writes of R12 and R13 draws one frame from a wrong place),
+and the BIOS's text and scrolls (`INT 10h`) still take a line for 40
+bytes.
+
+`tests/com/egaw.asm` (`egaw`, `egaww`, `egawp`, `egawe`) is the test of
+the shapes: 48 bytes a line from `3604h` panned 3, the same from `FE00h`
+round the planes' end, 40 bytes panned 5, and 48 bytes panned 4; each
+draws, waits for the flush and then writes past the 8000th byte, singly
+and by `REP STOSB`. `tests/com/egaf.asm` (`egaf`, and `egafn` with lines
+of 40 bytes) is the test of the start address: two parts of the planes
+changed over thirty times, each turn a block drawn in the hidden one, a
+thing drawn alike in both on two turns running, and one turn in three a
+byte in the part that is on the screen just before it leaves; with
+`eg_lcmp` made to say "the same" every time, 305 of the screen's bytes
+are wrong at the end. `tools/egashr.py` takes the start address, the
+offset register and the panning from the registers.
 
 Minix 1.5 shows the difference: it asks `AH=12h`, and on an EGA it does not
 let the 6845's start address go round at 16K but copies the screen back to

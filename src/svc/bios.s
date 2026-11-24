@@ -18,9 +18,26 @@ svc_hypercall
  phk
  plb
  stz stop_flag
+ stz jCLN                  ; (the translator's: jitc.s, jh_any)
  cmp #256
  bcs :redir
  sta cur_vec
+ cmp #$08                  ; the timer's tick, the keyboard's interrupt and its service, the clock,
+ beq :cln                  ; the equipment and memory words: registers and the BIOS's data
+ cmp #$09
+ beq :cln
+ cmp #$16
+ beq :cln
+ cmp #$1A
+ beq :cln
+ cmp #$11
+ beq :cln
+ cmp #$12
+ bne :ncln
+:cln
+ inc jCLN
+:ncln
+ lda cur_vec
  ldx rd_early              ; DOS boots from the shared folder: its INT 21h
  beq :call                 ; is hooked from here, at once (rd_poll)
  jsr rd_poll

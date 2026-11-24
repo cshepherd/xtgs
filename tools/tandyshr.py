@@ -39,8 +39,8 @@ VIDEO = os.path.join(ROOT, "src", "svc", "video.s")
 SCB, PAL = 0x7D00, 0x7E00                                   # in a dump from $E1:2000
 STATE, STATE_LEN = 0x990, 48                                # TDY_ON in the results bank
 MODEREQ = 0x870                                             # CGA_MODEREQ there
-SLOTS = (0xA0000, 0xA4000, 0xA8000, 0xAC000, 0xC0000, 0xC4000, 0xB8000, 0xBC000, 0xC8000)
-REGIONS = ((0xA0000, 0x10000), (0xB8000, 0x8000), (0xC0000, 0xC000))   # what holds the slots
+SLOTS = (0xA0000, 0xA4000, 0xA8000, 0xAC000, 0xC0000, 0xC4000, 0xB8000, 0xBC000, 0xC8000, 0xCC000)
+REGIONS = ((0xA0000, 0x10000), (0xB8000, 0x8000), (0xC0000, 0x10000))   # what holds the slots
 
 
 def page_reg(state):

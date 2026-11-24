@@ -627,6 +627,12 @@ st_restore
  mx %00
  plp
  jsr clk_init              ; the tick count: the time it is now
+ lda >MB_LAYOUT+RG_JIT+RG_JIT
+ beq :nojit                ; the translator's code is of the PC that was: all of it away
+ lda >JIT_CFG              ; (and its epoch, which is in the direct page, starts again)
+ beq :nojit
+ jsl JIT_BASE
+:nojit
  lda #1
  sta >EGA_SYNC             ; (the core's copies of the EGA's registers)
  lda #0

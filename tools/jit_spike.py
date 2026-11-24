@@ -61,7 +61,7 @@ def main():
     ap.add_argument("--stock-only", action="store_true")
     args = ap.parse_args()
 
-    workdir = os.path.join(ROOT, "build", "jit")
+    workdir = os.path.join(ROOT, "build", "jitbench")
     os.makedirs(workdir, exist_ok=True)
     stage = os.path.join(ROOT, "build", "stage")
     syms = symbols.read(os.path.join(ROOT, "build", "xtgs.lst"))

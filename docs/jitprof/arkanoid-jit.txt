@@ -1,0 +1,141 @@
+# arkanoid
+Arkanoid, Tandy mode 09h, the game's own demo of round 1. Frames 7800-9600 (30.0 s of emulated time at 16.0 MHz), video mode 09h.
+21898 samples (one every 1.37 ms), 109402 guest instructions fetched (3647 a second), 775 distinct.
+Work: 26517 guest writes to conventional memory a second; 818 calls, returns and INTs a second (599 of them far).
+The translator was on: 1276 pieces of code translated, 67 refused, 10 found changed, the cache emptied 5 times; 548 stores beside code, 11 pages of data and code, 0 pieces given up, 0 misses in the map.
+  in the window, a second: 0 pieces translated, 1 stores beside code; the epoch went on 41 times (41 the interpreter back at a jump, 0 after an instruction of its own, 0 a stack on a page of code, 0 a REP MOVS or STOS onto one); pieces compared their bytes 2745 times.
+  where the interpreter was last given the run (CS:IP, times among the last 96): 5250:311F 73, 5250:44EE 6, 5250:44F6 6, 5250:09CE 2, 5250:938A 2, 5250:0A1F 1, 5250:1EF7 1, 5250:0A29 1, 5250:0A38 1, 5250:07AD 1, 5250:935B 1, 5250:9366 1
+  the last stores beside code (linear address, the storing piece's entry * 2; times among the last 48): 56DC1 A 21, 00702 5C 21, 57055 C0 3, 57057 C0 3
+  the last refusals (CS:IP why; 1 the scan, 2 a page of data and code, 3 no room): F000:008C 1, F000:0516 1, 0070:0528 1, F000:0516 1, F000:0050 1, F000:0054 1, 8F99:14A6 1, 8F99:A61A 1, F000:0540 1, F000:0544 1, 00D8:129A 1, 00D8:1285 1, F000:006E 1, F000:0072 1, F000:055F 1, 8F99:A5B4 1, 0298:0120 1, F000:006E 1, F000:0072 1, 11A4:2BAD 1, 073F:14A6 1, 0298:0120 1, 0298:02F6 1, 00D8:129A 1, F000:006E 1, 0298:02F6 1, F000:0072 1, 073F:14A6 1, 0298:03A4 1, 0298:0120 1, 0070:0526 1, F000:0510 1, 0298:02F6 1, F000:006E 1, F000:0072 1, 073F:14A6 1, 00D8:1285 1, 0298:0120 1, 0070:0526 1, F000:0510 1
+  the last instructions given to the interpreter as writing anywhere (CS:IP, bytes, times among the last 64): F000:0510 FE 38 64
+  the last misses (CS:IP, times among the last 64): 
+
+## Where the time goes
+   46.0%  video (SVC)
+   29.6%  the dispatcher and the translated code's routines (JIT)
+   16.2%  translated code (JIT)
+    6.4%  interpreter (CORE)
+    0.7%  firmware and interrupts (banks $00, $E0/$E1, $FE/$FF)
+    0.4%  the slot (CORE)
+    0.3%  the translator (JIT)
+    0.3%  other services (SVC)
+  the routines:
+     16.2%  JIT  translated code
+     14.5%  SVC  tdy_c256
+     13.4%  JIT  h_verify
+     10.0%  SVC  tdy_row
+      9.1%  SVC  tdy_cmp
+      3.1%  JIT  h_push
+      3.0%  SVC  tdy_dfall
+      2.2%  JIT  h_pop
+      1.9%  JIT  h_hi
+      1.8%  SVC  tdy_wback
+      1.7%  JIT  ea_ds_rb
+      1.7%  SVC  tdy_load
+      1.4%  SVC  tdy_slot
+      1.4%  SVC  tdy_flush
+      1.3%  JIT  ea_es_wb
+      1.2%  JIT  pg_chk
+      1.1%  SVC  tdy_hv
+      1.0%  SVC  tdy_ptrs
+
+## The code
+108802 instructions executed in 73804 blocks (193 distinct blocks): 1.47 instructions a block.
+Interpreter time: 6.4% of the samples; 284 cycles a guest instruction on average.
+  the  32 hottest blocks:  98.3% of the interpreter's time,   6.3% of all time
+  the  64 hottest blocks: 100.0% of the interpreter's time,   6.4% of all time
+  the 256 hottest blocks: 100.0% of the interpreter's time,   6.4% of all time
+
+## What it executes
+  kind                           count    time    cycles
+  io                             23.4%   32.0%       389
+  ALU/MOV, memory operand        12.8%    7.9%       175
+  iret                           12.4%   21.8%       501
+  flagio                         10.1%    6.4%       182
+  ALU/MOV, registers              7.6%    3.0%       114
+  jcc                             6.9%    1.6%        67
+  stack                           5.7%    2.0%       100
+  bad                             4.1%    2.2%       151
+  int                             4.1%    8.9%       610
+  callf                           4.1%    8.7%       600
+  call                            3.1%    1.6%       149
+  ret                             2.9%    1.9%       186
+  jmp                             1.4%    0.8%       155
+  sreg                            1.2%    1.0%       232
+  loop                            0.0%    0.1%       498
+  string, single                  0.0%    0.0%         0
+  string, REP                     0.0%    0.1%      1370
+  memory operands: 21.4% of instructions; with a segment override 0.5%; any prefix 0.6%
+  their forms: disp16 58%, bx 20%, bx+si 19%, bx+d8 (override) 1%, disp16 (override) 1%, bx+d8 0%, si+d8 0%, bx+d16 (override) 0%
+  IN, OUT and INT instructions with the services they call: 76.7% of all time
+  by what a translator would have to cover:
+    tier 0: jit2.s today                       7.1% of instructions,   1.7% of interpreter time
+    tier 1: + register forms, direct jumps     8.9% of instructions,   3.8% of interpreter time
+    tier 2: + memory, stack, near calls       24.5% of instructions,  13.4% of interpreter time
+    left to the interpreter                   59.5% of instructions,  81.1% of interpreter time
+    what is left, of interpreter time: IN/OUT 32.0%, IRET 21.8%, INT 8.9%, far call 8.7%, PUSHF/POPF/CLI/STI 6.4%, bad 2.2%, segment load 1.0%, REP string 0.1%
+
+## The opcodes, as a translator's templates (an opcode with its register or memory form is one)
+  138 distinct; the interpreter's time is covered to 50% by 3, 80% by 9, 90% by 17, 95% by 27, 99% by 45
+  the first 30 (opcode, share of interpreter time, tier): CF 21.8% t3, EC 16.5% t3, EE 14.7% t3, CD 8.9% t3, FF/3 mem 8.7% t3, 9C 4.1% t3, F6/0 mem 3.0% t2, FE/7 mem 2.2% t3, C3 1.9% t2, FA 1.9% t3, E8 1.6% t2, C6 mem 1.2% t2, 74 1.0% t0, 8B mem 1.0% t2, E4 0.7% t3, A0 0.6% t2, 0A reg 0.6% t1, 8E reg 0.6% t3, E9 0.6% t1, 75 0.5% t0, 2A mem 0.5% t2, 8C reg 0.5% t1, 3B mem 0.5% t2, FB 0.4% t3, 33 reg 0.4% t1, 52 0.4% t2, 2C 0.4% t1, 8E mem 0.4% t3, 53 0.3% t2, 8A mem 0.3% t2
+
+## Flags
+  a flag read (Jcc, ADC, ...) finds its producer in: the instruction before 62%, another block 37%, earlier in the block 0%
+  a flag-setting instruction's flags are: read in its block 61%, overwritten unread in its block 32%, still there at the block's end 7%
+
+## Segments
+  segment register loads: 12.16 a thousand instructions; far transfers and INT/IRET: 206.43
+  the 256 hottest blocks run under 3 values of CS: 5250 47%, 0070 30%, F000 23%
+  linear addresses executed under two values of CS: 0 of 747
+  INT instructions a second: 1Ch 150
+  hardware interrupts taken a second: 08h 10.6
+  HLT executed 0 times
+
+## Writes into code
+  795523 guest writes to conventional memory in the window (26517 a second); executed code lies in 43 pages of 256 bytes, 9 of them written to
+  writes into pages that hold executed code: 39427 (1314 a second, 4.96% of all writes)
+  writes onto the bytes of an executed instruction: 0, at 0 addresses
+
+## Loops
+Among the 193 hottest blocks, joined by direct jumps and fall-throughs only (a call or a return ends a loop here): 4 loops, 15.5% of the interpreter's time.
+  entry        time blocks     instr  entries   trips  tiers 0/1/2/3 of its time
+  5250:4899   11.4%      2     10819      975      10  0/0/0/100
+  5250:48E6    4.0%      1      3900      975       3  0/0/0/100
+  5250:9388    0.1%      3        52        4       3  0/0/0/100
+  5250:1F71    0.0%      1        21        6       0  0/0/0/0
+
+## What a translator could give (a model, not a measurement)
+An instruction is translated when its tier is covered and its block ran 50 times in the window. It is then charged the native cycles of its kind instead of the interpreter's measured time. Every time execution passes between a translated instruction and one that is not costs X cycles. Everything else is unchanged.
+  tier 1:  14.1% of instructions,   4.9% of interpreter time translated, at 10 native cycles an instruction against 98; 659 crossings a second
+      X= 60: the interpreter's share 1.01x faster, all of the time 1.00x
+      X=150: the interpreter's share 0.95x faster, all of the time 1.00x
+  tier 2:  36.9% of instructions,  17.3% of interpreter time translated, at 32 native cycles an instruction against 133; 203 crossings a second
+      X= 60: the interpreter's share 1.14x faster, all of the time 1.01x
+      X=150: the interpreter's share 1.11x faster, all of the time 1.01x
+
+## The hottest blocks
+  block        time      runs instr  tier  first instructions
+  5250:9320   13.7%      7827     5     3  out dx,al; pop dx; pop bx; pop ax; ret
+  0070:0525   12.8%      4492     2     3  pushf; call word far [bx]
+  5250:4899   11.3%     10725     1     3  in al,dx
+  0070:053A    9.9%      4492     1     3  iret
+  F000:0514    8.9%      4492     1     3  int byte 0x1c
+  F000:0516    6.1%      4492     1     3  iret
+  F000:008C    5.8%      4492     1     3  iret
+  5250:48E6    4.0%      3900     1     3  in al,dx
+  0070:0528    2.7%      4492    11     3  cli; add [0x2],ax; pop ax; pop dx; mov ss,dx; mov sp,ax; pop ds ...
+  F000:0510    2.2%      4492     1     3  db 0xfe; db 0x38
+  5250:3138    1.8%       975     5     2  mov al,[0x22ff]; sub al,0x6; sub al,[0x299c]; test byte [0x287],0xff; jnz 0x3162
+  0070:0500    1.7%       319     8     3  push dx; push ax; push ds; mov ax,cs; mov ds,ax; mov ax,[0x2]; cmp ax,[0x4] ...
+  5250:16DC    1.6%       975     3     2  xor ax,ax; test byte [0x1684],0xff; jz 0x16e9
+  0070:0510    1.4%       319     8     3  mov dx,ss; mov ax,sp; mov ss,word [0x6]; mov sp,[0x2]; push dx; push ax; mov ax,[0x0] ...
+  5250:5078    1.3%       975     4     2  mov byte [0x4fc2],0x0; mov al,[0x4fc0]; cmp al,0x0; jz 0x50e8
+  5250:48E1    1.2%       975     1     3  in al,dx
+  5250:312A    1.1%       975     2     2  test byte [0x4fc2],0xff; jnz 0x3148
+  5250:48A2    1.1%       975     2     3  sti; ret
+  0070:04ED    1.1%       319     4     2  push bx; mov bx,sp; mov bx,[ss:bx+0x2]; jmp 0x500
+  5250:4873    1.1%       975     2     3  cli; in al,byte 0x61
+  5250:552E    1.1%       976     2     3  out dx,al; ret
+  5250:16AD    0.8%       975     4     2  push bx; mov al,[0x1683]; test al,0xff; jz 0x16dc
+  5250:311F    0.8%       975     2     2  mov byte [0x311e],0x1; call 0x5078
+  5250:16E9    0.7%       975     3     2  mov [0x2eb],al; pop bx; ret

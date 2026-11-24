@@ -222,33 +222,85 @@ eg_mark
 :out
  rts
 :far                       ; past the 8000: on the screen all the same when its
- cmp >EGA_WINLEN           ; lines are longer or panned (the whole is drawn then)
- bcs :out
- lda >VID_DIRTY
- ora #$0001
- sta >VID_DIRTY
+ cmp >EGA_WINLEN           ; lines are longer or panned: the 256 of its place
+ bcs :out                  ; in the window (the wide draw goes by those, to 32K)
+ xba
+ and #$00FF
+ cmp #128
+ bcc :ix
+ lda #127
+:ix
+ tax
+ sep #$20
+ mx %10
+ lda #1
+ sta >VID_DIRTY,x
+ rep #$20
+ mx %00
  rts
 
 * eg_markrng - the same for the eg_n bytes (not 0) from offset eg_o.
 * Y is lost.
 eg_markrng
  mx %00
- lda >EGA_WINLEN           ; longer lines or panned: no flags, only whether
- cmp #EGA_LEN+1            ; the run meets what the screen shows
+ lda >EGA_WINLEN           ; longer lines or panned: no byte has a flag, the
+ cmp #EGA_LEN+1            ; 256s of the window the run meets have
  bcc :flags
  lda eg_o
  sec
  sbc >EGA_START
  cmp >EGA_WINLEN
- bcc :hit
- eor #$FFFF
- inc
+ bcc :win
+ eor #$FFFF                ; it starts off the screen: the bytes before
+ inc                       ; the screen's first
  cmp eg_n
  bcs :miss
-:hit
- lda >VID_DIRTY
- ora #$0001
- sta >VID_DIRTY
+ sta eg_t2
+ lda eg_n
+ sec
+ sbc eg_t2
+ dec                       ; the last byte's place
+ ldx #0
+ bra :last
+:win
+ tax                       ; the first byte's place
+ clc
+ adc eg_n
+ dec
+ bcs :clip
+:last
+ cmp >EGA_WINLEN
+ bcc :wok
+:clip
+ lda >EGA_WINLEN
+ dec
+:wok
+ xba
+ and #$00FF
+ cmp #128
+ bcc :w1
+ lda #127
+:w1
+ sta eg_t2                 ; the last 256
+ txa
+ xba
+ and #$00FF
+ cmp #128
+ bcc :w2
+ lda #127
+:w2
+ tax
+ sep #$20
+ mx %10
+ lda #1
+:wp
+ sta >VID_DIRTY,x
+ inx
+ cpx eg_t2
+ bcc :wp
+ beq :wp
+ rep #$20
+ mx %00
 :miss
  rts
 :flags

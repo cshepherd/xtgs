@@ -120,44 +120,62 @@ fetch
  jmp (optab,x)
 
 *--- every SLOT_N control transfers (next_ct): the counter, the
-* interrupt lines, the VBL work.
+* interrupt lines, the VBL work. It is met by one guest instruction in
+* twelve or so, so what it does when nothing is waiting is kept short:
+* the IRQ0s owed are a direct-page word (vTICK) and every other line is
+* behind one word, PIC_PEND, which whoever raises a line sets (SVC, the
+* serial interrupt). Only then are the lines looked at one by one. The
+* look clears PIC_PEND first and sets it again for every line it finds
+* raised, delivered or not (masked, in service): so it stays set for as
+* long as anything waits, and a line raised by an interrupt during the
+* look is not lost. With IF clear nothing is looked at and it stays as
+* it is.
 slot
  mx %00
  lda #SLOT_N
  sta vSLOT
- lda vICOUNT
- clc
- adc #SLOT_N
- sta vICOUNT
- bcc :nc
+ inc vICOUNT               ; (slots: bench_run makes it transfers)
+ bne :nc
  inc vICOUNT+2
 :nc
  lda vPCMODE               ; running a PC program?
  bne :pc
- jmp fetch                 ; bench: no services
+ jmp slot_x                 ; bench: no services
 :pc
  cmp #2                    ; Mode B: the interrupt lines, looked at EVERY slot
  bne :novbl                  ; (not only on the VBL edge) so they reach the guest's
- lda rFL                   ; handlers promptly. do_int clears IF, so delivery
- and #F_IF                 ; self-serializes with the handler; interrupts off ->
- beq :novbl                  ; hold them (vTICK counts the IRQ0s owed).
+ lda vTICK                 ; handlers promptly.
+ bne :lines
+ lda >PIC_PEND
+ beq :novbl
+:lines
+ lda rFL                   ; do_int clears IF, so delivery self-serializes with
+ and #F_IF                 ; the handler; interrupts off -> hold them (vTICK
+ beq :novbl                  ; counts the IRQ0s owed).
  lda vTICK                 ; IRQ0: the DOC timer oscillator wrapped (sound.s)
- beq :kbd
+ beq :scan
  lda >PIC_MASK             ; held back at the 8259: it stays owed
  lsr
- bcs :kbd
+ bcs :scan
  dec vTICK                 ; (one instruction: the interrupt cannot split it)
  sty rIP
  lda >PIC_BASE
  jsr do_int                ; INT 08h, or where the guest moved IRQ0
- jmp fetch
+ jmp slot_x
 :novbl
  jmp :vbl
+:scan
+ lda >PIC_PEND             ; (here with an IRQ0 that is masked, perhaps)
+ beq :novbl
+ lda #0
+ sta >PIC_PEND
 :kbd                       ; IRQ1: a queued keyboard scancode
  lda >KBD_QHEAD
  and #KBD_QMASK
  cmp >KBD_QTAIL
  beq :com                  ; scancode queue empty
+ lda #1
+ sta >PIC_PEND
  lda >PIC_MASK
  and #$0002
  bne :com
@@ -169,10 +187,12 @@ slot
  lda >PIC_BASE
  inc
  jsr do_int                ; INT 09h (IRQ1): the guest handler reads port 0x60
- jmp fetch
+ jmp slot_x
 :com                       ; IRQ4: COM1 has a character, or room for one (serial.s)
  lda >PIC_IRQ4
  beq :com2
+ lda #1
+ sta >PIC_PEND
  lda >PIC_MASK
  and #$0010
  bne :com2
@@ -183,10 +203,12 @@ slot
  clc
  adc #4
  jsr do_int                ; INT 0Ch
- jmp fetch
+ jmp slot_x
 :com2
  lda >PIC_IRQ3             ; IRQ3: and COM2
  beq :fdc
+ lda #1
+ sta >PIC_PEND
  lda >PIC_MASK
  and #$0008
  bne :fdc
@@ -197,11 +219,13 @@ slot
  clc
  adc #3
  jsr do_int                ; INT 0Bh
- jmp fetch
+ jmp slot_x
 :fdc                       ; the mouse driver has an event for its handler (mouse.s):
  lda >PIC_MOUSE            ; its stub at F000:MS_OFF is entered as an interrupt
  beq :fdc6                 ; enters a handler, but by no vector (DOS takes the
- lda #0                    ; hardware interrupts' for itself)
+ lda #1                    ; hardware interrupts' for itself)
+ sta >PIC_PEND             ; (another line may wait behind this one)
+ lda #0
  sta >PIC_MOUSE
  sty rIP
  jsr int_push
@@ -209,10 +233,12 @@ slot
  sta rCS
  jsr set_cs
  ldy #MS_OFF
- jmp fetch
+ jmp slot_x
 :fdc6                      ; IRQ6: the diskette controller finished (ports.s)
  lda >PIC_IRQ6
  beq :vbl
+ lda #1
+ sta >PIC_PEND
  lda >PIC_MASK
  and #$0040
  bne :vbl
@@ -223,7 +249,7 @@ slot
  clc
  adc #6
  jsr do_int                ; INT 0Eh
- jmp fetch
+ jmp slot_x
 :vbl                       ; once-a-frame services, on entering the vertical blank
  lda >VBLBAR
  and #$0080
@@ -245,7 +271,7 @@ slot
 :nosync
  ldy rIP
 :fetch
- jmp fetch
+ jmp slot_x
 
 *--- an instruction that can turn interrupts on retires here (Mode B).
 * The slot looks every SLOT_N transfers, and a loop with a number of
@@ -255,6 +281,10 @@ slot
 * the tick it was waiting for waited for ever. So with an IRQ owed the
 * slot looks at once after IRET and POPF, and after STI one instruction
 * later, which is when the 8088 takes it.
+slot_x                     ; where the slot ends: the next instruction. (The translator has its own
+ mx %00                    ; address here for a slot it asks for, jitc.s: jr_guard.)
+ jmp fetch
+
 irq_owed                   ; C set: Mode B and an interrupt waiting
  mx %00
  lda vPCMODE
@@ -262,6 +292,8 @@ irq_owed                   ; C set: Mode B and an interrupt waiting
  bne :no
  lda vTICK                 ; IRQ0
  bne :yes
+ lda >PIC_PEND             ; no other line raised since the slot last looked
+ beq :no
  lda >PIC_IRQ6             ; IRQ6
  bne :yes
  lda >PIC_IRQ4             ; IRQ4
@@ -591,7 +623,19 @@ vid_mark
  rts
 :go
  lda pEA
- bra vid_mark_a
+ and #$7F00                ; 128 pages: B800-BFFF (the CGA's 16K is the first
+ xba                       ; 64, text the first 16; the Tandy's window is all)
+ tax
+ sep #$20
+ mx %10
+ lda #1
+ sta >VID_DIRTY,x
+ lda pEA                   ; a word at the 256's last byte is in the next too:
+ inc                       ; both are marked (a Tandy's page goes home by
+ beq vid_mark2             ; these flags, src/svc/tandy.s)
+ rep #$20
+ mx %00
+ rts
 vid_mark_dst
  mx %00
  lda vPCMODE
@@ -599,13 +643,25 @@ vid_mark_dst
  rts
 :go2
  lda pDST
-vid_mark_a
- mx %00
- and #$7F00                ; 128 pages: B800-BFFF (the CGA's 16K is the first
- xba                       ; 64, text the first 16; the Tandy's window is all)
+ and #$7F00
+ xba
  tax
  sep #$20
  mx %10
+ lda #1
+ sta >VID_DIRTY,x
+ lda pDST
+ inc
+ beq vid_mark2
+ rep #$20
+ mx %00
+ rts
+vid_mark2                  ; the 256 after X's (after the last, the first: a word
+ mx %10                    ; from B7FF:F is in the window with its second byte)
+ txa
+ inc
+ and #$7F
+ tax
  lda #1
  sta >VID_DIRTY,x
  rep #$20
@@ -744,7 +800,9 @@ push16
  sta [pSTK]
  rts
 :carry
- jsr stk_carry
+ adc #0                    ; (stk_carry, inline: this is half of all pushes)
+ and #$000F
+ ora #GUEST_BANK
  bra :bank
 :split
  jsr stk_split
@@ -776,7 +834,9 @@ pop16
  lda [pSTK]
  rts
 :carry
- jsr stk_carry
+ adc #0                    ; (stk_carry, inline: this is half of all pushes)
+ and #$000F
+ ora #GUEST_BANK
  bra :bank
 :split
  jsr stk_split
