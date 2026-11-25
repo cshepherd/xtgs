@@ -46,7 +46,11 @@ MB_MLI_PARMS = MB_BASE+$5E   ; 32 bytes: its parameter list
 MB_ICOUNT   = MB_BASE+$7E    ; u32 slots run, times SLOT_N (bench)
 MB_LAYOUT   = MB_BASE+$82    ; RG_COUNT words: the bank of each region, the page of each bank-$00 area (0 = not claimed)
 MB_LAYALT   = RG_COUNT*2+MB_LAYOUT ; u16 nonzero: the '+' test layout was asked for
-MB_END      = MB_LAYALT+2
+MB_ARG      = MB_LAYALT+2    ; u32 a document XT/GS was opened with (src/svc/ghost.s): where its pathname is,
+                             ;     "/VOL/DIR/NAME" (Pascal, in 256 bytes of the front end's), then its keys
+MB_ARGN     = MB_ARG+4       ; u16 0 none, 1 the pathname, 2 the keys to type, $8000 + why it was refused
+MB_ARGI     = MB_ARGN+2      ; u16 the next key to type, from 1
+MB_END      = MB_ARGI+2
 
 * The regions' bases come from layout.s (PUT before this file).
 * Bench program destination: guest 0000:0100.

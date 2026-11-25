@@ -796,10 +796,38 @@ bs_piece
 * table holds (either way it is not what a boot would make).
 bs_save
  mx %00
+ jsr bs_can
+ beq :asboot
+ sta >BS_STAT
+ rts
+:asboot
+ jsr st_save
+ lda >CTL_STAT
+ cmp #1
+ beq :saved
+ lda #3
+ sta >BS_STAT
+ rts
+:saved
+ lda >MF_ON                ; (what follows looks at files for itself: none of it is kept)
+ pha
+ lda #0
+ sta >MF_ON
+ jsr bs_file
+ pla
+ sta >MF_ON
+ rts
+
+* bs_can - may the PC as it is now be written? A = 0, or what
+* BS_STAT is to say: 2, 5, 6 or 7. It changes nothing and looks at
+* no file: the desk accessory asks it too, when the choice is made
+* (control.s), so that "not now" is said there and then and not
+* found out at the next start.
+bs_can
+ mx %00
  lda rd_boot               ; (a PC booted from an image has written to a copy of it in memory)
  bne :folder
  lda #5
- sta >BS_STAT
  rts
 :folder
  lda >COM_OPEN
@@ -817,36 +845,19 @@ bs_save
  cpx #NHANDLES*8
  bcc :q
  lda >MF_BAD               ; still what a boot makes of the folder's files?
- beq :asboot
+ beq :ok
  and #2
  beq :many
  lda #6                    ; it has changed one of them
- bra :st
+ rts
 :many
  lda #7                    ; or opened more than the table holds
-:st
- sta >BS_STAT
- rts
-:asboot
- jsr st_save
- lda >CTL_STAT
- cmp #1
- beq :saved
- lda #3
- sta >BS_STAT
  rts
 :busy
  lda #2
- sta >BS_STAT
  rts
-:saved
- lda >MF_ON                ; (what follows looks at files for itself: none of it is kept)
- pha
+:ok
  lda #0
- sta >MF_ON
- jsr bs_file
- pla
- sta >MF_ON
  rts
 
 * bs_file - bs_save's: the state that st_save made, to the file
@@ -1134,6 +1145,65 @@ bs_rd
 * configuration's, 4 damaged (BS_WHERE: how far the look got), 5 no
 * memory, 7 its data was found damaged in the load at the start
 * before this one (which began the PC again: this one boots).
+* bs_said - under the sign-on of a PC that boots although a boot
+* state was asked for and there is a file: why the file was not
+* what it started from (BS_BOOT 3 to 9; for 3, bs_at is where the
+* header and this start part: XTGS.CMD's bytes are its last part,
+* the layout before them, the build before that).
+bs_said
+ mx %00
+ lda >BS_CFG
+ beq :out
+ lda >BS_BOOT
+ and #$00FF
+ cmp #3
+ bcc :out                  ; (not asked for, used, none there)
+ cmp #10
+ bcs :out                  ; (the hard reboot asked for the boot)
+ cmp #3
+ bne :not3
+ ldx #0
+ lda bs_at
+ cmp #H_CMD
+ bcs :say
+ inx
+ inx
+ cmp #H_LAY
+ bcs :say
+ inx
+ inx
+ bra :say
+:not3
+ asl
+ tax
+:say
+ phx
+ lda #$000F
+ sta tty_attr
+ lda #bs_t0
+ jsr rd_puts
+ plx
+ lda bs_tt,x
+ jsr rd_puts
+ lda #$0D
+ jsr vid_tty
+ lda #$0A
+ jsr vid_tty
+ lda #$FFFF
+ sta tty_attr
+:out
+ rts
+bs_at      dw 0
+bs_tt      da bs_t1,bs_t2,bs_t3,0,bs_t4,bs_t5,bs_t4,bs_t4,bs_t8,bs_t9   ; (0-2: BS_BOOT 3 by bs_at; from 4: BS_BOOT)
+bs_t0      asc 'Boot state not used: ',00
+bs_t1      asc 'XTGS.CMD has changed',00
+bs_t2      asc 'XT/GS is elsewhere in memory',00
+bs_t3      asc 'another build of XT/GS',00
+bs_t4      asc 'the file is damaged',00
+bs_t5      asc 'no memory',00
+bs_t8      asc 'a file DOS boots from has changed',00
+bs_t9      asc 'its date',00
+
 bs_try
  mx %00
  lda >BS_SKIP              ; (the desk accessory's hard reboot: a boot, this once)
@@ -1200,6 +1270,7 @@ bs_try
  lda >BOUNCEBUF,x
  cmp bs_hdr,x
  beq :s2
+ stx bs_at                 ; (where it is not: bs_said)
  lda #3
  bra :close
 :s2

@@ -56,6 +56,7 @@
  put mouse.s
  put xms.s
  put control.s
+ put ghost.s
  put state.s
  put gen/buildid.s
  put capture.s

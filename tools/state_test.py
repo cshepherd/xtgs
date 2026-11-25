@@ -18,6 +18,9 @@ MAME each (work files in build/state/; about ten boots):
            same keys, the file must be on the ProDOS volume, and the SHR
            must show the text
   cold     that cold boot (the same volume, XTGS.CMD without the line STATE=ON)
+  quit     (the last: it makes its own volume) "6" and then the accessory's
+           Quit without leaving the desk accessories between: the state is
+           written before XT/GS quits, and the next start is from it
   again    from the state: MARK, the desk accessory's soft reboot, which
            starts from the state again, MARK; then its Quit
   hard     from the state, the accessory's hard reboot: FreeDOS boots (the
@@ -122,6 +125,9 @@ def menu(t, digit):
     seq += tap(t + 80, digit, K1)
     seq += tap(t + 140, "Space")
     t += 200
+    if digit.startswith("6"):                               # (the accessory stays up, to say that the state waits
+        seq += tap(t, "Esc")                                # to be written, or why it cannot be: out of it)
+        t += 60
     for _ in range(QUIT):
         seq += tap(t, "Down Arrow")
         t += 40
@@ -254,7 +260,10 @@ def boot(image, seconds, inputs=(), zip=True, dumps=(), extra=None, stop=False, 
     inputs = [dict(i, at=i["at"] + late, after="start") for i in inputs]
     base = [("fb", 0x2B8000, 4000), ("bs", BS_CFG, 8), ("mark", MARKW, 2), ("mb", syms["mb_stage"], 8),
             ("shr", 0xE12000, 0x8000)]
-    r = mamerun.run(image, waits=[(syms["mb_magic"], 0x5A5A)], dumps=base + list(dumps),
+    # (XTGS_GARBAGE=n: the machine's memory full of leftovers when it is switched on, as it is in a session
+    # that has run other things: nothing here may depend on its being zeroes)
+    garbage = int(os.environ["XTGS_GARBAGE"]) if os.environ.get("XTGS_GARBAGE") else None
+    r = mamerun.run(image, waits=[(syms["mb_magic"], 0x5A5A)], dumps=base + list(dumps), garbage=garbage,
                     seconds=seconds + late / 60, settle=5, inputs=inputs, zip=zip, extra=extra,
                     traces=[("boot", BS_BOOT), ("mark", MARKW), ("stat", BS_STAT)] + list(more_traces) if traces else ())
     if r["status"] == "no-output":
@@ -293,6 +302,9 @@ def step_make(show):
             hdr, _ = decode(f)
         except ValueError as e:
             bad.append(f"XTGS.STATE is not sound: {e}")
+    if f is not None and len(f) > 650000:
+        bad.append(f"XTGS.STATE is {len(f)} bytes: more than a PC at its prompt after a boot is (what the machine "
+                   "had in memory before is in it?)")
     if show or bad:
         print("\n".join(r["rows"]))
     if bad:
@@ -584,7 +596,10 @@ def step_files(show):
               lambda: patched(PO, b"@ECHO OFF\r\nMARK\r\n", b"@ECHO OFF\r\nMARK \n"), 8),
              ("KERNEL.SYS the same bytes with another date",
               lambda: put_file(PO, "KERNEL.SYS#060000", kernel, time.time() - 3 * 86400), 8),
-             ("MARK.COM gone", lambda: cadius("DELETEFILE", PO, VOLDIR + "/SHARED/MARK.COM"), 8)]
+             ("MARK.COM gone", lambda: cadius("DELETEFILE", PO, VOLDIR + "/SHARED/MARK.COM"), 8),
+             # (and the command file: the sign-on says which it was)
+             ("XTGS.CMD with a line more", lambda: set_cmd(PO, ("S", "C=SHARED", "STATE=ON", "VIDEO=CGA")), 3)]
+    said = {8: "Boot state not used: a file DOS boots from has changed", 3: "Boot state not used: XTGS.CMD has changed"}
     for what, change, why in cases:
         fresh()
         change()
@@ -594,6 +609,9 @@ def step_files(show):
                 print("\n".join(r["rows"]))
             sys.exit(f"FAIL state (files): {what}: BS_BOOT is {r['bootw']} ({WHY.get(r['bootw'])}), wanted {why} "
                      f"({WHY[why]})")
+        if said[why] not in r["rows"]:
+            print("\n".join(r["rows"]))
+            sys.exit(f"FAIL state (files): {what}: the sign-on does not say {said[why]!r}")
         out.append(what)
     # A file the boot never looked at, and a save that was cut off: the state, and the PC reads what is there.
     fresh()
@@ -614,6 +632,14 @@ def step_files(show):
     if r["stat"] != 6 or state_of(PO) is not None:
         sys.exit(f"FAIL state (files): a PC that has added to AUTOEXEC.BAT: BS_STAT is {r['stat']} "
                  f"({SAVED.get(r['stat'])}), wanted 6, and no XTGS.STATE")
+    # (and one with a file open, which is said in the accessory as the choice is made: no state, and the old
+    # one is left as it was)
+    fresh()
+    seq, t = menu(3900, "6  ^")
+    r = boot(PO, (t + 900) / 60, [{"at": 3000, "coded": "COPY CON OPEN.TXT{ENTER}"}] + seq)
+    if r["stat"] != 2 or state_of(PO) != good:
+        sys.exit(f"FAIL state (files): a PC with a file open (COPY CON): BS_STAT is {r['stat']} "
+                 f"({SAVED.get(r['stat'])}), wanted 2, and XTGS.STATE as it was")
     fresh()
     cadius("DELETEFILE", PO, VOLDIR + "/XTGS.STATE")
     seq, t = menu(4500, "6  ^")
@@ -627,10 +653,10 @@ def step_files(show):
                  f"({SAVED.get(r['stat'])}), wanted 1, and the state's files are {names}")
     fresh()
     os.remove(pristine)
-    print("PASS state (files): a boot, and BS_BOOT says the files are not as they were, with " + "; ".join(out)
+    print("PASS state (files): a boot, and BS_BOOT and the sign-on say why, with " + "; ".join(out)
           + ". A new file of no concern to the boot (and what a cut-off save left): the state, and TYPE shows the "
           "file. A PC that has added to AUTOEXEC.BAT is not saved; one that has made, read and deleted a file of its "
-          "own is, and is held to none of that")
+          "own is, and is held to none of that; one with a file open is told so in the accessory")
 
 
 def aged(f, days):
@@ -757,6 +783,52 @@ def step_time(show):
     print("PASS state (time): " + "\n                   ".join(lines))
 
 
+def step_quit(show):
+    """The start state asked for and, in the same visit to the desk accessories, the quit: the state is
+    written first, and the next start is from it."""
+    build()
+    t = 3000
+    seq = tap(t, "Control", hold=40) + tap(t + 2, "Command / Open Apple", hold=36) + tap(t + 10, "Esc", hold=20)
+    t += 200
+    for _ in range(DOWNS):
+        seq += tap(t, "Down Arrow")
+        t += 40
+    seq += tap(t, "Return", K2)                              # XTGS Control
+    seq += tap(t + 80, "6  ^", K1) + tap(t + 140, "Space")   # the start state; its menu again, which says it waits
+    seq += tap(t + 220, "5  %", K1) + tap(t + 280, "Space")  # the quit; the desk accessories again
+    t += 340
+    for _ in range(QUIT):
+        seq += tap(t, "Down Arrow")
+        t += 40
+    seq += tap(t, "Return", K2)
+    r = boot(PO, (t + 2400) / 60, seq)
+    f = state_of(PO)
+    code = struct.unpack_from("<H", bytes.fromhex(r["dumps"]["mb"]["hex"]), 4)[0]
+    bad = []
+    if f is None:
+        bad.append("XTGS.STATE is not on the volume: the quit took the save's place")
+    else:
+        try:
+            decode(f)
+        except ValueError as e:
+            bad.append(f"XTGS.STATE is not sound: {e}")
+    # (the GS/OS application gives its front page back as it quits and is launched again by the test's
+    # startup program: there the file and the start after it are the judge)
+    if not S16 and r["status"] != "hit":
+        bad.append(f"XT/GS did not quit ({r['status']})")
+    elif not S16 and code != 0xB0C3:
+        bad.append(f"the exit code is {code:#06x}, not the quit's 0xb0c3")
+    if show or bad:
+        print("\n".join(r["rows"]))
+    if bad:
+        sys.exit("FAIL state (quit): " + "; ".join(bad))
+    r = boot(PO, 900 / 60)
+    if r["bootw"] != 1:
+        sys.exit(f"FAIL state (quit): the start after it: BS_BOOT is {r['bootw']} ({WHY.get(r['bootw'])}), not 1")
+    print(f"PASS state (quit): \"6\" and then the quit in one visit to the desk accessories: XTGS.STATE written "
+          f"({len(f)} bytes) before XT/GS quit, and the next start is from it")
+
+
 def main():
     args = sys.argv[1:]
     show = "--show" in args
@@ -767,7 +839,7 @@ def main():
              ("cold", lambda: step_go(show, cold=True)), ("same", step_same), ("again", lambda: step_again(show)),
              ("hard", lambda: step_hard(show)), ("files", lambda: step_files(show)), ("day", lambda: step_day(show)),
              ("ega", lambda: step_ega(show)), ("disk", lambda: step_disk(show)), ("bad", lambda: step_bad(show)),
-             ("time", lambda: step_time(show))]
+             ("time", lambda: step_time(show)), ("quit", lambda: step_quit(show))]
     if only is not None and "make" not in only:
         try:
             was = open(os.path.join(WORK, "config")).read()

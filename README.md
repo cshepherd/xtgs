@@ -193,6 +193,18 @@ ways were tested in MAME under System 6.0.1 - `XTGS.SYSTEM` launched by a
 startup program, `XTGS` by that and from the Finder - and neither on a
 real IIGS yet; `docs/relocation.md`.
 
+A DOS program can be opened from the Finder as well. Files named `*.EXE`,
+`*.COM`, `*.BAT` and `*.BAS` have the application's icon, and opening one
+that is in the shared folder opens `XTGS`, which starts DOS and types at
+its prompt `CD` to the file's folder and then the file's name (`GWBASIC`
+before a `.BAS`); with a boot state (`STATE=ON`, below) that is a matter
+of seconds. A file anywhere else is
+refused with an alert and no PC is started. One thing can get in first: a
+desk accessory that takes text files from the Finder, as Hermes does, is
+asked before `XTGS` is, and opens a `.BAT` or a `.BAS` of type `TXT` itself. Tested in
+MAME under System 6.0.1, from the Finder by hand and by `make test-open`;
+`docs/finder.md`.
+
 ![The XTGS folder in the Finder](assets/finder-icon.png)
 
 Booting FreeDOS takes a minute and a half of emulated time on a stock machine
@@ -534,6 +546,10 @@ make test-gsos    launch XTGS.SYSTEM from GS/OS (needs a System 6 volume:
 make test-s16     the probe, .COM and sampled CPU tests under the GS/OS
                   application, and launching it three times in one boot;
                   XTGS_FRONT=s16 runs any other test that way
+make test-open    the GS/OS application opened for a .BAT or .COM of the
+                  shared folder, as the Finder opens it: the keys typed at
+                  the prompt, after a boot and after a boot state, and the
+                  files it refuses
 make bench        guest instructions a second, stock and 16 MHz Zip
 make lint         assemble everything and check register widths
 ```
@@ -621,6 +637,7 @@ suite: all 324 opcode files, 2,883,807 vectors after the exclusions listed in
 | `docs/benchmarks.md` | measurements and where the time goes |
 | `docs/jit.md` | the translator: the experiments, and the one that `JIT=ON` turns on |
 | `docs/state.md` | the boot state (M7): the PC written to `XTGS.STATE` and started from it; what is in it, how it is held to the boot's files and to the date, what it does not see |
+| `docs/finder.md` | a `.EXE`, `.COM`, `.BAT` or `.BAS` opened from the Finder: the bundle, the Message Center, the keys typed at the prompt |
 | `docs/relocation.md` | how the loader places XT/GS in whatever banks and bank-`$00` pages it is given; launching from GS/OS; the native GS/OS application |
 | `docs/compatibility-matrix.md` | Mode A program results |
 | `BOOTSTRAP.md`, `apple_iigs_xt_emulator_project_plan.md` | toolchain, design and the plan |

@@ -105,6 +105,7 @@ kb_poll
  sta sv1
  rep #$20
  mx %00
+:typed
  jsr kb_flags
  jsr kb_translate
  pha                       ; the key word (scan<<8 | ascii)
@@ -115,6 +116,8 @@ kb_poll
 :none
  rep #$20
  mx %00
+ jsr gh_poll               ; a key of a document's (ghost.s)? As one of the keyboard's
+ bcs :typed
  lda kb_held               ; a key is down for the guest: still down here?
  beq :out
  lda vbl_count

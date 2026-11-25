@@ -46,6 +46,13 @@ svc_bootinit
  sta >KBD_QTAIL
  jsr kb_reset              ; no key down, no modifier sent
  jsr ports_init            ; the 8259 as a BIOS leaves it, the 765 idle
+ lda >PC_BEGUN             ; (the first PC of this run: the BIOS's segment is whatever the machine had
+ bne :stubs                ; there, as its memory is: mem_clear, below)
+ lda #^H_BIOS
+ ldy #0
+ ldx #1
+ jsr mem_fill
+:stubs
  jsr build_stubs
  jsr build_ivt
  jsr build_bda
@@ -56,6 +63,14 @@ svc_bootinit
  sta >H_BDA+BDA_EQUIP
 :fd
  jsr rd_setup              ; a shared ProDOS directory? (redir.s)
+ jsr gh_check              ; a document XT/GS was opened with (ghost.s): its keys, or no PC
+ bcc :arg
+ lda #3
+ sta boot_res
+ plb
+ lda >boot_res
+ rtl
+:arg
  jsr ms_setup              ; the mouse driver, unless XTGS.CMD says MOUSE=OFF
  jsr xms_setup             ; the XMS driver (S only), unless it says XMS=OFF
  lda #0
@@ -71,6 +86,12 @@ svc_bootinit
  sta boot_res
  bra :screen
 :cold
+ lda >PC_BEGUN             ; the first PC of this run boots in memory that is whatever the machine had
+ bne :warm                 ; there last (another program's, the PC's of the launch before): cleared, as a
+ jsr mem_clear             ; PC's is when it is switched on. A restart keeps it (the soft one) or the
+ lda #1                    ; front end has cleared it (the hard one); a start from a boot state fills
+ sta >PC_BEGUN             ; every page of it.
+:warm
  lda disk_have
  bne :sector
  jsr mf_begin              ; (the files this PC is started from are kept from here on: state.s)
@@ -101,6 +122,11 @@ svc_bootinit
  jsr init_shr
  jsr vid_clear
  jsr post_banner          ; PC-style BIOS sign-on at the top of the screen
+ lda boot_res
+ cmp #$00FE
+ beq :nosay
+ jsr bs_said              ; a boot state there was, and it is not what this PC starts from: why
+:nosay
  jsr rd_banner            ; the shared drive's line, and the blank one
  lda boot_res
  cmp #2
@@ -111,6 +137,30 @@ svc_bootinit
  plb
  lda >boot_res
  rtl
+
+* mem_clear - the PC's memory from 0060:0000 up to the BIOS at
+* F000:0000, to zeroes. Below it are the vectors and the BIOS's data,
+* which are built by now, and the BIOS segment has the stubs.
+mem_clear
+ mx %00
+ lda #GUEST_BANK
+ ldy #KERNEL_LIN
+ ldx #15
+mem_fill                   ; X banks from bank A, the first from Y
+ mx %00
+ sta pGST+2
+ stz pGST
+:bank
+ lda #0
+:w
+ sta [pGST],y
+ iny
+ iny
+ bne :w
+ inc pGST+2
+ dex
+ bne :bank
+ rts                       ; (Y is 0 again: the banks after the first are whole)
 
 * disk_geom - the geometry of the image. A floppy's size names its
 * format, and a disk need not have a BPB to say so (Minix's has code

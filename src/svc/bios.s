@@ -807,6 +807,7 @@ int_16
  jsr kb_pop
  bcs :gotb
 :idle
+ jsr gh_ask                ; (ghost.s: it waits for a key)
  jsr kb_poll
  jsr vbl_check
  jsr kb_pop
@@ -837,6 +838,7 @@ int_16
  sta rAX
  jmp clr_zf
 :none
+ jsr gh_ask
  jsr kb_poll               ; give the IIGS keyboard a look first
  jsr vbl_check
  jsr kb_peek

@@ -106,6 +106,8 @@ PIC_IRQ6   = RES_BASE+$8B0   ; u16 nonzero: the diskette controller's interrupt 
 BS_CFG     = RES_BASE+$8B8   ; u16 XTGS.CMD's STATE= line (state.s): 0 none, 1 ON: start from the boot state when it is good; 2 (the test's own, poked: tools/state_test.py) and stop there
 BS_STAT    = RES_BASE+$8BA   ; u16 the last save of a boot state: 0 none, 1 written, 2 not now (a file or a port open), 3 no memory, 4 the disk, 5 not a PC from the folder
 BS_BOOT    = RES_BASE+$8BC   ; u16 this start: 0 a boot, 1 from the boot state, 2 no file, 3 another PC's, 4 damaged, 5 no memory, 6 its data damaged or unread (the PC is begun again), 7 a boot after that
+PC_BEGUN   = RES_BASE+$A84   ; u16 nonzero: a PC has been booted in this run (svc_bootinit: the first one's
+                             ;     memory is cleared before it boots; the front end cleared this bank)
 BS_SKIP    = RES_BASE+$A82   ; u16 BS_SKIPV: the start after this boots, whatever state there is (the desk accessory's hard reboot; state.s)
 BS_SKIPV   = $C01D
 * The files the PC was started from (state.s, docs/state.md "the boot's files"): every partial

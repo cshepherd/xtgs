@@ -142,6 +142,10 @@ ctl_bs5    dw $528+4
            asc 'Not saved: only a PC from a folder.'
            hex 00
            dw $FFFF
+ctl_pend   dw $528+4
+           asc 'Start state: written as you leave.'
+           hex 00
+           dw $FFFF
 ctl_none   dw $680+4
            asc 'No PC is running.'
            hex 00
@@ -183,14 +187,27 @@ ctl_menu
  ldy #ctl_items-ctl_row
  jsr ctl_say
  ldy #ctl_qp8-ctl_row      ; the front end by its page: the GS/OS application's
- lda >MB_BASE              ; begins "XTGS"
- cmp #'TX'
+ lda >MB_BASE              ; begins "XTGS" (a constant of two characters has the first one low:
+ cmp #'XT'                 ; 'TX' here said "Quit to ProDOS" under GS/OS too)
  bne :p8
  ldy #ctl_qgs-ctl_row
 :p8
  jsr ctl_say
  ldy #ctl_boot-ctl_row
  jsr ctl_say
+ lda >CTL_REQ              ; a start state waits to be written (as the desk accessories are left):
+ tax                       ; that, in place of what came of the last one
+ and #$007F
+ cmp #CTL_BOOT
+ beq :pend
+ txa
+ and #$0080
+ beq :last
+:pend
+ ldy #ctl_pend-ctl_row
+ jsr ctl_say
+ bra :nobs
+:last
  lda >BS_STAT              ; the last save to the disk: what came of it
  beq :nobs
  cmp #8
@@ -215,7 +232,9 @@ ctl_menu
 :key
  jsr ctl_key
  cmp #$1B
- beq :out
+ bne :digit
+ rts
+:digit
  sec
  sbc #'1'
  cmp #6
@@ -232,6 +251,13 @@ ctl_menu
  txa
 :pick
  sta ctl_pick
+ cmp #CTL_BOOT             ; a start state that cannot be written now (a program has a file open,
+ bne :ask                  ; the boot's files were changed): said here and now, on the menu, and
+ jsr bs_can                ; not left to be found out when the PC is next started (state.s)
+ beq :ask
+ sta >BS_STAT
+ jmp ctl_menu
+:ask
  jsr ctl_clear
  ldy #ctl_head-ctl_row
  jsr ctl_say
@@ -247,7 +273,27 @@ ctl_menu
  cmp #$1B                  ; Esc here: not after all
  beq :out
  lda ctl_pick
+ cmp #CTL_REST
+ bcs :set
+ lda >CTL_REQ              ; a restart, the quit or a save, and a start state waits to be written: it is
+ tax                       ; not let go of. Bit 7 has ctl_poll write it first (CTL_REQ holds one request)
+ and #$007F
+ cmp #CTL_BOOT
+ beq :first
+ txa
+ and #$0080
+ beq :plain
+:first
+ lda ctl_pick
+ ora #$0080
+ bra :set
+:plain
+ lda ctl_pick
+:set
  sta >CTL_REQ
+ cmp #CTL_BOOT             ; the start state is not written yet: the menu again, which says so, and
+ bne :out                  ; whatever is chosen next (the quit) comes after it
+ jmp ctl_menu
 :out
  rts
 
@@ -329,6 +375,15 @@ ctl_poll
  sta >CTL_REQ
  lda >CTL_LIVE
  beq :no
+ txa
+ and #$0080
+ beq :one
+ txa                       ; a start state was asked for before this request: written first
+ and #$007F
+ pha
+ jsr bs_save
+ plx
+:one
  cpx #CTL_SAVE
  bcc :stop
  bne :rest

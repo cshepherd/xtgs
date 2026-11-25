@@ -3,12 +3,17 @@
 From ../somi-iigs-port/iigs/tools/gsos_rfork.py, which worked the formats out.
 
     gsos_rfork.py program --name XTGS --large icon/dos_32x32.qdicon.bin \\
-        --small icon/dos_16x16.qdicon.bin [--remap 9=4] [--no-trim] -o build/xtgs16.rfork
+        --small icon/dos_16x16.qdicon.bin [--remap 9=4] [--no-trim] \\
+        [--doc '*.EXE=MS-DOS program']... -o build/xtgs16.rfork
     gsos_rfork.py desktop --fork build/xtgs16.rfork --path :VOL:XTGS:XTGS -o Desktop.rfork
 
 `program` is the application's own fork: an rBundle that names the file and
 its type ($B3), the two rIcons, and rVersion and rComment for the Finder's
-Icon Info window. The icons are QuickDraw II icon records as icon/README.md
+Icon Info window. Each --doc is a document of the application's: a record
+of the bundle that matches a filename (PATTERN, `*` for any run of
+characters, as GS.ShrinkIt's `*.SIT`), shows the application's icons for
+it, has the Finder open the application when it is opened (docs/finder.md)
+and, after an `=`, says what kind of file it is. The icons are QuickDraw II icon records as icon/README.md
 describes them (iconType, iconSize, iconHeight, iconWidth, image, mask),
 which is what an rIcon holds. cadius adds a file's resource fork from
 NAME#TTAAAA_ResourceFork.bin beside it.
@@ -58,6 +63,23 @@ The layout is GS.ShrinkIt's resource fork, read field by field:
           large and small rIcon IDs at +$10 and +$18, and at +$2C the
           filename to match (a Pascal string), then 18 zero bytes. The
           file type it matches ($B3, at +$26) is in the copied fields.
+          Read from the seventeen bundles of a System 6 volume's
+          Desktop file (every record of them parses this way):
+            +0  size (word)
+            +2  offset of the match flags (word): $20, or past the kind
+            +4  number of results (word): 4, or 5 with a kind
+            +6  launch flags (word): bit 0, open the application for it
+            +8  the rFinderPath's ID (long; 0 here, the Finder's in its
+                Desktop file: $20000 + the application's number), long 0
+            +10 large rIcon ID (long), long 0
+            +18 small rIcon ID (long), long 0
+            +20 with five results: the kind of file (a Pascal string)
+            then the match flags (long), and for each of bits 0-11 a
+            word: 0 when the bit is clear, the bit's number + 1 and its
+            field when it is set. Bit 0 the file type (a word), bit 1
+            the auxiliary type (a mask and a value, longs), bit 2 the
+            filename (a Pascal string), bits 8 and 9 the HFS type and
+            creator (longs).
   rVersion version (long: major, minor.bug, stage, release from the top
           byte down; GS.ShrinkIt's 1.1 is $0110A000), country (word),
           name and comment (Pascal strings).
@@ -113,7 +135,18 @@ def pstr(s):
     return bytes([len(b)]) + b
 
 
-def bundle(name, small=SMALL_ID, desktop=False):
+def doc_record(pattern, kind, small, desktop):
+    """A document: any file whose name matches, opened with the application."""
+    results = struct.pack("<HIIIIII", 1, 0x20000 if desktop else 0, 0, LARGE_ID, 0, small, 0)
+    if kind:
+        results += pstr(kind)
+    match = struct.pack("<IHH", 4, 0, 0) + struct.pack("<H", 3) + pstr(pattern) + bytes(18)
+    body = struct.pack("<HH", 6 + len(results), 5 if kind else 4) + results + match
+    return struct.pack("<H", 2 + len(body)) + body
+
+
+def bundle(name, small=SMALL_ID, desktop=False, docs=()):
+    """docs: (pattern, kind) pairs."""
     rec = bytearray(RECORD_HEAD)
     struct.pack_into("<I", rec, 0x10 - 2, LARGE_ID)
     struct.pack_into("<I", rec, 0x18 - 2, small)
@@ -122,7 +155,24 @@ def bundle(name, small=SMALL_ID, desktop=False):
         struct.pack_into("<I", rec, 0x0A - 2, 2)
         struct.pack_into("<I", head, 4, 0)
     rec += pstr(name) + bytes(18)
-    return bytes(head) + struct.pack("<H", 1) + struct.pack("<H", 2 + len(rec)) + rec
+    out = bytes(head) + struct.pack("<H", 1 + len(docs)) + struct.pack("<H", 2 + len(rec)) + rec
+    for pattern, kind in docs:
+        out += doc_record(pattern, kind, small, desktop)
+    return out
+
+
+def bundle_docs(b):
+    """The (pattern, kind) pairs of a bundle this tool wrote."""
+    n, = struct.unpack_from("<H", b, 16)
+    at = 18 + struct.unpack_from("<H", b, 18)[0]
+    docs = []
+    for _ in range(n - 1):
+        size, to_flags, results = struct.unpack_from("<HHH", b, at)
+        kind = b[at + 0x21:at + 0x21 + b[at + 0x20]].decode("ascii") if results == 5 else ""
+        name = at + to_flags + 10
+        docs.append((b[name + 1:name + 1 + b[name]].decode("ascii"), kind))
+        at += size
+    return docs
 
 
 def finder_path(path):
@@ -185,6 +235,8 @@ def main():
     p.add_argument("--about", default="8086/8088 PC for the Apple IIGS")
     p.add_argument("--comment", default="XT/GS: an IBM PC/XT for the Apple IIGS. "
                                         "Keep CORE, SVC and XTGS.CMD in this folder.")
+    p.add_argument("--doc", action="append", default=[], metavar="PATTERN[=KIND]",
+                   help="a document of the application's, by its filename (repeatable)")
     p.add_argument("-o", "--output", required=True)
     d = sub.add_parser("desktop", help="the volume's Icons/Desktop resource fork, from a program's")
     d.add_argument("--fork", required=True, help="the program's resource fork (from `program`)")
@@ -199,25 +251,33 @@ def main():
             raise SystemExit(f"gsos_rfork: --remap {' '.join(args.remap)}: want FROM=TO, hex digits")
         if any(not 0 <= v < 16 for kv in remap.items() for v in kv):
             raise SystemExit("gsos_rfork: --remap: pixel values are 0 to F")
+        docs = [tuple((d.split("=", 1) + [""])[:2]) for d in args.doc]
+        for pattern, kind in docs:
+            if not 0 < len(pattern) < 16 or len(kind) > 40:
+                raise SystemExit(f"gsos_rfork: --doc {pattern}={kind}: a filename's pattern, 15 characters at most")
         out = fork([
-            (R_BUNDLE, 1, bundle(args.name)),
+            (R_BUNDLE, 1, bundle(args.name, docs=docs)),
             (R_ICON, LARGE_ID, icon(args.large, not args.no_trim, remap)),
             (R_ICON, SMALL_ID, icon(args.small, not args.no_trim, remap)),
             (R_VERSION, 1, struct.pack("<IH", version(args.version), 0) + pstr(args.title) + pstr(args.about)),
             (R_COMMENT, 1, args.comment.encode("ascii")),
         ])
-        what = f"bundle for {args.name}"
+        what = f"bundle for {args.name}" + "".join(f", {p}" for p, _ in docs)
     else:
         res = read_fork(args.fork)
         b = res[R_BUNDLE, 1]
         name = b[NAME_AT + 1:NAME_AT + 1 + b[NAME_AT]].decode("ascii")
-        if bundle(name) != b:
+        try:
+            docs = bundle_docs(b)
+        except (struct.error, IndexError, UnicodeDecodeError):
+            docs = None
+        if docs is None or bundle(name, docs=docs) != b:
             raise SystemExit(f"gsos_rfork: {args.fork}: not a bundle this tool wrote")
         out = fork([
             (R_ICON, 1, res[R_ICON, LARGE_ID]),
             (R_ICON, 2, res[R_ICON, SMALL_ID]),
             (R_VERSION, 0x20000, res[R_VERSION, 1]),
-            (R_BUNDLE, 1, bundle(name, small=2, desktop=True)),
+            (R_BUNDLE, 1, bundle(name, small=2, desktop=True, docs=docs)),
             (R_FINDERPATH, 0x20000, finder_path(args.path)),
         ], attr=0x40, spare=5)
         what = f"the Finder's Desktop file for {args.path}"

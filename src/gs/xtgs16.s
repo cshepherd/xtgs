@@ -58,14 +58,17 @@ mb_mli_res  = MB_MLI_RES-MB_BASE
 mb_mli_parms = MB_MLI_PARMS-MB_BASE
 mb_layout   = MB_LAYOUT-MB_BASE
 mb_layalt   = MB_LAYALT-MB_BASE
+mb_arg      = MB_ARG-MB_BASE
+mb_argn     = MB_ARGN-MB_BASE
+mb_argi     = MB_ARGI-MB_BASE
 * ... and this file's scratch after it
-ptr         = $A0             ; a long pointer
-ptr2        = $A4             ; another
-t0          = $A8
-t1          = $AA
-t2          = $AC
-t3          = $AE
- err MB_END-MB_BASE-1/$A0     ; the mailbox ends below the scratch
+ptr         = $B0             ; a long pointer
+ptr2        = $B4             ; another
+t0          = $B8
+t1          = $BA
+t2          = $BC
+t3          = $BE
+ err MB_END-MB_BASE-1/$B0     ; the mailbox ends below the scratch
 
 LOW_PAGES   = 35              ; the bank-$00 block: ZP, MBX, PATH, XFER (32)
 ATTR_LOW    = $C005           ; locked, fixed, page-aligned, in the bank given
@@ -114,6 +117,19 @@ start
  jsr crout
  jmp wait_quit
 :low_ok
+ jsr get_arg               ; a document the Finder opened us with (docs/finder.md)
+ lda mb_argn
+ beq :noarg
+ lda mb_cmd+1              ; DOS is booted by S and by D, and by nothing else
+ and #$00FF
+ cmp #'S'
+ beq :noarg
+ cmp #'D'
+ beq :noarg
+ lda #$8002
+ sta mb_argn
+ jmp arg_refused
+:noarg
 
  lda #3
  sta mb_stage
@@ -121,6 +137,7 @@ start
  bcc :claimed
  jmp fail
 :claimed
+ jsr zero_res
  jsr show_banks
  lda #1                    ; prefix 1 as we were launched, kept: the shared drive
  sta pf_blk                ; makes its folder the prefix, and a reboot (boot_pc)
@@ -324,6 +341,10 @@ boot_pc
  jsr release
  lda #$A5A5
  sta mb_done
+ lda mb_argn               ; the document was refused (src/svc/ghost.s), and no PC ran
+ bpl :ran
+ jmp arg_refused
+:ran
  lda #msg_exit             ; (on the text screen, under the guest's last
  jsr puts                  ; picture: wait_quit shows it after the key)
  lda mb_exit
@@ -493,12 +514,21 @@ close_files
  rts
 
 * zero_guest - a hard reboot: the PC's megabyte cleared, a bank a move
+zero_res                   ; the results bank at the first start: the PC's devices are in it as well
+ mx %00                    ; (src/include/pc.s), and the Memory Manager's block comes with whatever was
+ lda mb_layout+RG_RES+RG_RES   ; there last: a serial port "open", a save refused for it
+ and #$00FF
+ sta zg_b
+ lda #1
+ bra zg_go
 zero_guest
  mx %00
  lda mb_layout+RG_GUEST+RG_GUEST
  and #$00FF
  sta zg_b
  lda #16
+zg_go
+ mx %00
  sta zg_n
 :bank
  sep #$20
@@ -595,6 +625,165 @@ quit_now
  dw $2029                  ; QuitGS
  adrl quit_blk
  brk $00
+
+*----------------------------------------------------------
+* get_arg - the document we were opened with, if any: the
+* Finder (any launcher) leaves message 1 in the Message
+* Center, a word that is 0 for "open" and then the pathnames,
+* Pascal strings, a zero after the last. The first of them
+* into arg_buf with '/' for ':', and MB_ARG and MB_ARGN say
+* so (src/svc/ghost.s takes it from there). The message is
+* deleted: a relaunch must not find it again.
+*----------------------------------------------------------
+get_arg
+ mx %00
+ stz nh_size               ; an empty handle of ours for MessageCenter to fill
+ stz nh_size+2
+ stz nh_addr
+ stz nh_addr+2
+ lda aux_id
+ sta nh_id
+ stz nh_attr
+ jsr new_handle
+ bcc :have
+ rts
+:have
+ pea $0002                 ; getMessage
+ pea $0001                 ; the file message
+ lda nh_result+2
+ pha
+ lda nh_result
+ pha
+ ldx #$1501                ; MessageCenter
+ jsl TOOLS
+ bcs :free
+ lda nh_result
+ sta ptr
+ lda nh_result+2
+ sta ptr+2
+ ldy #2
+ lda [ptr],y
+ tax
+ lda [ptr]
+ sta ptr
+ stx ptr+2
+ ldy #8                    ; +0 the Message Center's long, +4 the type, +6 open or print
+ lda [ptr],y
+ and #$00FF
+ beq :del
+ sta t0
+ sep #$20
+ mx %10
+ sta arg_buf
+ ldx #1
+:copy
+ iny
+ lda [ptr],y
+ cmp #':'
+ bne :sep
+ lda #'/'
+:sep
+ sta arg_buf,x
+ cpx t0
+ inx
+ bcc :copy
+ rep #$20
+ mx %00
+ lda #arg_buf
+ sta mb_arg
+ lda #^arg_buf
+ sta mb_arg+2
+ lda #1
+ sta mb_argn
+:del
+ pea $0003                 ; deleteMessage
+ pea $0001
+ lda nh_result+2
+ pha
+ lda nh_result
+ pha
+ ldx #$1501
+ jsl TOOLS
+:free
+ lda nh_result+2
+ pha
+ lda nh_result
+ pha
+ ldx #$1002                ; DisposeHandle
+ jsl TOOLS
+ rts
+
+*----------------------------------------------------------
+* arg_refused - the document will not be run (MB_ARGN is
+* $8000 + why, src/svc/ghost.s): say so, in the system's
+* own text box, and leave when it is answered.
+*----------------------------------------------------------
+arg_refused
+ mx %00
+ lda #10
+ sta mb_stage
+ lda #$5A5A                ; (the judge reads MB_ARGN)
+ sta mb_magic
+ lda arg_buf               ; the file's own name: what follows the last '/'
+ and #$00FF
+ tax                       ; (in 16 bits: TAX takes all of A)
+ sep #$20
+ mx %10
+ ldy #0
+:back
+ cpx #0
+ beq :name
+ lda arg_buf,x
+ cmp #'/'
+ beq :name
+ dex
+ iny
+ bra :back
+:name                      ; Y characters after arg_buf,x; 15 of them at most are shown
+ cpy #16
+ bcc :len
+ ldy #15
+:len
+ sty t0
+ tya
+ clc
+ adc #al_name-al_line1-1
+ sta al_line1
+ ldy #0
+:put
+ cpy t0
+ bcs :said
+ inx
+ lda arg_buf,x
+ sta al_name,y
+ iny
+ bra :put
+:said
+ rep #$20
+ mx %00
+ lda mb_argn
+ and #$00FF
+ dec
+ cmp #3
+ bcc :why
+ lda #0
+:why
+ asl
+ tax
+ pha                       ; the answer's space
+ pea ^al_line1
+ pea al_line1
+ pea ^al_line1
+ lda al_why,x
+ pha
+ pea ^al_ok
+ pea al_ok
+ pea ^al_ok
+ pea al_none
+ ldx #$1201                ; TLTextMountVolume
+ jsl TOOLS
+ pla
+ jmp quit_now
 
 *----------------------------------------------------------
 * Text: the 80-column firmware through the Text Tools.
@@ -2312,6 +2501,18 @@ msg_nolow  asc 'NO ROOM IN BANK 0: $',00
 msg_key    asc 'PRESS A KEY TO QUIT.',00
 msg_banks  asc 'BANKS',00
 msg_pages  asc 'PAGES',00
+
+* What arg_refused says (Pascal strings)
+al_line1   dfb 0
+           asc 'XT/GS will not run '
+al_name    ds 16
+al_why     da al_w1,al_w2,al_w3
+al_w1      str 'It is outside the folder DOS uses.'
+al_w2      str 'XTGS.CMD gives DOS no folder.'
+al_w3      str 'DOS has no name for that file.'
+al_ok      str 'OK'
+al_none    dfb 0
+arg_buf    ds 256            ; the document: its pathname, then its keys (MB_ARG)
 
 * The regions, in RG_ order: the bank each was assembled
 * for, its size in banks (the data region's is set from the

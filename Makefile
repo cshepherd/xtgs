@@ -21,6 +21,8 @@
 #                         with the application and its icon in the folder XTGS, set to
 #                         boot FreeDOS from the folder SHARED beside it (GW-BASIC in
 #                         it) when opened
+#   make test-open        a .BAT or .COM of that folder opened from the Finder: XT/GS
+#                         types CD and its name at the DOS prompt (docs/finder.md)
 #   make boot-dos         boot the FreeDOS floppy image headless (command D);
 #   make boot-shared      the same from the folder SHARED (command S)
 #   make disk-image IMG=path   build/disk/disk.po: XT/GS and a PC diskette image,
@@ -30,6 +32,10 @@
 #                         an 8 MB disk with the games' folders of release/shared
 #                         (GAMES: lsl2, outrun, arkanoid, keen1, mech, sub688, carmen, thexder; make run-games boots it;
 #                         lsl-image and run-lsl are the same)
+#   make games-test-image build/boot/gamestest.po: the same games on a PC with the EGA,
+#                         with JIT=ON and STATE=ON: for trying the translator, the
+#                         boot state and, under GS/OS, opening a program from the
+#                         Finder (make run-games-test boots it)
 #   make release          build/release/xtgs-VERSION.po: the volume to hand out, an
 #                         800K disk that boots from ProDOS 8 into FreeDOS and has
 #                         the GS/OS application and its icon as well;
@@ -63,13 +69,13 @@ INCLUDES  := src/include/hw.s src/include/layout.s src/include/mailbox.s src/inc
 SYS_SRCS  := src/sys/xtgs.s $(INCLUDES)
 SVC_GEN   := src/svc/gen/font.s src/svc/gen/tables.s src/svc/gen/dostab.s src/svc/gen/t160.s src/svc/gen/egatab.s src/svc/gen/tdytab.s
 SVC_SRCS  := src/svc/svc.s src/svc/video.s src/svc/gtext.s src/svc/ega.s src/svc/tandy.s src/svc/pcinit.s src/svc/bios.s src/svc/dos.s \
-             src/svc/files.s src/svc/disk.s src/svc/ports.s src/svc/redir.s src/svc/keyboard.s src/svc/sound.s src/svc/clock.s src/svc/joystick.s src/svc/serial.s src/svc/mouse.s src/svc/xms.s src/svc/control.s src/svc/state.s src/svc/capture.s src/svc/gen/buildid.s $(SVC_GEN) $(INCLUDES)
+             src/svc/files.s src/svc/disk.s src/svc/ports.s src/svc/redir.s src/svc/keyboard.s src/svc/sound.s src/svc/clock.s src/svc/joystick.s src/svc/serial.s src/svc/mouse.s src/svc/xms.s src/svc/control.s src/svc/ghost.s src/svc/state.s src/svc/capture.s src/svc/gen/buildid.s $(SVC_GEN) $(INCLUDES)
 CORE_GEN  := src/core/gen/optab.s src/core/gen/eatab.s src/core/gen/alu.s src/core/gen/flagtab.s src/core/gen/egaw.s
 CORE_SRCS := src/core/core.s src/core/probe.s src/core/run.s src/core/jit.s src/core/jit2.s src/core/jitc.s src/core/cpu.s src/core/flags.s \
              src/core/ops_mov.s src/core/ops_ctrl.s src/core/ops_grp.s src/core/ops_str.s \
              src/core/ops_misc.s src/core/ega.s src/core/harness.s $(CORE_GEN) $(INCLUDES)
 
-.PHONY: all image finder test-m0 test-cpu test-com test-dos test-share test-clock test-minix test-psg test-layout test-gsos test-s16 check-s16 bench boot-dos boot-shared run run-dos dos-image tandy-image run-tandy release run-release test-release lsl-image run-lsl games-image run-games games-ega-image run-games-ega test-joy test-mouse test-xms test-control test-state test-serial disk-image run-disk clean lint minix-image run-minix
+.PHONY: all image finder test-m0 test-cpu test-com test-dos test-share test-clock test-minix test-psg test-layout test-gsos test-s16 check-s16 bench boot-dos boot-shared run run-dos dos-image tandy-image run-tandy release run-release test-release lsl-image run-lsl games-image run-games games-ega-image run-games-ega games-test-image run-games-test test-joy test-mouse test-xms test-open test-control test-state test-serial disk-image run-disk clean lint minix-image run-minix
 
 all: $(PO)
 
@@ -129,7 +135,9 @@ $(B)/xtgs16.rfork: $(ICONS) tools/gsos_rfork.py Makefile
 	@mkdir -p $(B)
 	$(PY) tools/gsos_rfork.py program --name XTGS --version $(XTGS_VERSION) \
 	    $(foreach r,$(ICON_REMAP),--remap $(r)) \
-	    --large icon/dos_32x32.qdicon.bin --small icon/dos_16x16.qdicon.bin -o $@
+	    --large icon/dos_32x32.qdicon.bin --small icon/dos_16x16.qdicon.bin \
+	    --doc '*.EXE=MS-DOS program' --doc '*.COM=MS-DOS program' --doc '*.BAT=MS-DOS batch file' \
+	    --doc '*.BAS=GW-BASIC program' -o $@
 
 RELOC_DEPS := tools/gen_reloc.py tools/layout.py tools/symbols.py
 $(B)/xtgs: $(B)/xtgs.bin $(RELOC_DEPS)
@@ -416,6 +424,25 @@ $(B)/boot/gamesega.po: $(B)/xtgs $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/core $(B)/sv
 run-games-ega: $(B)/boot/gamesega.po
 	tools/mame/run-mame.sh $(B)/boot/gamesega.po
 
+# games-test-image: build/boot/gamestest.po, the EGA games volume with the
+# lines JIT=ON and STATE=ON: one disk to try the translator, the boot state
+# (written from XTGS Control's sixth choice at the prompt; none is on the
+# volume as built, and one is this build's, this XTGS.CMD's and the front
+# end's that wrote it) and, as a second volume under GS/OS, a program opened
+# from the Finder (docs/finder.md). run-games-test boots the volume that is
+# there, and builds one only when there is none: a boot state written on it,
+# or an XTGS.CMD edited there, is not to be lost to a rebuild because a source
+# has changed. make games-test-image is what makes it anew.
+games-test-image: $(B)/boot/gamestest.po
+$(B)/boot/gamestest.po: $(B)/xtgs $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/core $(B)/svc $(B)/jit $(FDIMG) tools/release_image.py \
+            tools/gsos_rfork.py res/PRODOS release/READ.ME $(shell find release/shared -type f) Makefile
+	@mkdir -p $(B)/boot
+	VOLSIZE=$(GAMESIZE) $(PY) tools/release_image.py $@ $(XTGS_VERSION) --cmd JIT=ON --cmd STATE=ON
+
+run-games-test:
+	@[ -f $(B)/boot/gamestest.po ] || $(MAKE) games-test-image
+	tools/mame/run-mame.sh $(B)/boot/gamestest.po
+
 run-release: $(RELEASE)
 	tools/mame/run-mame.sh $(RELEASE)
 
@@ -448,10 +475,19 @@ test-control: $(PO) $(FDIMG)
 	$(PY) tools/control_test.py state
 	$(PY) tools/control_test.py drop
 	$(PY) tools/control_test.py quit
+	$(PY) tools/control_test.py label
 
 test-xms: $(PO) $(FDIMG)
 	$(PY) tools/xms_test.py
 	$(PY) tools/xms_test.py XMS=OFF
+
+# test-open: a document opened with XT/GS (docs/finder.md): the GS/OS
+# application launched as the Finder launches it for a .BAT or a .COM of the
+# folder DOS has, the keys that run it typed at the prompt, after a boot and
+# after a boot state, and the files it refuses (tools/open_test.py; work files
+# in build/open/; ONLY=sub,root,outside,noname,nodos,state,drive,bas).
+test-open: $(PO) $(FDIMG)
+	$(PY) tools/open_test.py $(if $(ONLY),--only $(ONLY)) $(if $(SHOW),--show)
 
 # test-serial: the IIGS's serial ports as COM1 and COM2 (docs/serial.md):
 # COMTEST under FreeDOS with MAME's two ports looped back (tools/com_test.py).

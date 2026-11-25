@@ -127,6 +127,9 @@ mb_mli_parms ds 32
 mb_icount  ds 4
 mb_layout  ds RG_COUNT*2   ; a word a region or area, in RG_ order
 mb_layalt  ds 2
+mb_arg     ds 4              ; (a document: the GS/OS front end's, src/gs/xtgs16.s; none here)
+mb_argn    ds 2
+mb_argi    ds 2
 mb_end
  dend
  err mb_magic-MB_MAGIC
@@ -152,6 +155,9 @@ mb_end
  err mb_icount-MB_ICOUNT
  err mb_layout-MB_LAYOUT
  err mb_layalt-MB_LAYALT
+ err mb_arg-MB_ARG
+ err mb_argn-MB_ARGN
+ err mb_argi-MB_ARGI
  err mb_end-MB_END
 
 *----------------------------------------------------------
@@ -268,6 +274,7 @@ start
  bcc :mm_ok
  jmp fail8
 :mm_ok
+ jsr zero_res
  jsr show_banks
 
 * The images, each at offset 0 of its bank. The desk accessory's
@@ -1133,6 +1140,17 @@ pfx_save   ds 64
 * zero_guest - a hard reboot: the PC's megabyte cleared, a
 * bank a move. Emulation in/out.
 *----------------------------------------------------------
+zero_res                   ; the results bank at the first start: the PC's devices are in it as well
+ mx %11                    ; (src/include/pc.s), and it holds whatever the machine had there last
+ clc
+ xce
+ rep #$30
+ mx %00
+ lda mb_layout+RG_RES+RG_RES
+ and #$00FF
+ sta zg_b
+ lda #1
+ bra zg_go
 zero_guest
  mx %11
  clc
@@ -1143,6 +1161,8 @@ zero_guest
  and #$00FF
  sta zg_b
  lda #16
+zg_go
+ mx %00
  sta zg_n
 :bank
  sep #$20

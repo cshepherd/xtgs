@@ -26,6 +26,32 @@ the file. `BS_BOOT` (`src/include/pc.s`) says how the PC was started and
 `BS_STAT` how the last save went; `BS_WHERE` is how far the look at the
 file got.
 
+The first PC of a run boots in memory that has been cleared, from
+0060:0000 to the end of the BIOS's segment (`mem_clear`, `PC_BEGUN`): what
+the machine had there before (another program's, the PC's of the launch
+before) is not the PC's, and it was in every state taken after a boot. A
+megabyte a game had been in made a state of 691 KB of what is 404 KB on
+memory that was empty, and one of every page of it would be 1.3 MB. A soft
+reboot keeps the PC's memory as it always did, a hard one has it cleared
+by the front end, and a start from a state fills every page.
+
+When there is a file and the PC boots all the same, the sign-on says why,
+on a line of its own before the drive's (`bs_said`):
+
+| | `BS_BOOT` | |
+| --- | --- | --- |
+| Boot state not used: XTGS.CMD has changed | 3 | a line added, taken away or changed since the PC that was saved was started; the file is as that PC read it |
+| Boot state not used: XT/GS is elsewhere in memory | 3 | another layout: saved after a start from ProDOS 8 and now opened from GS/OS, or the other way, or GS/OS gave other banks or pages |
+| Boot state not used: another build of XT/GS | 3 | `CORE` and `SVC` are not the ones that wrote it |
+| Boot state not used: the file is damaged | 4, 7 | |
+| Boot state not used: no memory | 5 | |
+| Boot state not used: a file DOS boots from has changed | 8 | |
+| Boot state not used: its date | 9 | |
+
+(The first that applies, in that order.) A state written from that PC, at
+its prompt, takes the old one's place. With no file there is no line, and
+none after the desk accessory's hard reboot, which asks for the boot.
+
 | `BS_BOOT` | |
 | --- | --- |
 | 0 | a boot: the state was not asked for |
@@ -44,7 +70,19 @@ file got.
 serial port open), 3 no memory, 4 the disk would not take it, 5 not a PC
 from the folder, 6 the PC has changed a file it was started from, 7 it has
 opened more files than are kept track of. The desk accessory shows it as a
-line under its menu.
+line under its menu. The state is written when the desk accessories are
+left, where the PC is between two instructions, so 1, 3 and 4 are there to
+be read the next time the accessory is opened; 2, 5, 6 and 7 are known
+before anything is written, and the accessory says them as the choice is
+made (`bs_can`) and takes no request. Once the choice is confirmed the
+accessory stays on its menu with the line "Start state: written as you
+leave.", and a restart, the Quit or a save chosen then does not take the
+state's place: `CTL_REQ` holds one request, so the later one goes there
+with bit 7 set, and `ctl_poll` writes the state before it does it. (It
+used to take its place, without a word: "6" and then "5 Quit" left no
+file.) A game is where 2 is met: one that
+keeps a file of its own open while it runs (Arkanoid does) cannot be
+written, and the state to start from is one taken at the prompt.
 
 The desk accessory's soft reboot starts from the state too when there is
 one. Its hard reboot boots FreeDOS, whatever state there is (`BS_SKIP`):

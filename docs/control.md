@@ -45,6 +45,12 @@ when the desk accessories' menu is left (its `Quit`).
   a serial port open: the line under the menu says which it was: written,
   a file or a port open, no memory, the disk, not a PC from a folder, or
   a PC that has changed the files it was booted from (reboot it first).
+  The file is written when the desk accessories are left (the PC stands
+  still for as long as that takes: some twenty seconds under GS/OS at 16
+  MHz in MAME, three from ProDOS 8). Until then the menu says "Start
+  state: written as you leave."; a reason it cannot be written at all is
+  said as the choice is made; and Quit or a reboot chosen before leaving
+  is done after the state is written, not in its place.
 
 Files the PC had open on the shared drive are closed before a reboot, so
 what DOS had not finished writing is not finished: a reboot is a reboot.

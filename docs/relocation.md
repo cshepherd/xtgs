@@ -148,6 +148,14 @@ other; this is the whole of what the two images need from either.
   applied. The guest's megabyte starts at a multiple of `$10`. `ZP` is the
   direct page, so like any direct page it must be page-aligned; the list
   can only move whole pages anyway.
+- **The results bank cleared**, once, before the first run of the core and
+  not before a reboot's (`zero_res`). The PC's devices keep their state
+  there (`src/include/pc.s`) and most of it is written before it is read,
+  but not all: a block of the Memory Manager's, or a bank ProDOS 8 leaves
+  to a program, holds what was in it last, and a word of that said "a
+  serial port is open" to a PC that then would not save its boot state.
+  What is there has to last from one PC to the next within a run (the
+  desk accessory's requests, why the boot state was not used).
 - **Entry.** `JSL` to offset 0 of `CORE`, native mode, 16-bit A and index,
   with a stack of its own (`XTGS.SYSTEM` gives `$0800`-`$0BFF`). `CORE`
   sets D and the data bank itself and `RTL`s with its exit code in A; the
@@ -156,7 +164,10 @@ other; this is the whole of what the two images need from either.
   `MB_FILECALL`, a `JSL` target callable in native mode at any register
   width, and from `+$10` the mailbox: the command line (`MB_CMD`), the
   file-call parameters, `MB_LAYOUT`, and the results the judges read. The
-  first four bytes and `+$08` are the front end's own.
+  first four bytes and `+$08` are the front end's own. `MB_ARG`,
+  `MB_ARGN` and `MB_ARGI` are a document the front end was opened with
+  (docs/finder.md): zero from a front end that has none, as
+  `XTGS.SYSTEM` has none.
 - **Files.** `MB_FILECALL` performs the ProDOS 8 MLI call whose command
   byte is in `MB_MLI_CMD` with the parameter list at `MB_MLI_PARMS`, and
   returns the MLI's error in A and `MB_MLI_RES` (0 = done), preserving D,
@@ -358,6 +369,9 @@ QuickDraw II icon records in `icon/` (`dos_32x32.qdicon.bin`,
 1.0) and an `rComment`. The data fork is the load file as before. cadius
 adds the fork of `XTGS#B30000` from `XTGS#B30000_ResourceFork.bin` beside
 it, and the Makefile puts it there.
+
+The bundle also names the application's documents, `*.EXE`, `*.COM` and
+`*.BAT`: docs/finder.md.
 
 The Finder shows a bundle's icon only once the bundle is in the volume's
 `Icons/Desktop` file, which it writes the first time the program is

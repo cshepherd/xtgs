@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""control_test.py [soft|hard|state|drop|quit] [--show]: the desk accessory "XTGS Control"
+"""control_test.py [soft|hard|state|drop|quit|label] [--show]: the desk accessory "XTGS Control"
 (make test-control; docs/control.md).
 
 FreeDOS boots from a copy of the folder third_party/freedos/fd/SHARED
@@ -9,6 +9,8 @@ Control-Apple-Esc, finds "XTGS Control" in the desk accessories' menu,
 opens it, asks for the reboot, confirms and quits the menu. The PC must
 start again (the front end's exit code for the request, the core running)
 and MARK must print BEEF after a soft reboot, 0000 after a hard one.
+`label` opens the accessory and reads its menu: the fifth choice must name
+what this front end's quit goes back to, ProDOS or GS/OS.
 
 Work files in build/control/. One boot, about 230 emulated seconds. Run it
 under XTGS_LAYOUT=alt and XTGS_FRONT=s16 by hand, like test-share.
@@ -108,6 +110,16 @@ def main():
         more, t = menu(t + 1800, "1  !")
         seq += more
         end = t + 6600
+    elif what == "label":
+        # the accessory opened and left open: its fifth line names what a quit goes back to
+        t = MENU
+        seq = tap(t, "Control", hold=40) + tap(t + 2, "Command / Open Apple", hold=36) + tap(t + 10, "Esc", hold=20)
+        t += 200
+        for _ in range(DOWNS):
+            seq += tap(t, "Down Arrow")
+            t += 40
+        seq += tap(t, "Return", K2)
+        end = t + 400
     else:
         seq, t = menu(MENU, {"soft": "1  !", "hard": "2  @", "quit": "5  %"}[what])
         end = t + int(os.environ.get("CONTROL_AFTER", "6600"))   # (frames the PC has to start again)
@@ -135,12 +147,20 @@ def main():
               f"CTL_STAT {stat}, {r['status']} at frame {r['frame']}")
     marks = [x for x in rows if x.startswith("MARK=")]
     bad = []
+    if what == "label":
+        want = "5  Quit to GS/OS" if S16 else "5  Quit to ProDOS"
+        if not any(want in x for x in text):
+            sys.exit(f"FAIL control (label): the accessory's menu does not say {want!r}:\n"
+                     + "\n".join(x for x in text if x.strip()))
+        print(f"PASS control: XTGS Control's menu says {want!r} under this front end")
+        return
     if what == "quit":
         # (the GS/OS application gives its front page back as it quits, within
         # the frame, and the tests' launcher starts it again: what shows the
-        # quit there is a PC booted a second time, MARK finding the first's word)
+        # quit there is a PC booted a second time. It is a new run's first PC,
+        # whose memory is cleared before it boots: MARK finds no word)
         if not ((magic == 0x5A5A and code == 0xB0C3) or
-                (S16 and code == 0 and stage_now == 8 and marks == ["MARK=BEEF"])):
+                (S16 and code == 0 and stage_now == 8 and marks == ["MARK=0000"])):
             bad.append(f"XT/GS did not quit by the request (magic {magic:#06x}, exit code {code:#06x})")
         if bad:
             sys.exit("FAIL control (quit): " + "; ".join(bad))
