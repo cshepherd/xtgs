@@ -41,6 +41,13 @@ Control-Apple-Esc, while the PC runs, has "XTGS Control" among the
 desk accessories: 1 restarts the PC (as Ctrl-Alt-Del does), 2 restarts
 it with its memory cleared, 3 saves the PC as it is (in memory, until
 XT/GS quits or the PC is restarted), 4 puts it back, 5 quits.
+6 writes the PC as it is to the file XTGS.STATE (half a megabyte:
+more than this disk has free), and with the line STATE=ON in XTGS.CMD
+XT/GS then starts from that file instead of booting FreeDOS, four
+times as fast. Choose 6 at a fresh prompt, before anything is run.
+FreeDOS boots all the same when AUTOEXEC.BAT or another file the boot
+read has changed since; choice 2 always boots it. It is new: without
+the line XT/GS is as it was.
 
 What is on this disk
 --------------------

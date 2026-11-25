@@ -60,7 +60,7 @@ RD_NDIRS   = 8
 rd_state   dw 0              ; 0 off, 1 waiting for DOS's INT 21h, 2 for its EXEC,
                              ; 3 installing, 4 the drive is there, 5 it could not be
 rd_cfg     dw 0              ; 0 no share asked for, 1 found, 2 not a directory
-rd_kx      dw 0              ; rd_readcfg: the line is MOUSE= (0), XMS= (1) or JIT= (2)
+rd_kx      dw 0              ; rd_readcfg: the line is MOUSE= (0), XMS= (1), JIT= (2) or STATE= (3)
 rd_boot    dw 0              ; the S command: DOS itself comes from the share
 rd_early   dw 0              ; while it boots from there: hook21 goes in at the
                              ; first BIOS call and stays until the shell's EXEC
@@ -288,6 +288,21 @@ rd_readcfg
  sta xms_cfg
  lda #0
  sta >JIT_CFG
+ sta >BS_CFG
+ ldx #126                  ; the boot state's (state.s): the command file as this start reads it
+:bz
+ stz bs_cmd,x
+ dex
+ dex
+ bpl :bz
+ jsr get_prefix            ; and the folder it is read from, which is where XT/GS was started
+ ldx #64
+:bh
+ lda >PREFIXBUF,x
+ sta bs_home,x
+ dex
+ dex
+ bpl :bh
  ldx #0
  lda #0
  jsr p_open
@@ -310,6 +325,37 @@ rd_readcfg
 :close
  ldx rd_ent
  jsr p_close
+ ldx #0                    ; its first 124 bytes, how much of it was read, and the sum of all
+ stz sv0                   ; that was (every line this routine goes by)
+ sep #$20
+ mx %10
+:bc
+ cpx rd_len
+ bcs :bd
+ lda >BOUNCEBUF,x
+ cpx #124
+ bcs :bs
+ sta bs_cmd,x
+:bs
+ rep #$20
+ mx %00
+ and #$00FF
+ clc
+ adc sv0
+ asl                       ; (turned as it goes: two lines changed over are another sum)
+ adc #0
+ sta sv0
+ sep #$20
+ mx %10
+ inx
+ bra :bc
+:bd
+ rep #$20
+ mx %00
+ lda rd_len
+ sta bs_cmd+124
+ lda sv0
+ sta bs_cmd+126
  ldx #0
  bra :first
 :nf
@@ -438,7 +484,9 @@ rd_readcfg
  jmp :none
 :wv
  cmp #'V'
- beq :wvid
+ bne :wnv
+ jmp :wvid
+:wnv
  stz rd_kx
  cmp #'X'                  ; "XMS=OFF": no XMS driver (xms.s)
  bne :notx
@@ -451,30 +499,52 @@ rd_readcfg
  inc rd_kx
  bra :mk
 :notj
+ cmp #'S'                  ; "STATE=ON": start from the boot state (state.s)
+ bne :nots
+ lda #3
+ sta rd_kx
+ bra :mk
+:nots
  cmp #'M'                  ; "MOUSE=OFF": no mouse driver (mouse.s)
- bne :wno3
+ bne :wno5
 :mk
  lda sv1
  cmp #$0D
- beq :wno3
+ beq :wno5
  cmp #$0A
- beq :wno3
+ beq :wno5
  cmp #'='
  beq :mv
  jsr rd_cfgch
- beq :none3
+ beq :none5
  sta sv1
  bra :mk
+:wno5
+ jmp :wno
+:none5
+ jmp :none
 :mv
  jsr rd_cfgch
- beq :none3
+ beq :none4
  sta sv1
  cmp #'O'
- bne :wno3
+ bne :wno4
  jsr rd_cfgch
- beq :none3
+ beq :none4
  sta sv1
  lda rd_kx
+ cmp #3
+ bne :notst
+ lda sv1                   ; STATE=ON
+ cmp #'N'
+ bne :wno4
+ lda #1
+ sta >BS_CFG
+:wno4
+ jmp :wno
+:none4
+ jmp :none
+:notst
  cmp #2
  bne :off
  lda sv1                   ; JIT=ON

@@ -12,6 +12,7 @@ XTGS Control
   3  Save state
   4  Restore state
   5  Quit to ProDOS            (or: Quit to GS/OS)
+  6  Save to start from
 
   Esc  Back
 ```
@@ -24,7 +25,9 @@ when the desk accessories' menu is left (its `Quit`).
   in its memory is not cleared, as after Ctrl-Alt-Del. A diskette image
   (`D`) keeps what the PC wrote to it.
 - **Hard reboot**: the same with the PC's megabyte cleared first, as after
-  the power switch.
+  the power switch. With `STATE=ON` this is the reboot that boots FreeDOS
+  for real: a soft reboot starts from the boot state when there is one
+  (docs/state.md).
 - **Save state**: the PC as it is at that moment, kept in the IIGS's
   memory: its megabyte, its CPU and devices, the screen, the XMS memory
   in use. One state; a new save takes the place of the last. It lasts
@@ -34,6 +37,14 @@ when the desk accessories' menu is left (its `Quit`).
   there. The line says `(none saved)` while there is nothing to restore.
 - **Quit**: XT/GS leaves, to ProDOS or to GS/OS, whichever started it,
   without the key it otherwise waits for.
+- **Save to start from**: the same state as choice 3, written to the file
+  `XTGS.STATE` beside `CORE` and then let go of in memory. With the line
+  `STATE=ON` in `XTGS.CMD`, later starts (and reboots) put the PC back
+  from that file in place of booting FreeDOS (docs/state.md). Only for a
+  PC booted from the folder (command `S`), and not while it has a file or
+  a serial port open: the line under the menu says which it was: written,
+  a file or a port open, no memory, the disk, not a PC from a folder, or
+  a PC that has changed the files it was booted from (reboot it first).
 
 Files the PC had open on the shared drive are closed before a reboot, so
 what DOS had not finished writing is not finished: a reboot is a reboot.

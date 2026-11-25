@@ -26,7 +26,7 @@ import os,sys,struct,subprocess
 HERE=os.path.dirname(os.path.abspath(__file__)); ROOT=os.path.dirname(HERE)
 sys.path.insert(0,os.path.join(HERE,"mame")); sys.path.insert(0,HERE)
 import mamerun, shr, symbols, tandyshr, cgashr
-RES=0x050000; CAP_LEN=RES+0x800; CAP_BUF=RES+0x1000; CAP_MAX=0x7000    # src/include/pc.s
+RES=0x050000; CAP_LEN=RES+0x800; CAP_BUF=RES+0x1000; CAP_MAX=0x6000    # src/include/pc.s
 tandy=os.environ.get("VIDEO","").upper().startswith("T")
 bas=sys.argv[1]; T=float(sys.argv[2]) if len(sys.argv)>2 else 400
 tag=os.path.splitext(os.path.basename(bas))[0]

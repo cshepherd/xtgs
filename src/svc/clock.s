@@ -107,6 +107,63 @@ clk_term
 :nc
  rts
 
+* clk_days - A = the day's number by the reading clk_read last made
+* (days since the first of January 1900, 16 bits: differences are
+* what it is for; state.s)
+clk_mdays  dw 0,31,59,90,120,151,181,212,243,273,304,334
+clk_days
+ mx %00
+ lda clk_hour
+ xba
+ and #$00FF
+ sta clk_m                 ; years since 1900
+ tay
+ lda #0
+:y
+ cpy #0
+ beq :yd
+ clc
+ adc #365
+ dey
+ bra :y
+:yd
+ sta clk_n
+ lda clk_m
+ beq :nl
+ dec
+ lsr
+ lsr                       ; the leap years before this one (1904 the first)
+ clc
+ adc clk_n
+ sta clk_n
+:nl
+ lda clk_date
+ xba
+ and #$00FF                ; the month, from 0
+ cmp #12
+ bcc :m
+ lda #0
+:m
+ asl
+ tax
+ lda clk_mdays,x
+ clc
+ adc clk_n
+ sta clk_n
+ cpx #4                    ; from March of a leap year, its 29th of February
+ bcc :nf
+ lda clk_m
+ beq :nf
+ and #3
+ bne :nf
+ inc clk_n
+:nf
+ lda clk_date
+ and #$00FF                ; the day, from 0
+ clc
+ adc clk_n
+ rts
+
 * clk_ticks - read the clock; clk_now = its time of day in BIOS
 * ticks, 1193180/65536 a second: 65543 1/3 an hour, 1092.39 a
 * minute, 18.21 a second (within a tick and a bit all day).

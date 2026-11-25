@@ -65,8 +65,15 @@ svc_bootinit
  lda #0
  sta >MB_INT13N
  sta >MB_BOOTTRC
+ jsr bs_try                ; a boot state to start from (state.s)? Then no boot: the core
+ bcc :cold                 ; loads it once the sound is open
+ lda #$00FE
+ sta boot_res
+ bra :screen
+:cold
  lda disk_have
  bne :sector
+ jsr mf_begin              ; (the files this PC is started from are kept from here on: state.s)
  lda #1                    ; S: the kernel from the share
  sta boot_res
  jsr rd_kernel

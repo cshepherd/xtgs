@@ -34,7 +34,7 @@ import symbols  # noqa: E402
 
 TXT = 0x2B8000
 RES = 0x050000
-CAP_LEN, CAP_BUF, CAP_MAX = RES + 0x800, RES + 0x1000, 0x7000     # src/include/pc.s
+CAP_LEN, CAP_BUF, CAP_MAX = RES + 0x800, RES + 0x1000, 0x6000     # src/include/pc.s
 BANNER = "XT/GS: FreeDOS on the Apple IIGS"
 START = os.path.join(ROOT, "tests", "gsos", "start16.s")
 

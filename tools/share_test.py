@@ -199,7 +199,7 @@ def main():
 
     syms = symbols.read(os.path.join(ROOT, "build", "xtgs.lst"))
     r = mamerun.run(po, waits=[(syms["mb_magic"], 0x5A5A)],
-                    dumps=[("res", RES + 0x800, 0x100), ("cap", RES + 0x1000, 0x7000),
+                    dumps=[("res", RES + 0x800, 0x100), ("cap", RES + 0x1000, 0x6000),
                            ("txt", 0x2B8000, 4000), ("shr", shr.SHR_BASE, shr.SHR_LEN)],
                     seconds=args.seconds, settle=5)
     res = bytes.fromhex(r["dumps"]["res"]["hex"])

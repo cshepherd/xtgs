@@ -567,6 +567,8 @@ path_device                ; CON NUL AUX PRN (3 letters, whole path) -> sv7
 *=== handles ================================================
 handle_init                ; devices on 0-4, the rest free
  mx %00
+ lda #0
+ sta >MF_ON                ; (the files the PC is started from: kept from mf_begin on, state.s)
  ldx #0
  lda #0
 :z
@@ -715,7 +717,12 @@ p_open
  sta htab+3,x
  ; keep the pathname for later info calls
  jsr h_savepath
+ ldx sv4                   ; a file the PC is started from (state.s): which, for p_write
+ lda #2
+ jsr mf_do
+ tya
  ldx sv2
+ sta htab+5,x
  clc
  rts
 :err
@@ -727,6 +734,9 @@ p_open
  sta iobuf_used,x
  rep #$20
  mx %00
+ lda 1,s
+ ldx sv4
+ jsr mf_miss
  pla
  jsr perr
  sec
@@ -883,6 +893,7 @@ p_read
 * A = bytes written (C clear) or DOS error (C set).
 p_write
  mx %00
+ jsr mf_wr                 ; (a file the PC was started from is one no more: state.s)
  stz sv1
  lda sv0
  bne :chunk
@@ -1069,6 +1080,7 @@ p_setmark
  bra p_set3
 p_seteof
  mx %00
+ jsr mf_wr
  lda #$D0
 p_set3
  mx %00
@@ -1096,6 +1108,8 @@ p_set3
 p_create
  mx %00
  stx sv4
+ lda #3                    ; (the PC's own making: state.s)
+ jsr mf_do
  lda #7
  sta >MB_MLI_PARMS
  lda sv4
@@ -1141,6 +1155,9 @@ p_create
 * p_destroy - PATHBUF0 -> A = ProDOS error / 0
 p_destroy
  mx %00
+ ldx #0                    ; (a file the PC was started from, gone: state.s)
+ lda #4
+ jsr mf_do
  lda #1
  sta >MB_MLI_PARMS
  lda #PATHBUF0
@@ -1150,6 +1167,12 @@ p_destroy
 * p_rename - PATHBUF0 -> PATHBUF1
 p_rename
  mx %00
+ ldx #0
+ lda #4
+ jsr mf_do
+ ldx #$40
+ lda #4
+ jsr mf_do
  lda #2
  sta >MB_MLI_PARMS
  lda #PATHBUF0
@@ -1170,7 +1193,19 @@ p_getinfo
  lda #$0A
  sta >MB_MLI_PARMS
  lda #$C4
- jmp mli
+ jsr mli
+ bcc :there
+ pha
+ lda >MB_MLI_PARMS+1       ; (looked for and not there: state.s)
+ sec
+ sbc #PATHBUF0
+ tax
+ lda 1,s
+ jsr mf_miss
+ pla
+ sec
+:there
+ rts
 
 *=== DOS handle functions ====================================
 * ds_dx_path - the DOS path at DS:DX -> PATHBUF0; C set + DOS error

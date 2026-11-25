@@ -317,7 +317,12 @@ the shared drive, above, and `VIDEO=CGA` makes the PC one with no EGA, for
 a program that would pick an EGA mode XT/GS does not have (`docs/ega.md`).
 `VIDEO=TANDY` makes it a Tandy 1000 (no EGA either; `docs/tandy.md`), and
 that line command `C` reads too. `JIT=ON` turns the translator on
-(`docs/jit.md`).
+(`docs/jit.md`). `STATE=ON` (command `S`) starts the PC from the file
+`XTGS.STATE` when the desk accessory's "Save to start from" has written
+one, in place of booting FreeDOS: four times as fast as the boot. FreeDOS
+boots all the same when `AUTOEXEC.BAT` or another file the boot read has
+changed since, and DOS's date is made up for the days gone by
+(`docs/state.md`).
 
 ## Keyboard and function keys
 
@@ -615,6 +620,7 @@ suite: all 324 opcode files, 2,883,807 vectors after the exclusions listed in
 | `docs/cpu-compatibility.md` | 8088 behaviour learned from the hardware vectors |
 | `docs/benchmarks.md` | measurements and where the time goes |
 | `docs/jit.md` | the translator: the experiments, and the one that `JIT=ON` turns on |
+| `docs/state.md` | the boot state (M7): the PC written to `XTGS.STATE` and started from it; what is in it, how it is held to the boot's files and to the date, what it does not see |
 | `docs/relocation.md` | how the loader places XT/GS in whatever banks and bank-`$00` pages it is given; launching from GS/OS; the native GS/OS application |
 | `docs/compatibility-matrix.md` | Mode A program results |
 | `BOOTSTRAP.md`, `apple_iigs_xt_emulator_project_plan.md` | toolchain, design and the plan |

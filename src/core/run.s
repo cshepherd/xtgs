@@ -33,6 +33,43 @@ run_guest                  ; until HLT; rIP = IP after it
  sta >PIC_PEND
  ldy rIP
  jmp fetch
+* boot_state - the PC from its boot state (src/svc/state.s,
+* docs/state.md): the sound opened as for any PC, then the state
+* into its places, this bank's variables and the direct page among
+* them, and the PC goes on where the slot's frame work had left it
+* when it was saved (control.s: the state is taken in svc_vbl).
+boot_state
+ mx %00
+ lda #2                    ; (Mode B, for what the sound's opening asks; the state has its own)
+ sta vPCMODE
+ jsl SVC_BASE+27           ; svc_sndopen
+ jsl SVC_BASE+45           ; svc_stload
+ bcc :whole
+ jsl SVC_BASE+30           ; a read failed half way: nothing is whole. The PC is started
+ stz vPCMODE               ; again from nothing, as the desk accessory's hard reboot does
+ lda #$B0C2                ; (CTL_EXIT + CTL_HARD, control.s); state.s boots it then
+ rts
+:whole
+ lda #$BE57
+ sta >MB_RUNIDX
+ jsr ega_sync
+ jsr jit_start
+ lda >BS_CFG               ; (STATE=ONLY: the test's, which compares what is here with the file)
+ cmp #2
+ beq :only
+ jsr run_resume
+:only
+ jmp boot_end
+run_resume
+ mx %00
+ lda #run_done
+ sta vHALTVEC
+ lda >EGA_SYNC             ; (as the slot does after the frame's work)
+ beq :ns
+ jsr ega_sync
+:ns
+ ldy rIP
+ jmp slot_x
 run_done                   ; from op_F4 through HALTVEC
  mx %00
  sty rIP
@@ -110,6 +147,10 @@ com_run
 boot_run
  mx %00
  jsl SVC_BASE+24           ; svc_bootinit: stubs/IVT/BDA, sector 0 -> 0000:7C00
+ cmp #$00FE
+ bne :boot
+ jmp boot_state            ; (a boot state was found and is good: no boot)
+:boot
  cmp #2
  bcc :ok
  lda #$FFFF
@@ -160,6 +201,8 @@ boot_run
  jsr ega_sync              ; the EGA as the PC's start left it (off)
  jsr jit_start             ; the translator, if it is there and asked for (jitc.s)
  jsr run_guest
+boot_end
+ mx %00
  jsl SVC_BASE+30           ; svc_sndclose
  stz vPCMODE
  jsl SVC_BASE+18           ; final screen flush

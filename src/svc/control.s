@@ -25,6 +25,7 @@ CTL_HARD   = 2               ; restarted with its memory cleared
 CTL_QUIT   = 3               ; XT/GS left, with no key waited for
 CTL_SAVE   = 4               ; the PC's state kept in memory (st_save)
 CTL_REST   = 5               ; and put back (st_restore)
+CTL_BOOT   = 6               ; the PC's state written to XTGS.STATE, to start from (state.s: bs_save)
 CTL_EXIT   = $B0C0           ; the core's exit code is this + the request
 TXT40      = $E00000         ; the text page is at +$400
 ctl_row    dw $400,$480,$500,$580,$600,$680,$700,$780
@@ -97,9 +98,50 @@ ctl_whard  dw $5A8+4
            asc 'The PC restarts, its memory cleared,'
            hex 00
            dw $FFFF
-ctl_keys   dw CTL_SOFT,CTL_HARD,CTL_SAVE,CTL_REST,CTL_QUIT
+ctl_keys   dw CTL_SOFT,CTL_HARD,CTL_SAVE,CTL_REST,CTL_QUIT,CTL_BOOT
 ctl_what   dw ctl_wsoft-ctl_row,ctl_whard-ctl_row,ctl_wquit-ctl_row
-           dw ctl_wsave-ctl_row,ctl_wrest-ctl_row
+           dw ctl_wsave-ctl_row,ctl_wrest-ctl_row,ctl_wboot-ctl_row
+ctl_wboot  dw $5A8+4
+           asc 'The PC is written to disk, to start'
+           hex 00
+           dw $5D0+4
+           asc 'from (STATE=ON in XTGS.CMD),'
+           hex 00
+           dw $FFFF
+ctl_boot   dw $4A8+4
+           asc '6  Save to start from'
+           hex 00
+           dw $FFFF
+ctl_bs     dw ctl_bs1-ctl_row,ctl_bs2-ctl_row,ctl_bs3-ctl_row,ctl_bs4-ctl_row,ctl_bs5-ctl_row
+           dw ctl_bs6-ctl_row,ctl_bs7-ctl_row
+ctl_bs1    dw $528+4
+           asc 'The start state is on the disk.'
+           hex 00
+           dw $FFFF
+ctl_bs2    dw $528+4
+           asc 'Not saved: a file or a port is open.'
+           hex 00
+           dw $FFFF
+ctl_bs3    dw $528+4
+           asc 'Not saved: no memory.'
+           hex 00
+           dw $FFFF
+ctl_bs4    dw $528+4
+           asc 'Not saved: the disk refused it.'
+           hex 00
+           dw $FFFF
+ctl_bs6    dw $528+4
+           asc 'Not saved: its boot files changed.'
+           hex 00
+           dw $FFFF
+ctl_bs7    dw $528+4
+           asc 'Not saved: too many files opened.'
+           hex 00
+           dw $FFFF
+ctl_bs5    dw $528+4
+           asc 'Not saved: only a PC from a folder.'
+           hex 00
+           dw $FFFF
 ctl_none   dw $680+4
            asc 'No PC is running.'
            hex 00
@@ -147,6 +189,18 @@ ctl_menu
  ldy #ctl_qgs-ctl_row
 :p8
  jsr ctl_say
+ ldy #ctl_boot-ctl_row
+ jsr ctl_say
+ lda >BS_STAT              ; the last save to the disk: what came of it
+ beq :nobs
+ cmp #8
+ bcs :nobs
+ dec
+ asl
+ tax
+ ldy ctl_bs,x
+ jsr ctl_say
+:nobs
  lda >CTL_STAT
  cmp #1
  beq :have
@@ -164,7 +218,7 @@ ctl_menu
  beq :out
  sec
  sbc #'1'
- cmp #5
+ cmp #6
  bcs :key
  asl
  tax
@@ -281,11 +335,21 @@ ctl_poll
  jsr st_save
  bra :no
 :rest
+ cpx #CTL_REST
+ bne :boot
  jsr st_restore
+ bra :no
+:boot
+ jsr bs_save
 :no
  clc
  rts
 :stop
+ cpx #CTL_HARD             ; as after the power switch: a boot, whatever state there is to start from
+ bne :exit
+ lda #BS_SKIPV
+ sta >BS_SKIP
+:exit
  txa
  clc
  adc #CTL_EXIT
@@ -335,7 +399,8 @@ st_dat     adrl 0
 st_rg      ds ST_NRG*6       ; a region: bank, offset, pages
 st_reg     dw 0
 st_left    dw 0
-st_raw     dw 0              ; pages the data holds
+st_raw     dw 0              ; pages the data holds (as the walk counts them)
+st_pages   dw 0              ; and when it has (state.s writes them to a file)
 st_v       dw 0
 st_j       dw 0
 st_sz      adrl 0
@@ -418,6 +483,12 @@ st_new
 st_save
  mx %00
  jsr st_drop               ; (the one before goes first: its room may be needed)
+ jsr st_regs
+ jmp st_save2
+* st_regs - st_rg: what a state is made of, for the PC as it is now
+* (state.s asks too, for a state from a file)
+st_regs
+ mx %00
  ldx #0                    ; the regions
 :rz
  stz st_rg,x
@@ -476,6 +547,9 @@ st_save
  sta st_rg+36
  lda #256
  sta st_rg+40
+ rts
+st_save2
+ mx %00
  lda st_rg+4               ; the map: a word a page
  clc
  adc st_rg+10
@@ -507,6 +581,7 @@ st_save
  lda #0
  jsr st_walk               ; the map, and st_raw
  lda st_raw
+ sta st_pages
  bne :some
  inc
 :some
@@ -601,8 +676,25 @@ st_restore
  tax
  cpx #NHANDLES*8
  bcc :c
- php                       ; the DOC as the saved PC left it: each oscillator's
- sei                       ; registers, its control last
+ jsr st_docs
+ jsr clk_init              ; the tick count: the time it is now
+ lda >MB_LAYOUT+RG_JIT+RG_JIT
+ beq :nojit                ; the translator's code is of the PC that was: all of it away
+ lda >JIT_CFG              ; (and its epoch, which is in the direct page, starts again)
+ beq :nojit
+ jsl JIT_BASE
+:nojit
+ lda #1
+ sta >EGA_SYNC             ; (the core's copies of the EGA's registers)
+ lda #0
+ sta >CTL_REQ
+ rts
+* st_docs - the DOC as the saved PC left it: each oscillator's
+* registers written again from DOC_REG, its control last
+st_docs
+ mx %00
+ php
+ sei
  sep #$20
  mx %10
  ldx #0
@@ -626,17 +718,6 @@ st_restore
  rep #$20
  mx %00
  plp
- jsr clk_init              ; the tick count: the time it is now
- lda >MB_LAYOUT+RG_JIT+RG_JIT
- beq :nojit                ; the translator's code is of the PC that was: all of it away
- lda >JIT_CFG              ; (and its epoch, which is in the direct page, starts again)
- beq :nojit
- jsl JIT_BASE
-:nojit
- lda #1
- sta >EGA_SYNC             ; (the core's copies of the EGA's registers)
- lda #0
- sta >CTL_REQ
  rts
 
 * st_dwNN - DOC register X + NN = A (8-bit A; keeps X)

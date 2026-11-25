@@ -103,6 +103,20 @@ CLK_MADE   = RES_BASE+$8AA   ; u16 ticks added in all (diagnostic, as CLK_PAID)
 PIC_BASE   = RES_BASE+$8AC   ; u16 the vector of IRQ0 (ICW2): 8 on a PC, 28h under Minix
 PIC_MASK   = RES_BASE+$8AE   ; u16 the mask register (port 21h): bit n set holds IRQn back
 PIC_IRQ6   = RES_BASE+$8B0   ; u16 nonzero: the diskette controller's interrupt is waiting
+BS_CFG     = RES_BASE+$8B8   ; u16 XTGS.CMD's STATE= line (state.s): 0 none, 1 ON: start from the boot state when it is good; 2 (the test's own, poked: tools/state_test.py) and stop there
+BS_STAT    = RES_BASE+$8BA   ; u16 the last save of a boot state: 0 none, 1 written, 2 not now (a file or a port open), 3 no memory, 4 the disk, 5 not a PC from the folder
+BS_BOOT    = RES_BASE+$8BC   ; u16 this start: 0 a boot, 1 from the boot state, 2 no file, 3 another PC's, 4 damaged, 5 no memory, 6 its data damaged or unread (the PC is begun again), 7 a boot after that
+BS_SKIP    = RES_BASE+$A82   ; u16 BS_SKIPV: the start after this boots, whatever state there is (the desk accessory's hard reboot; state.s)
+BS_SKIPV   = $C01D
+* The files the PC was started from (state.s, docs/state.md "the boot's files"): every partial
+* pathname SVC opened, or looked for and did not find, since the PC began, so that a boot state
+* can be held to them.
+MF_ON      = RES_BASE+$E00   ; u16 they are being kept (command S, the folder the prefix)
+MF_BAD     = RES_BASE+$E02   ; u16 bit 0: the table was too small; bit 1: the PC has changed a file it was started from
+MF_LEN     = RES_BASE+$E04   ; u16 bytes of the table in use
+MF_TAB     = RES_BASE+$E06   ; the entries: a length, the pathname, a state (1 looked for and not there, 2 opened,
+MF_MAX     = $01FA           ; 3 the PC's own making; bit 7: changed by the PC since), to RES_BASE+$0FFF
+BS_WHERE   = RES_BASE+$8BE   ; u16 how far bs_try's look at the file got (1 the header read, 2 its sum, 3 the regions, 4 the XMS, 5 the lengths, 6 the file's end, 7 the block, 8 the map and the sums, 9 all of it): which check said no
 JIT_CFG    = RES_BASE+$8B6   ; u16 nonzero: XTGS.CMD says JIT=ON (rd_readcfg; the core's jit_start)
 PIC_PEND   = RES_BASE+$8B4   ; u16 nonzero: a line other than IRQ0 was raised and the slot has not found them all idle since (cpu.s: whoever raises PIC_IRQ3/4/6 or PIC_MOUSE, or queues a scancode, sets it)
 CRTC_CUR   = RES_BASE+$8B2   ; u16 nonzero: the cursor is where the 6845's R14/R15 put it
@@ -126,7 +140,11 @@ RD_LAST    = RES_BASE+$8A6   ; u16 the last one: function | DOS error << 8
 RD_LOG     = RES_BASE+$8C0   ; 32 x u16: the last calls, the same way ($FF: passed on),
                              ; at index RD_CALLS mod 32
 CAP_BUF    = RES_BASE+$1000
-CAP_MAX    = $7000
+CAP_MAX    = $6000
+TXT_SHADOW = RES_BASE+$7000  ; 4000 bytes: the text screen's cells as the SHR shows them (video.s:
+                             ; kept here, not in SVC's bank, which has no room for them; the
+                             ; instruction trace's ring, TRACE_BASE, lies over this and over
+                             ; CAP_BUF's end, and nothing turns it on in a PC)
 * The EGA (docs/ega.md): mode 0Dh, 320x200 in 16 colours. Its four 64K
 * planes are the guest's banks A, C, D and E: A000:xxxx is where the
 * guest reaches them (the core traps that bank while EGA_ON, src/core/

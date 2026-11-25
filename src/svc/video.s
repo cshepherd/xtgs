@@ -145,7 +145,8 @@ svc_render_row
 * shd_ok is 0 for a row whose pixels are not the shadow's
 * (after a clear or a graphics mode); it is drawn in full.
 *----------------------------------------------------------
-txt_shadow ds TXT_LEN        ; the char/attribute words on the screen
+txt_shadow = TXT_SHADOW      ; the char/attribute words on the screen (in the results bank: pc.s)
+ err TXT_LEN-1/$1000         ; (its 4K there)
 shd_ok     ds 50             ; a word a row: the shadow matches the pixels
 shd_part   dw 0              ; this row: $8000 = changed cells only
 txt_org    dw 0              ; buffer offset of the screen's first cell (even)
@@ -212,12 +213,12 @@ render_row
  ldx sv2
 :cell
  lda [pTXT],y
- cmp txt_shadow,x
+ cmp >txt_shadow,x
  bne :draw
  bit shd_part
  bmi :skip
 :draw
- sta txt_shadow,x
+ sta >txt_shadow,x
  stx sv2
  sty sv3
  tay
@@ -822,7 +823,7 @@ cursor_erase               ; re-render the cell under the cursor
  sta sv5
  jsr cell_ptrs
  lda [pTXT]                ; what is drawn goes in the shadow too
- sta txt_shadow,x
+ sta >txt_shadow,x
  jsr render_cell
  stz cur_on
  rts

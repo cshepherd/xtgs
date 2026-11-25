@@ -35,6 +35,7 @@
  jmp svc_portout           ; $040024  Mode B: a write to any other port A, value in tmp0
  jmp svc_portin            ; $040027  Mode B: a read of port A the core has not -> A
  jmp svc_cda               ; $04002A  the desk accessory's start routine (control.s)
+ jmp svc_stload            ; $04002D  the boot state bs_try found, into its places (state.s)
 
  put video.s
  put gtext.s
@@ -55,6 +56,8 @@
  put mouse.s
  put xms.s
  put control.s
+ put state.s
+ put gen/buildid.s
  put capture.s
  put gen/font.s
  put gen/tables.s
@@ -63,4 +66,15 @@
  put gen/tdytab.s
  put gen/dostab.s
 
- err *-1-SVC_BASE/$10000   ; one bank
+* What follows is in the bank and not in the file: buffers that are
+* written before they are read, past the image's end (the file with
+* its list of bank bytes must fit the bank too, and the list is done
+* with once the image is in its place: these lie where it was).
+           dum *
+snd_pg1    ds 256            ; sound.s: bank $00 page 1 while interrupts are live
+bs_hdr     ds 256            ; state.s: the boot state's header (XTGS.CMD as this start read it at +42)
+bs_home    ds 66             ; and the folder XT/GS was started from (Pascal, "/VOL/DIR/")
+mf_rec     ds 78             ; state.s: a record of a file the PC was started from
+svc_end    ds 0
+           dend
+ err svc_end-1-SVC_BASE/$10000   ; one bank

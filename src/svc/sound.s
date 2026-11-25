@@ -106,7 +106,7 @@ spk_fc     dw 0              ; channel 2 as an FC (0: nothing to play)
 spk_res    dw 0
 spk_run    dw 0              ; the speaker oscillators are running
 tmr_run    dw 0              ; the timer oscillator is running
-snd_pg1    ds 256            ; bank $00 page 1 while interrupts are live
+*snd_pg1 (bank $00 page 1 while interrupts are live) is past the image's end: svc.s
 
 *----------------------------------------------------------
 * doc_w - DOC register X = A. 8-bit A, 16-bit X, DBR = SVC,
