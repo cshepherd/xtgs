@@ -362,6 +362,41 @@ boot_pc
  stz mb_layout+RG_JIT+RG_JIT
  stz mb_layout+RG_JIT+RG_JIT+1
 :jitdone
+* The 8087 (docs/8087.md), the same way: its bank, and the file FPU.
+* (V's data region is the vectors', claimed as they are loaded.)
+ stz img_len+6
+ stz img_len+7
+ lda mb_cmd+1
+ cmp #'V'
+ beq :fpudone
+ lda mb_layout+RG_DATA+RG_DATA
+ beq :fpudone
+ lda #<path_fpu
+ sta ld_path
+ lda #>path_fpu
+ sta ld_path+1
+ stz ld_dst
+ stz ld_dst+1
+ lda mb_layout+RG_DATA+RG_DATA
+ sta ld_dst+2
+ stz ld_alloc
+ lda #1
+ sta ld_opt
+ ldx #$68
+ jsr load_file
+ lda ld_opt
+ stz ld_opt
+ bmi :nofpuf
+ lda mb_filelen
+ sta img_len+6
+ lda mb_filelen+1
+ sta img_len+7
+ jsr sane_up               ; its arithmetic is SANE's
+ bra :fpudone
+:nofpuf
+ stz mb_layout+RG_DATA+RG_DATA
+ stz mb_layout+RG_DATA+RG_DATA+1
+:fpudone
 
 * A data file, by the command letter (a reboot keeps what is loaded:
 * the disk image is as the PC left it).
@@ -677,6 +712,10 @@ tools_up
 :jit
  ldx #RG_JIT+RG_JIT
  jsr claim_region
+ lda #1                    ; and a bank for its 8087 (docs/8087.md): the data region's, which a
+ sta rg_banks+RG_DATA+RG_DATA   ; PC has no other use for; done without when it cannot be had
+ ldx #RG_DATA+RG_DATA
+ jsr claim_region
 :nojit
  jsr claim_xms
  sec
@@ -763,12 +802,13 @@ mm_startup
 *----------------------------------------------------------
 * tools_down - release memory and shut the tools down:
 *   DisposeHandle  each reservation and region held
-*   MMShutDown, DeleteID(master), MTShutDown, TLShutDown
+*   (SANEShutDown,) MMShutDown, DeleteID(master), MTShutDown, TLShutDown
 * (direct boot); from GS/OS only the handles, then MT and
 * TL. Emulation in/out. Errors are recorded, not fatal.
 *----------------------------------------------------------
 tools_down
  mx %11
+ jsr sane_down
  lda tools_on
  bne :go
  rts
@@ -1335,12 +1375,21 @@ reloc_all
  ldx #$72
  bcs :out
  lda img_len+4             ; the translator, when it was loaded
- beq :out                  ; (the carry is clear)
+ beq :fpu                  ; (the carry is clear)
  lda mb_layout+RG_JIT+RG_JIT
  sta $F2
  lda img_len+4
  jsr reloc_image
  ldx #$73
+ bcs :out
+:fpu
+ lda img_len+6             ; and the 8087
+ beq :out
+ lda mb_layout+RG_DATA+RG_DATA
+ sta $F2
+ lda img_len+6
+ jsr reloc_image
+ ldx #$74
 :out
  php
  sec
@@ -1542,6 +1591,52 @@ read_cmd
  sta mb_cmd+1
 :plain
  rts
+
+*----------------------------------------------------------
+* sane_up - SANE started, once, for the 8087 (docs/8087.md),
+* with a page of this program's for its own: one that nothing
+* of the loader or of the PC is in, in either layout.
+* sane_down, as XT/GS leaves. Emulation in/out.
+*----------------------------------------------------------
+SANE_DP    = $1400
+sane_up
+ mx %11
+ lda sane_on
+ bne :out
+ inc sane_on
+ clc
+ xce
+ rep #$30
+ mx %00
+ pea SANE_DP
+ ldx #$020A                ; SANEStartUp
+ jsl TOOLS
+ sec
+ xce
+ mx %11
+:out
+ rts
+sane_down
+ mx %11
+ lda sane_on
+ beq :out
+ stz sane_on
+ clc
+ xce
+ rep #$30
+ mx %00
+ pea $0000                 ; the environment SANE starts with: nothing of the PC's left in it
+ pea $0001                 ; FSETENV
+ ldx #$090A
+ jsl TOOLS
+ ldx #$030A                ; SANEShutDown
+ jsl TOOLS
+ sec
+ xce
+ mx %11
+:out
+ rts
+sane_on    dfb 0
 
 *----------------------------------------------------------
 * load_file - read the file ld_path to the 24-bit address
@@ -1951,6 +2046,7 @@ quit_parms dfb 4,0,0,0,0,0,0
 path_core  str 'CORE'
 path_svc   str 'SVC'
 path_jit   str 'JIT'
+path_fpu   str 'FPU'
 path_vec   str 'VEC'
 path_bench str 'BENCH'
 path_disk  str 'DISK'
@@ -1972,7 +2068,7 @@ rg_h       ds RG_BANKS*4          ; a handle a region
 sb_end     dfb 0
 cr_x       dw 0
 cr_bank    dw 0
-img_len    dw 0,0,0               ; CORE's, SVC's and JIT's file lengths (0: not loaded)
+img_len    dw 0,0,0,0             ; CORE's, SVC's, JIT's and FPU's file lengths
 ld_opt     dfb 0                  ; load_file: nonzero, the file may be missing
 rl_end     dw 0
 rl_delta   dw 0

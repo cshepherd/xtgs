@@ -289,6 +289,7 @@ rd_readcfg
  lda #0
  sta >JIT_CFG
  sta >BS_CFG
+ sta >FPU_CFG
  ldx #126                  ; the boot state's (state.s): the command file as this start reads it
 :bz
  stz bs_cmd,x
@@ -505,6 +506,12 @@ rd_readcfg
  sta rd_kx
  bra :mk
 :nots
+ cmp #'F'                  ; "FPU=8087": the coprocessor (docs/8087.md; the core's fpu_start)
+ bne :notf
+ lda #4
+ sta rd_kx
+ bra :mk
+:notf
  cmp #'M'                  ; "MOUSE=OFF": no mouse driver (mouse.s)
  bne :wno5
 :mk
@@ -527,6 +534,23 @@ rd_readcfg
  jsr rd_cfgch
  beq :none4
  sta sv1
+ lda rd_kx
+ cmp #4
+ bne :mvo
+ lda sv1                   ; FPU=8087; OFF is none; anything else is said at the sign-on (fp_said)
+ cmp #'O'
+ beq :wno4
+ cmp #'8'
+ beq :fpu
+ lda #$FFFF
+ bra :fpus
+:fpu
+ lda #1
+:fpus
+ sta >FPU_CFG
+ bra :wno4
+:mvo
+ lda sv1
  cmp #'O'
  bne :wno4
  jsr rd_cfgch

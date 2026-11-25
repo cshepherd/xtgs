@@ -1,0 +1,8 @@
+{
+ "com": "fpuext.asm",
+ "name": "FPUEXT.COM",
+ "args": "",
+ "exit": 0,
+ "cmd": ["FPU=8087"],
+ "stdout": "fpuext.out"
+}

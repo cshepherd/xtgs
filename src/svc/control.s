@@ -739,6 +739,12 @@ st_restore
  beq :nojit
  jsl JIT_BASE
 :nojit
+ lda >FPU_ON               ; the 8087's image: what it knew of SANE begins again
+ beq :nofpu
+ lda >MB_LAYOUT+RG_DATA+RG_DATA
+ beq :nofpu
+ jsl FPU_BASE+6
+:nofpu
  lda #1
  sta >EGA_SYNC             ; (the core's copies of the EGA's registers)
  lda #0

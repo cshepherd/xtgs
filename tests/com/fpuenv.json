@@ -1,0 +1,8 @@
+{
+ "com": "fpuenv.asm",
+ "name": "FPUENV.COM",
+ "args": "",
+ "exit": 0,
+ "cmd": ["FPU=8087"],
+ "stdout": "fpuenv.out"
+}

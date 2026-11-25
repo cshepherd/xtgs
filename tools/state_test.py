@@ -49,7 +49,7 @@ MAME each (work files in build/state/; about ten boots):
   time     how long a cold boot takes to the prompt and how long the state
            takes, at stock speed and with a 16 MHz ZipGS
 
-Run it under XTGS_LAYOUT=alt, XTGS_FRONT=s16 and XTGS_JIT=1 by hand.
+Run it under XTGS_LAYOUT=alt, XTGS_FRONT=s16, XTGS_JIT=1 and XTGS_FPU=1 by hand.
 """
 import os
 import shutil
@@ -144,7 +144,7 @@ def cadius(*args, check=True):
 
 def config():
     """What the volume in build/state/ was built for: the front end, the layout, the translator."""
-    return "|".join(os.environ.get(k, "") for k in ("XTGS_FRONT", "XTGS_LAYOUT", "XTGS_JIT"))
+    return "|".join(os.environ.get(k, "") for k in ("XTGS_FRONT", "XTGS_LAYOUT", "XTGS_JIT", "XTGS_FPU"))
 
 
 def build(cmd_lines=("S", "C=SHARED", "STATE=ON")):
@@ -170,6 +170,8 @@ def set_cmd(image, cmd_lines):
     cmd = os.path.join(WORK, "XTGS.CMD#040000")
     if os.environ.get("XTGS_JIT"):                          # (as tools/make_image.sh writes the file)
         cmd_lines = tuple(cmd_lines) + ("JIT=ON",)
+    if os.environ.get("XTGS_FPU"):
+        cmd_lines = tuple(cmd_lines) + ("FPU=8087",)
     with open(cmd, "w") as f:
         f.write(("+" if os.environ.get("XTGS_LAYOUT") == "alt" else "") + "".join(l + "\r" for l in cmd_lines))
     cadius("DELETEFILE", image, VOLDIR + "/XTGS.CMD")

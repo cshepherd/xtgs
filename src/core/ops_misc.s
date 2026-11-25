@@ -391,3 +391,90 @@ op_DE
 op_DF
  jsr modrm_w
  jmp (NEXTVEC)
+
+*--- ESC when the PC has an 8087 (docs/8087.md): fpu_start points the
+* eight opcodes here. The operand as before, and the instruction is the
+* 8087's own image's (src/fpu), which is told which of the eight it is.
+fpx_0
+ mx %00
+ lda #0
+ bra fpx
+fpx_1
+ mx %00
+ lda #1
+ bra fpx
+fpx_2
+ mx %00
+ lda #2
+ bra fpx
+fpx_3
+ mx %00
+ lda #3
+ bra fpx
+fpx_4
+ mx %00
+ lda #4
+ bra fpx
+fpx_5
+ mx %00
+ lda #5
+ bra fpx
+fpx_6
+ mx %00
+ lda #6
+ bra fpx
+fpx_7
+ mx %00
+ lda #7
+fpx
+ mx %00
+ pha
+ phy                       ; (the IP after the opcode: the 8087 keeps the instruction's address)
+ jsr modrm_b               ; (the operand is the 8087's to fetch, whatever its length: no word's bounce)
+ plx
+ pla
+ jsl FPU_BASE+3
+ bcs :nmi
+ jmp (NEXTVEC)
+:nmi                       ; an unmasked exception with the 8087's interrupt enabled: a PC/XT's NMI
+ inc jEP                   ; (the frame goes on the stack: the translator told, whatever the page)
+ sty rIP
+ lda #2
+ jsr do_int
+ jmp next_ct
+
+* fpu_start - a PC starts (not from a saved state: CORE's bank is in one,
+* this table with it, and the 8087's words are in the results bank): its
+* 8087, when XTGS.CMD says FPU=8087 and the front end found the image.
+* fpu_sync - a PC started from a boot state: the 8087's image, when this PC
+* has one, forgets what it knew of SANE (its fp_sync)
+fpu_sync
+ mx %00
+ lda >FPU_ON
+ beq :out
+ lda >MB_LAYOUT+RG_DATA+RG_DATA
+ beq :out
+ jsl FPU_BASE+6
+:out
+ rts
+
+fpu_start
+ mx %00
+ lda #0
+ sta >FPU_ON
+ lda >FPU_CFG
+ cmp #1
+ bne :no
+ lda >MB_LAYOUT+RG_DATA+RG_DATA
+ beq :no
+ jsl FPU_BASE
+ ldx #14
+:t
+ lda :ops,x
+ sta optab+$1B0,x          ; (the eight from D8)
+ dex
+ dex
+ bpl :t
+:no
+ rts
+:ops       da fpx_0,fpx_1,fpx_2,fpx_3,fpx_4,fpx_5,fpx_6,fpx_7

@@ -106,6 +106,21 @@ PIC_IRQ6   = RES_BASE+$8B0   ; u16 nonzero: the diskette controller's interrupt 
 BS_CFG     = RES_BASE+$8B8   ; u16 XTGS.CMD's STATE= line (state.s): 0 none, 1 ON: start from the boot state when it is good; 2 (the test's own, poked: tools/state_test.py) and stop there
 BS_STAT    = RES_BASE+$8BA   ; u16 the last save of a boot state: 0 none, 1 written, 2 not now (a file or a port open), 3 no memory, 4 the disk, 5 not a PC from the folder
 BS_BOOT    = RES_BASE+$8BC   ; u16 this start: 0 a boot, 1 from the boot state, 2 no file, 3 another PC's, 4 damaged, 5 no memory, 6 its data damaged or unread (the PC is begun again), 7 a boot after that
+* The 8087 (src/fpu, docs/8087.md), from here to $AFF
+FPU_CFG    = RES_BASE+$A86   ; u16 XTGS.CMD's line: 1 FPU=8087, 0 none or OFF, $FFFF a value that is neither (rd_readcfg)
+FPU_ON     = RES_BASE+$A88   ; u16 nonzero: this PC has one (the core's fpu_start)
+FPU_CW     = RES_BASE+$A8A   ; u16 its control word
+FPU_SW     = RES_BASE+$A8C   ; u16 its status word, but for the stack's top (bits 13-11 are 0 here: fp_sw puts FPU_TOP in)
+                             ;     and for what SANE has flagged since the image last asked it (fp_fold)
+FPU_TOP    = RES_BASE+$A8E   ; u16 the stack's top, 0-7: ST(i) is the register (FPU_TOP + i) and 7
+FPU_IP     = RES_BASE+$A90   ; u32 the last instruction's address, FPU_OPC its opcode, FPU_DP its operand's
+FPU_OPC    = RES_BASE+$A94
+FPU_DP     = RES_BASE+$A96
+FPU_BAD    = RES_BASE+$A9A   ; u16 instructions met that are not done, FPU_LAST the last (opcode bits << 11 | ModR/M)
+FPU_LAST   = RES_BASE+$A9C
+FPU_SANE   = RES_BASE+$A9E   ; u16 SANEVersion, as the image found it
+FPU_REG    = RES_BASE+$AA0   ; 8 x 12 bytes, physical 0 first: a register's ten bytes as the 8087 has them, and at
+                             ;     +10 its tag as a word (0 valid, 1 zero, 2 special, 3 empty: the tag word's two bits)
 PC_BEGUN   = RES_BASE+$A84   ; u16 nonzero: a PC has been booted in this run (svc_bootinit: the first one's
                              ;     memory is cleared before it boots; the front end cleared this bank)
 BS_SKIP    = RES_BASE+$A82   ; u16 BS_SKIPV: the start after this boots, whatever state there is (the desk accessory's hard reboot; state.s)

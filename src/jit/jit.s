@@ -69,6 +69,7 @@
  put ../include/pc.s
 
  jmp jt_init               ; +0  a PC starts: the map and the cache empty (JSL)
+ da pg_map                 ; +3  where pg_map is, for the 8087's stores (src/fpu: fp_put)
 
 MAXI       = 48              ; instructions a piece may have
 MAXE       = 500             ; pieces translated at a time

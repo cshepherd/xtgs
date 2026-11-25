@@ -74,8 +74,10 @@ CORE_GEN  := src/core/gen/optab.s src/core/gen/eatab.s src/core/gen/alu.s src/co
 CORE_SRCS := src/core/core.s src/core/probe.s src/core/run.s src/core/jit.s src/core/jit2.s src/core/jitc.s src/core/cpu.s src/core/flags.s \
              src/core/ops_mov.s src/core/ops_ctrl.s src/core/ops_grp.s src/core/ops_str.s \
              src/core/ops_misc.s src/core/ega.s src/core/harness.s $(CORE_GEN) $(INCLUDES)
+# (the 8087's, here for the build number below: its rules are with the translator's)
+FPU_SRCS  := src/fpu/fpu.s $(INCLUDES)
 
-.PHONY: all image finder test-m0 test-cpu test-com test-dos test-share test-clock test-minix test-psg test-layout test-gsos test-s16 check-s16 bench boot-dos boot-shared run run-dos dos-image tandy-image run-tandy release run-release test-release lsl-image run-lsl games-image run-games games-ega-image run-games-ega games-test-image run-games-test test-joy test-mouse test-xms test-open test-control test-state test-serial disk-image run-disk clean lint minix-image run-minix
+.PHONY: all image finder test-m0 test-cpu test-com test-dos test-share test-clock test-minix test-psg test-layout test-gsos test-s16 check-s16 bench boot-dos boot-shared run run-dos dos-image tandy-image run-tandy release run-release test-release lsl-image run-lsl games-image run-games games-ega-image run-games-ega games-test-image run-games-test sane-spike sane-basic test-fpu test-joy test-mouse test-xms test-open test-control test-state test-serial disk-image run-disk clean lint minix-image run-minix
 
 all: $(PO)
 
@@ -145,7 +147,7 @@ $(B)/xtgs: $(B)/xtgs.bin $(RELOC_DEPS)
 
 # The build's identity (docs/state.md): a boot state holds CORE's and SVC's banks, and is only this
 # build's. Generated whenever a source of either changes; not kept in the tree.
-BUILD_SRCS := $(filter-out src/svc/gen/buildid.s,$(sort $(SVC_SRCS) $(CORE_SRCS)))
+BUILD_SRCS := $(filter-out src/svc/gen/buildid.s,$(sort $(SVC_SRCS) $(CORE_SRCS) $(FPU_SRCS)))
 src/svc/gen/buildid.s: $(BUILD_SRCS) tools/gen_buildid.py
 	$(PY) tools/gen_buildid.py $@ $(BUILD_SRCS)
 
@@ -172,6 +174,15 @@ $(B)/jit.bin: $(JIT_SRCS)
 $(B)/jit: $(B)/jit.bin $(RELOC_DEPS)
 	$(PY) tools/gen_reloc.py jit $< $@
 
+# The 8087 (docs/8087.md): an image of its own too, in the data region's
+# bank, loaded when the file FPU is beside CORE and used when XTGS.CMD says
+# FPU=8087.
+$(B)/fpu.bin: $(FPU_SRCS)
+	$(call merlin,src/fpu,fpu.s,fpu,$@)
+
+$(B)/fpu: $(B)/fpu.bin $(RELOC_DEPS)
+	$(PY) tools/gen_reloc.py fpu $< $@
+
 # ---- generated sources ------------------------------------------------------
 
 # (make 3.81 has no grouped targets: the first output is the rule, the rest depend on it)
@@ -185,9 +196,10 @@ src/core/gen/eatab.s src/core/gen/alu.s src/core/gen/flagtab.s src/core/gen/egaw
 
 # ---- images -----------------------------------------------------------------
 
-$(PO): $(B)/xtgs $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/gsos/Start16 $(B)/core $(B)/svc $(B)/jit tools/make_image.sh tools/gsos_image.sh
+$(PO): $(B)/xtgs $(B)/xtgs16 $(B)/xtgs16.rfork $(B)/gsos/Start16 $(B)/core $(B)/svc $(B)/jit $(B)/fpu tools/make_image.sh tools/gsos_image.sh
 	@mkdir -p $(B)/stage
 	cp $(B)/jit  $(B)/stage/JIT\#060000
+	cp $(B)/fpu  $(B)/stage/FPU\#060000
 	cp $(B)/xtgs $(B)/stage/XTGS.SYSTEM\#FF2000
 	cp $(B)/xtgs16 $(B)/stage/XTGS\#B30000
 	cp $(B)/xtgs16.rfork $(B)/stage/XTGS\#B30000_ResourceFork.bin
@@ -481,6 +493,26 @@ test-xms: $(PO) $(FDIMG)
 	$(PY) tools/xms_test.py
 	$(PY) tools/xms_test.py XMS=OFF
 
+# test-fpu: the 8087 as a program of the time finds it (docs/8087.md, M9.2):
+# Norton SI's summary under FreeDOS with and without the line FPU=8087
+# (tools/fpu_test.py; build/fputest/). The .COM tests fpudet and fpunone are
+# the same asked by a program of the tree's, in every form of operand.
+test-fpu: $(PO) $(FDIMG)
+	$(PY) tools/fpu_test.py $(if $(SHOW),--show)
+
+# sane-spike: M9.1 (docs/8087.md): the SANE tool set tried as an 8087's
+# arithmetic. tests/sane/sanebench.s, a ProDOS 8 system file of its own, runs
+# some 2,000 operations whose results tools/sane_spike.py holds to exact
+# arithmetic and then times each kind (ZIP=1: at 16 MHz as well; GSOS=1:
+# launched from GS/OS, the System's patched tool set). sane-basic is the
+# other side: tests/sane/fpbase.bas, GW-BASIC's own arithmetic under XT/GS
+# (XTGS_JIT=1 for the translator). Work files in build/sane/.
+sane-spike:
+	$(PY) tools/sane_spike.py $(if $(ZIP),--zip) $(if $(GSOS),--gsos) $(if $(ONLY),--only $(ONLY)) $(if $(SHOW),--show)
+
+sane-basic: $(PO) $(FDIMG)
+	$(PY) tools/sane_spike.py --basic $(if $(ZIP),--zip)
+
 # test-open: a document opened with XT/GS (docs/finder.md): the GS/OS
 # application launched as the Finder launches it for a .BAT or a .COM of the
 # folder DOS has, the keys that run it typed at the prompt, after a boot and
@@ -524,7 +556,7 @@ minix-image:
 run-minix:
 	$(MAKE) run-disk IMG=$(MINIX)
 
-lint: $(B)/xtgs $(B)/xtgs16 $(B)/core $(B)/svc $(B)/jit
+lint: $(B)/xtgs $(B)/xtgs16 $(B)/core $(B)/svc $(B)/jit $(B)/fpu
 
 clean:
 	rm -rf $(B) src/sys/error_output.txt src/gs/error_output.txt src/core/error_output.txt src/svc/error_output.txt

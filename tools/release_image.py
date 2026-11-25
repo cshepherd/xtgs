@@ -129,6 +129,8 @@ def main():
                 put(os.path.join(B, "core"), "CORE#060000"),
                 put(os.path.join(B, "svc"), "SVC#060000"),
                 put(os.path.join(B, "jit"), "JIT#060000")]      # (used only when a line of XTGS.CMD says JIT=ON)
+        if "FPU=8087" in lines:                                 # the 8087 only on a volume that asks for it, as long
+            root.append(put(os.path.join(B, "fpu"), "FPU#060000"))  # until M9.4/M9.5 and a real IIGS (docs/8087.md)
         fork = put(os.path.join(B, "xtgs16.rfork"), "XTGS#B30000_ResourceFork.bin")
         with open(os.path.join(stage, "XTGS.CMD#040000"), "w", newline="") as f:
             f.write("".join(l + "\r" for l in ["S", "C=SHARED"] + lines))

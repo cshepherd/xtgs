@@ -145,7 +145,7 @@ it).
 ```
 +0    "XTGSboot"
 +8    version 2, +10 the header's length (256)
-+12   the build: a CRC-32 of CORE's and SVC's sources (tools/gen_buildid.py)
++12   the build: a CRC-32 of CORE's, SVC's and the 8087's sources (tools/gen_buildid.py)
 +16   MB_LAYOUT and MB_LAYALT: where every region and area is
 +42   XTGS.CMD as this start read it (the first 124 bytes, then how much
       was read and the sum of all of it)

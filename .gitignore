@@ -19,3 +19,4 @@ release/shared/sub688/
 release/shared/carmen/
 release/shared/thexder/
 src/svc/gen/buildid.s
+tests/sane/gen/

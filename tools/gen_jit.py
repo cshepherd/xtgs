@@ -676,8 +676,11 @@ op(0xD3, K_GRP, 9, L_MODRM)
 op(0xD4, K_STEP, 0, L_I8)
 op(0xD5, K_STEP, 0, L_I8)
 op(0xD7, K_STEP)
-for o in range(0xD8, 0xE0):
-    op(o, K_EXIT, PURE, L_MODRM)
+for o in range(0xD8, 0xE0):                                 # ESC: the 8087's, or nothing. The interpreter does it
+    op(o, K_STEP, 0, L_MODRM)                               # inside the piece: a store of the 8087's onto a page of
+                                                            # code puts the epoch on (src/fpu: fp_put), and an
+                                                            # interrupt it asks for changes CS:IP, either of which
+                                                            # sends jit_hook to the dispatcher
 op(0xE0, K_EXIT, PURE)
 op(0xE1, K_EXIT, PURE)
 op(0xE2, K_LOOP, 0, L_I8)

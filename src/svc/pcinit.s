@@ -23,6 +23,7 @@ svc_pcinit
  jsr handle_init
  jsr get_prefix
  jsr rd_readcfg            ; XTGS.CMD's VIDEO line: which PC (redir.s)
+ jsr fp_equip              ; (and its FPU line)
  jsr psp_fcbs
  jsr redirect_setup
  jsr load_program
@@ -32,6 +33,52 @@ svc_pcinit
  plb
  lda #PSP_SEG
  rtl
+
+* fp_equip - the 8087 in the equipment word (docs/8087.md): when
+* XTGS.CMD says FPU=8087 and the front end found the image, which
+* is what the core's fpu_start goes by.
+fp_equip
+ mx %00
+ lda >FPU_CFG
+ cmp #1
+ bne :no
+ lda >MB_LAYOUT+RG_DATA+RG_DATA
+ beq :no
+ lda >H_BDA+BDA_EQUIP
+ ora #$0002
+ sta >H_BDA+BDA_EQUIP
+:no
+ rts
+
+* fp_said - under the sign-on: the 8087 there is, or why a line
+* FPU= gave none.
+fp_said
+ mx %00
+ lda >FPU_CFG
+ beq :out
+ ldx #fp_t2
+ cmp #1
+ bne :say
+ ldx #fp_t1
+ lda >MB_LAYOUT+RG_DATA+RG_DATA
+ bne :say
+ ldx #fp_t3
+:say
+ lda #$000F
+ sta tty_attr
+ txa
+ jsr rd_puts
+ lda #$0D
+ jsr vid_tty
+ lda #$0A
+ jsr vid_tty
+ lda #$FFFF
+ sta tty_attr
+:out
+ rts
+fp_t1      asc '8087 coprocessor',00
+fp_t2      asc 'FPU= is 8087 or OFF: no coprocessor',00
+fp_t3      asc 'FPU=8087: no file FPU, no coprocessor',00
 
 * build_dosdata - what programs peek at through INT 21h/1Fh and 52h:
 * a drive parameter block, a list of lists whose first MCB is the

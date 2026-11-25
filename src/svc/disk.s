@@ -63,6 +63,7 @@ svc_bootinit
  sta >H_BDA+BDA_EQUIP
 :fd
  jsr rd_setup              ; a shared ProDOS directory? (redir.s)
+ jsr fp_equip              ; the 8087 in the equipment word (pcinit.s), when XTGS.CMD and the front end give one
  jsr gh_check              ; a document XT/GS was opened with (ghost.s): its keys, or no PC
  bcc :arg
  lda #3
@@ -127,6 +128,7 @@ svc_bootinit
  beq :nosay
  jsr bs_said              ; a boot state there was, and it is not what this PC starts from: why
 :nosay
+ jsr fp_said              ; the 8087, or why a line FPU= gave none
  jsr rd_banner            ; the shared drive's line, and the blank one
  lda boot_res
  cmp #2

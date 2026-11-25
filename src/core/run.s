@@ -54,6 +54,7 @@ boot_state
  sta >MB_RUNIDX
  jsr ega_sync
  jsr jit_start
+ jsr fpu_sync
  lda >BS_CFG               ; (STATE=ONLY: the test's, which compares what is here with the file)
  cmp #2
  beq :only
@@ -120,6 +121,7 @@ com_run
  jsl SVC_BASE+27           ; svc_sndopen: the DOC is the speaker and the IRQ0 timer
  jsr ega_sync              ; the EGA as the PC's start left it (off)
  jsr jit_start             ; the translator, if it is there and asked for (jitc.s)
+ jsr fpu_start             ; and the 8087 (ops_misc.s; docs/8087.md)
  jsr run_guest
  jsl SVC_BASE+30           ; svc_sndclose
  stz vPCMODE
@@ -200,6 +202,7 @@ boot_run
  jsl SVC_BASE+27           ; svc_sndopen: the DOC is the speaker and the IRQ0 timer
  jsr ega_sync              ; the EGA as the PC's start left it (off)
  jsr jit_start             ; the translator, if it is there and asked for (jitc.s)
+ jsr fpu_start             ; and the 8087 (ops_misc.s; docs/8087.md)
  jsr run_guest
 boot_end
  mx %00

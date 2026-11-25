@@ -70,7 +70,7 @@ t2          = $BC
 t3          = $BE
  err MB_END-MB_BASE-1/$B0     ; the mailbox ends below the scratch
 
-LOW_PAGES   = 35              ; the bank-$00 block: ZP, MBX, PATH, XFER (32)
+LOW_PAGES   = 36              ; the bank-$00 block: ZP, MBX, PATH, XFER (32), and SANE's page (sane_up)
 ATTR_LOW    = $C005           ; locked, fixed, page-aligned, in the bank given
 
 start
@@ -211,6 +211,34 @@ boot_pc
 :nojitf
  stz mb_layout+RG_JIT+RG_JIT
 :jitdone
+ stz img_len+6             ; the 8087 (docs/8087.md), when its bank was claimed and the file FPU is in
+ lda mb_cmd+1              ; the folder: without the file the region's word goes back to 0 too
+ and #$00FF
+ cmp #'V'                  ; (V's data region is the vectors', claimed as they are loaded)
+ beq :fpudone
+ lda mb_layout+RG_DATA+RG_DATA
+ beq :fpudone
+ lda #path_fpu
+ sta ld_path
+ stz ld_dst
+ lda mb_layout+RG_DATA+RG_DATA
+ sta ld_dst+2
+ stz ld_alloc
+ lda #1
+ sta ld_max
+ sta ld_opt
+ ldx #$68
+ jsr load_file
+ lda ld_opt
+ stz ld_opt
+ bmi :nofpuf
+ lda mb_filelen
+ sta img_len+6
+ jsr sane_up               ; its arithmetic is SANE's
+ bra :fpudone
+:nofpuf
+ stz mb_layout+RG_DATA+RG_DATA
+:fpudone
 
  lda rebooting             ; (a reboot keeps what is loaded: the disk image is
  beq :first                ; as the PC left it)
@@ -1038,6 +1066,10 @@ claim_all
 :jit
  ldx #RG_JIT+RG_JIT
  jsr claim_region
+ lda #1                    ; and a bank for its 8087 (docs/8087.md): the data region's, which a
+ sta rg_banks+RG_DATA+RG_DATA   ; PC has no other use for; done without when it cannot be had
+ ldx #RG_DATA+RG_DATA
+ jsr claim_region
 :nojit
  lda mb_cmd+1              ; S has no disk image: its banks are the guest's
  and #$00FF                ; XMS memory (src/svc/xms.s) when they can be had,
@@ -1206,8 +1238,44 @@ who_owns
 * The first error goes to MB_DOWNERR. The bank-$00 block,
 * and with it the mailbox, stays until quit (DisposeAll).
 *----------------------------------------------------------
+*----------------------------------------------------------
+* sane_up - SANE started, once, for the 8087 (docs/8087.md):
+* its page is the last of the bank-$00 block. sane_down, as
+* XT/GS leaves.
+*----------------------------------------------------------
+sane_up
+ mx %00
+ lda sane_on
+ bne :out
+ lda low_page
+ clc
+ adc #LOW_PAGES-1
+ xba
+ and #$FF00
+ pha
+ ldx #$020A                ; SANEStartUp
+ jsl TOOLS
+ inc sane_on
+:out
+ rts
+sane_down
+ mx %00
+ lda sane_on
+ beq :out
+ stz sane_on
+ pea $0000                 ; the environment SANE starts with: nothing of the PC's left in it
+ pea $0001                 ; FSETENV
+ ldx #$090A
+ jsl TOOLS
+ ldx #$030A                ; SANEShutDown
+ jsl TOOLS
+:out
+ rts
+sane_on    dw 0
+
 release
  mx %00
+ jsr sane_down
  stz down_err
  lda shr_h
  ora shr_h+2
@@ -1588,12 +1656,21 @@ reloc_all
  ldx #$72
  bcs :out
  lda img_len+4             ; the translator, when it was loaded
- beq :out                  ; (the carry is clear)
+ beq :fpu                  ; (the carry is clear)
  lda mb_layout+RG_JIT+RG_JIT
  sta ptr+2
  lda img_len+4
  jsr reloc_image
  ldx #$73
+ bcs :out
+:fpu
+ lda img_len+6             ; and the 8087
+ beq :out
+ lda mb_layout+RG_DATA+RG_DATA
+ sta ptr+2
+ lda img_len+6
+ jsr reloc_image
+ ldx #$74
 :out
  rts
 
@@ -2532,6 +2609,8 @@ path_svc   dfb 5
            asc '1/SVC'
 path_jit   dfb 5
            asc '1/JIT'
+path_fpu   dfb 5
+           asc '1/FPU'
 path_vec   dfb 5
            asc '1/VEC'
 path_bench dfb 7
@@ -2606,7 +2685,7 @@ rg_h       ds RG_BANKS*4      ; a handle a region
 sb_end     dw 0
 cr_x       dw 0
 cr_bank    dw 0
-img_len    dw 0,0,0           ; CORE's, SVC's and JIT's file lengths (0: not loaded)
+img_len    dw 0,0,0,0         ; CORE's, SVC's, JIT's and FPU's file lengths (0: not loaded)
 ld_opt     dw 0               ; load_file: nonzero, the file may be missing
 rl_end     dw 0
 rl_delta   dw 0

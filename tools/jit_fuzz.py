@@ -345,6 +345,8 @@ jmp .o;.r:;adc dx, 0;ret;.o:;add ax, 0x9000;call .r|jmp .o;.r:;mov bx, 5;add bx,
 add ax, 0x9000;jmp .f;times 50 nop;.f:;stc;adc dx, 0;xor byte [.f], 0x69|add ax, dx;jmp .f;times 50 nop;.f:;jmp .h;times 50 nop;.h:;xor bx, bx;adc ax, bx|add ax, 0x9000;jmp .f;times 50 nop;.f:;lahf;mov dl, ah
 add ax, 0x9000;jmp .f;times 50 nop;.f:;cmp dx, 5;adc ax, 0;xor byte [.f+1], 0x38|sub ax, 3;jmp .f;times 50 nop;.f:;mov bx, [buf+2];push bx;pop dx;rcl dx, 1|add ax, dx;jmp .f;times 50 nop;.f:;dec dx;jmp .h;times 50 nop;.h:;jc .x;inc ax;.x:
 jmp .s;.v:;db 0;.s:;nop;mov byte [.s], 0x40|jmp .s;.v:;db 0, 0, 0;.s:;nop;mov word [.v+2], 0x4200|jmp .s;.s:;mov byte [.e], 0x42;nop;.e:;nop
+fild word [bx];fiadd word [si];fistp word [bx+2]|fild word [buf+400];fld1;faddp st1, st0;fistp word [buf+400]|fild word [si];fnstsw [buf+402];fstp st0
+jmp .s;.v:;dw 0x4040;.s:;fild word [.v];fistp word [.e];.e:;nop;nop
 """
 
 

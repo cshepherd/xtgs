@@ -1,0 +1,8 @@
+{
+ "com": "fpuops.asm",
+ "name": "FPUOPS.COM",
+ "args": "",
+ "exit": 0,
+ "cmd": ["FPU=8087"],
+ "stdout": "fpuops.out"
+}

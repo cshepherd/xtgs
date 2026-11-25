@@ -16,6 +16,10 @@
 # XTGS_JIT=1 (environment) is every volume with the translator (docs/jit.md):
 # the file JIT beside CORE, and the line JIT=ON at XTGS.CMD's end.
 #
+# XTGS_FPU=1 (environment) is every volume with the 8087 (docs/8087.md):
+# the file FPU beside CORE, and the line FPU=8087 at XTGS.CMD's end. A
+# volume whose XTGS.CMD has the line already gets the file too.
+#
 # XTGS_FRONT=s16 (environment) makes it a GS/OS volume instead, booting
 # into the native front end: tools/gsos_image.sh with the System 6 volume
 # SYSTEM6 (environment; default ../ddiigs/assets/system6.hdv), the files
@@ -51,6 +55,7 @@ for f in "$@"; do
     fi
     if [ "$name" = "XTGS.CMD#040000" ]; then havecmd=1; fi
     if [ "$name" = "JIT#060000" ]; then havejit=1; fi
+    if [ "$name" = "FPU#060000" ]; then havefpu=1; fi
     files+=("$stage/$name")
 done
 if [ -n "${XTGS_JIT:-}" ] && [ -n "${havecmd:-}" ]; then
@@ -58,6 +63,15 @@ if [ -n "${XTGS_JIT:-}" ] && [ -n "${havecmd:-}" ]; then
     if [ -z "${havejit:-}" ]; then
         cp "$here/../build/stage/JIT#060000" "$stage/JIT#060000"
         files+=("$stage/JIT#060000")
+    fi
+fi
+if [ -n "${havecmd:-}" ]; then
+    if [ -n "${XTGS_FPU:-}" ]; then
+        grep -q 'FPU=' "$stage/XTGS.CMD#040000" || printf 'FPU=8087\r' >> "$stage/XTGS.CMD#040000"
+    fi
+    if grep -q 'FPU=8087' "$stage/XTGS.CMD#040000" && [ -z "${havefpu:-}" ]; then
+        cp "$here/../build/stage/FPU#060000" "$stage/FPU#060000"
+        files+=("$stage/FPU#060000")
     fi
 fi
 if [ "${XTGS_FRONT:-}" = s16 ]; then

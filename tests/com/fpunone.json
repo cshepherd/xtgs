@@ -1,0 +1,8 @@
+{
+ "com": "fpudet.asm",
+ "name": "FPUNONE.COM",
+ "args": "",
+ "exit": 0,
+ "cmd": ["FPU=OFF"],
+ "stdout": "fpunone.out"
+}
