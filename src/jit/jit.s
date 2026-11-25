@@ -116,11 +116,81 @@ e_desc     ds MAXE*2         ; its record in the cache (the epoch it last compar
 e_end      ds MAXE*2         ; the byte after its code there,
 e_lo       ds MAXE*2         ; its guest code in its host bank: first byte,
 e_hi       ds MAXE*2         ; byte after the last,
+e_xlo      ds MAXE*2         ; and the same of what its ways out were looked ahead at, far from its code: two
+e_xhi      ds MAXE*2         ; places of 64 bytes at most (0 and 0: none; scan.s: bx_lo)
+e_ylo      ds MAXE*2
+e_yhi      ds MAXE*2
 e_bank     ds MAXE*2         ; the bank,
+e_cb       ds MAXE*2         ; which bank of code it is in (0: JIT_RT's, 1: JIT_RT2's),
 e_life     ds MAXE*2         ; the lives its IP had used when it was made,
 e_bail     ds MAXE*2         ; times it gave up at memory it cannot write
 bk_code    ds 32             ; a word for each bank of the guest's: translated code was made from bytes there
+c_bk       dw 0              ; the bank of code being filled: 0 JIT_RT's, 1 JIT_RT2's
+c_lim      dw CACHE_END-ROOM ; where the first is full (a test sets it low: tools/jit_fuzz.py --small)
+c_rb       dw 0              ; c_get's and c_set's bank
+wh_b       dw 0              ; which's
 tr_w       dw 0              ; jt_tr0: the map's word for the IP
+tr_ret     dw 0
+lk_ofs     dw 0              ; a link's: how far into the stub its way in is
+
+* c_get, c_set, c_setb - the cache at X, in the bank c_rb names: A = the word there; the word A to there;
+* A's low byte to there. ce_w, ce_b - the same two in the bank being filled (c_bk). Keep X and Y.
+c_get
+ mx %00
+ lda c_rb
+ bne :b
+ lda >JIT_RT,x
+ rts
+:b
+ lda >JIT_RT2,x
+ rts
+ce_w
+ mx %00
+ pha
+ lda c_bk
+ bra c_s1
+c_set
+ mx %00
+ pha
+ lda c_rb
+c_s1
+ mx %00
+ bne :b
+ pla
+ sta >JIT_RT,x
+ rts
+:b
+ pla
+ sta >JIT_RT2,x
+ rts
+ce_b
+ mx %00
+ pha
+ lda c_bk
+ bra c_s2
+c_setb
+ mx %00
+ pha
+ lda c_rb
+c_s2
+ mx %00
+ bne :b
+ pla
+ sep #$20
+ mx %10
+ sta >JIT_RT,x
+ rep #$20
+ mx %00
+ rts
+:b
+ mx %00
+ pla
+ sep #$20
+ mx %10
+ sta >JIT_RT2,x
+ rep #$20
+ mx %00
+ rts
 tr_x       dw 0
 tr_s       dw 0              ; and where that word is (the dispatcher says: the address's first word, or its second)
 
@@ -129,12 +199,22 @@ jt_init
  phb
  phk
  plb
- ldx #rt_image             ; the run-time routines to their bank
- ldy #rt_start
+ ldx #rt_image             ; the run-time routines to their bank, and to the second bank of code, where
+ ldy #rt_start             ; the copy is told that it is the second (rt_flag) and which the other is
  lda #rt_end-rt_start-1
  mvn JIT_BASE,JIT_RT
+ ldx #rt_image
+ ldy #rt_start
+ lda #rt_end-rt_start-1
+ mvn JIT_BASE,JIT_RT2
  phk
  plb
+ lda #1
+ sta >rt_flag+$20000
+ lda >rt_me+2
+ sta >rt_ot+2+$20000
+ lda >rt_ot+2
+ sta >rt_me+2+$20000
  jsr jt_flush
  stz jt_ntr
  stz jt_nrej
@@ -165,12 +245,22 @@ jt_init
 jt_flush
  mx %00
  inc jt_nflush
- lda jt_nflush             ; (a program with more code than the cache holds: only what is asked for
- cmp #5                    ; sixteen times from now on. jt_init's own emptying is the first.)
- bcc :gen
+ lda >H_BDA+BDA_TICKS      ; a program with more code than the cache holds: only what is asked for sixteen
+ tax                       ; times, while the cache lasts less than half a minute (jt_age: Larry 2's lasts
+ sec                       ; thirteen seconds). One that fills it as it loads and then runs in what it has
+ sbc jt_t0                 ; is asked four times, as at the start.
+ stx jt_t0
+ cmp #JT_YOUNG
+ lda #4
+ bcs :slow
+ lda jt_nflush             ; (jt_init's own emptying is the first)
+ cmp #5
+ lda #4
+ bcc :slow
  lda #1
+:slow
  sta jSTEP
-:gen
+ stz c_bk
  lda #jt_cache
  sta c_ptr
  stz e_n
@@ -222,9 +312,11 @@ ep_wrap0
  bcs :done
  lda e_nat,y
  beq :next
+ lda e_cb,y
+ sta c_rb
  ldx e_desc,y
  lda #$FFFF
- sta >JIT_RT,x
+ jsr c_set
 :next
  iny
  iny
@@ -246,6 +338,15 @@ jt_tr0
  cmp #MAXE
  bcs :full
  lda c_ptr
+ ldx c_bk
+ bne :second
+ cmp c_lim
+ bcc :room
+ inc c_bk                  ; the first bank of code is full: on in the second
+ lda #jt_cache
+ sta c_ptr
+ bra :room
+:second
  cmp #CACHE_END-ROOM
  bcc :room
 :full
@@ -253,22 +354,26 @@ jt_tr0
  lda #$0010                ; (the map is new: this IP has used no life)
  sta tr_w
 :room
+ jsr jt_age
  jsr sc_scan
- bcc :no
+ bcs :scanned
+ jmp :no
+:scanned
  jsr sc_resolve
+ jsr sc_ways
  jsr sc_live
  jsr sc_live
  jsr pg_mark               ; (a page of data and code: the interpreter's)
  bcs :pgok
  lda #2
  jsr rej_note
- bra :never
+ jmp :never
 :pgok
  jsr em_region
  bcs :emok
  lda #3
  jsr rej_note
- bra :never
+ jmp :never
 :emok
  lda e_n
  asl
@@ -286,8 +391,18 @@ jt_tr0
  sta e_lo,x
  lda sc_hi
  sta e_hi,x
+ lda bx_lo+2
+ sta e_xlo,x
+ lda bx_hi+2
+ sta e_xhi,x
+ lda bx_lo+4
+ sta e_ylo,x
+ lda bx_hi+4
+ sta e_yhi,x
  lda sc_cb
  sta e_bank,x
+ lda c_bk
+ sta e_cb,x
  stz e_bail,x
  lda tr_w
  lsr
@@ -297,13 +412,16 @@ jt_tr0
  lsr
  sta e_life,x
  ldx tr_s
- lda em_entry
+ lda em_entry              ; (the stub less one is even: em_stub. Bit 0 says which bank of code)
  dec
+ ora c_bk
  sta >JIT_MAP,x
+ sta tr_ret
  inc jt_ntr
  inc e_n
  inc e_n2
  inc e_n2
+ lda tr_ret
  plb
  sec
  rtl
@@ -331,6 +449,24 @@ jt_tr0
  plb
  clc
  rtl
+
+* jt_age - the cache has lasted half a minute: what is in it is what
+* the program runs, and a new address is translated at its fourth
+* asking, not its sixteenth (each asking before that is the interpreter
+* given the run, and every piece comparing its bytes afterwards)
+JT_YOUNG   = 546             ; ticks of the BIOS's clock: thirty seconds
+jt_t0      dw 0              ; the tick count's low word when the cache was last emptied
+jt_age
+ mx %00
+ lda >H_BDA+BDA_TICKS
+ sec
+ sbc jt_t0
+ cmp #JT_YOUNG
+ bcc :young
+ lda #4
+ sta jSTEP
+:young
+ rts
 
 * rej_note - why CS:rIP was refused (A), into the ring
 rej_note
@@ -399,6 +535,41 @@ pg_mark
  bra :c
 :mark
  ldx sc_t2
+ jsr :pages
+ rep #$20
+ mx %00
+ ldy #0                    ; and the pages of what its ways out were looked ahead at (sc_look left none
+:st                        ; that is never code)
+ cpy la_n
+ bcs :done
+ lda la_e,y
+ dec
+ clc
+ adc bCS
+ xba
+ and #$00FF
+ ora tr_x
+ sta sc_t
+ lda la_s,y
+ clc
+ adc bCS
+ xba
+ and #$00FF
+ ora tr_x
+ tax
+ sep #$20
+ mx %10
+ jsr :pages
+ rep #$20
+ mx %00
+ iny
+ iny
+ bra :st
+:done
+ sec
+ rts
+:pages                     ; from page X to page sc_t (8 bits wide)
+ mx %10
 :l
  lda pg_map,x
  lsr
@@ -407,14 +578,12 @@ pg_mark
  sta pg_map,x
 :have
  cpx sc_t
- beq :done
+ beq :pd
  inx
  bra :l
-:done
- rep #$20
- mx %00
- sec
+:pd
  rts
+ mx %00
 :mixed
  rep #$20
  mx %00
@@ -473,6 +642,9 @@ cl_mark
  rts
 cl_bits    dfb 1,2,4,8,16,32,64,128,0
 
+kl_why     dw 0              ; why the next one dies: 1 a store into its bytes, 2 its page became one of data and
+jt_kili    dw 0              ; code, 3 its bytes are not the ones it was made from, 4 it kept meeting the EGA's planes
+jt_kil     ds 256
 * kill - entry X (twice) is dead. A = what its word of the map
 * becomes: 0 for "count again, a life less". Its entries in the cache
 * become jumps to the dispatcher, for whatever was linked to it. Keeps
@@ -503,6 +675,34 @@ kill
  ply
  rts
 :live
+ lda e_cb,y
+ sta c_rb
+ lda e_nat,y               ; (a look at what dies: the last 32, the piece's IP and CS, why, the store's address)
+ clc
+ adc #ST_IP+1
+ tax
+ jsr c_get
+ pha
+ txa
+ clc
+ adc #ST_CS-ST_IP
+ tax
+ jsr c_get
+ ldx jt_kili
+ sta jt_kil+2,x
+ pla
+ sta jt_kil,x
+ lda pEA+2
+ xba
+ ora kl_why
+ sta jt_kil+4,x
+ lda pEA
+ sta jt_kil+6,x
+ txa
+ clc
+ adc #8
+ and #$00FF
+ sta jt_kili
  ldx e_slot,y
  pla
  sta >JIT_MAP,x
@@ -510,47 +710,58 @@ kill
  sec
  sbc #ST_LB-1              ; the entry for links back; the stub is ST_LB on, and the one for links ahead ST_LF more
  tax
- lda #h_disp
- sta >JIT_RT+1,x
- sta >JIT_RT+ST_LB+1,x
- sta >JIT_RT+ST_LB+ST_LF+1,x
- sep #$20
- mx %10
- lda #$4C
- sta >JIT_RT,x
- sta >JIT_RT+ST_LB,x
- sta >JIT_RT+ST_LB+ST_LF,x
- rep #$20
- mx %00
+ jsr :jmp                  ; the three ways in: each a JMP h_disp from now on
+ txa
+ clc
+ adc #ST_LB
+ tax
+ jsr :jmp
+ txa
+ clc
+ adc #ST_LF
+ tax
+ jsr :jmp
  lda #0
  sta e_nat,y
  ply
  rts
+:jmp                       ; JMP h_disp at X of the bank c_rb names
+ lda #$004C
+ jsr c_setb
+ inx
+ lda #h_disp
+ jsr c_set
+ dex
+ rts
 
-* in_runs - C set: the word at pEA touches a byte of entry Y's guest
+* in_runs - C set: the store at pEA (to sh_last) touches a byte of entry Y's guest
 * code (its record's runs: where, words). Keeps Y.
 ir_n       dw 0
 ir_lo      dw 0
 in_runs
  mx %00
- ldx e_desc,y
- lda >JIT_RT+6,x
+ lda e_cb,y
+ sta c_rb
+ lda e_desc,y
+ clc
+ adc #6
+ tax
+ jsr c_get
  sta ir_n
  beq :no
- txa
- clc
- adc #8
- tax
+ inx
+ inx
 :r
- lda >JIT_RT,x
+ jsr c_get                 ; a run: where it begins,
  sta ir_lo
- lda >JIT_RT+2,x
+ inx
+ inx
+ jsr c_get                 ; and its words
  asl
  sta tr_x                  ; the run's bytes
- lda pEA
- inc
+ lda sh_last
  cmp ir_lo
- bcc :nr                   ; (the word ends before it)
+ bcc :nr                   ; (the store ends before it)
  lda ir_lo
  clc
  adc tr_x
@@ -561,7 +772,7 @@ in_runs
 :nr
  txa
  clc
- adc #4
+ adc #2
  adc tr_x
  tax
  dec ir_n
@@ -611,13 +822,28 @@ stale0
  phk
  plb
  inc jt_nstale
+ lda #3
+ sta kl_why
  lda #0
  jsr kill
  plb
  rtl
 
 * which - Y = the entry (twice) of the piece whose code the address A
-* is in, e_n2 when it is nobody's. DBR this bank.
+* is in, e_n2 when it is nobody's. DBR this bank. wh_bank says which
+* bank of code, from the data bank the caller came with (A = that, a
+* word with the bank in its low byte): the routines run with their own.
+wh_bank
+ mx %00
+ and #$00FF
+ cmp #^JIT_RT2
+ beq :second
+ stz wh_b
+ rts
+:second
+ lda #1
+ sta wh_b
+ rts
 which
  mx %00
  sta tr_x
@@ -627,6 +853,9 @@ which
  bcs :out
  lda e_nat,y
  beq :next
+ lda e_cb,y                ; (wh_b: which bank of code the address is in)
+ cmp wh_b
+ bne :next
  lda tr_x
  cmp e_desc,y
  bcc :next
@@ -647,6 +876,10 @@ give0
  phk
  plb
  phy
+ pha
+ lda 5,s
+ jsr wh_bank
+ pla
  jsr which
  cpy e_n2
  bcs :out
@@ -656,6 +889,8 @@ give0
  cmp #BAILS
  bcc :out
  inc jt_ngive
+ lda #4
+ sta kl_why
  lda #M_NEVER
  jsr kill
 :out
@@ -663,7 +898,7 @@ give0
  plb
  rtl
 
-* smc0 - the word at pEA is on a page that pg_map says translated code
+* smc0 - the store at pEA (sm_len + 1 bytes of it) is on a page that pg_map says translated code
 * was made from: every piece is asked. One whose guest bytes the word
 * touches is dead. A = an address in the running piece's code: C set
 * when it is one of them. Each page of the word's that no live piece
@@ -682,11 +917,58 @@ sh_bank    dw 0
 sh_cell    dw 0              ; live pieces with bytes in the word's sixteens
 sh_clo     dw 0              ; those sixteens: from here,
 sh_chi     dw 0              ; to before here
-bc_lo      ds 8              ; the last stores beside code, four of them by the address's bits 1 and 2: where,
-bc_bk      ds 8              ; the bank,
-bc_tr      ds 8              ; and jt_ntr then: the same store with no piece made since lands in none again
+bc_lo      ds 256            ; the last stores beside code, 128 of them by the address's low seven bits and the
+bc_bk      ds 256            ; seven above them (a routine's variables lie together, a dozen in the sixteens its
+bc_tr      ds 256            ; code is in; two that share a place here take it from each other at every store,
+                             ; and each time is a strike against the page: Arkanoid's did): where, the bank and
+                             ; length, and jt_ntr then: the same store with no piece made since lands in none again
 bc_x       dw 0
 bc_same    dw 0
+* e_touch - C set: entry Y has bytes, its own code's or the ones its ways out were looked ahead at, from
+* sh_a up to before sh_b (0: to the bank's end) of its bank. Keeps X and Y.
+sh_a       dw 0
+sh_b       dw 0
+e_touch
+ mx %00
+ lda e_hi,y
+ cmp sh_a
+ beq :look
+ bcc :look
+ lda sh_b
+ beq :yes
+ lda e_lo,y
+ cmp sh_b
+ bcc :yes
+:look
+ lda e_xhi,y
+ cmp sh_a
+ beq :look2
+ bcc :look2
+ lda sh_b
+ beq :yes
+ lda e_xlo,y
+ cmp sh_b
+ bcc :yes
+:look2
+ lda e_yhi,y
+ cmp sh_a
+ beq :no
+ bcc :no
+ lda sh_b
+ beq :yes
+ lda e_ylo,y
+ cmp sh_b
+ bcs :no
+:yes
+ sec
+ rts
+:no
+ clc
+ rts
+
+sm_len     dw 0              ; the store smc0 is asked about: its bytes less one (h_smcb, h_smc, h_smcf, h_push)
+sh_last    dw 0              ; its last byte (the bank's last, for one that goes past it)
+sh_key     dw 0              ; its bank, and its length above it: what the stores beside code are remembered by
 smc0
  mx %00
  phy
@@ -696,14 +978,35 @@ smc0
  pha
  stz bc_same
  lda pEA
- and #$0006
+ clc
+ adc sm_len
+ bcc :lb
+ lda #$FFFF
+:lb
+ sta sh_last
+ lda sm_len
+ xba
+ ora pEA+2
+ sta sh_key
+ lda sm_len                ; (a word and a byte at the one address are two stores: a routine that clears
+ asl                       ; its word and then sets its bytes would have each take the other's place)
+ asl
+ asl
+ eor pEA
+ sta bc_x
+ lda pEA
+ xba
+ asl
+ eor bc_x
+ and #$007F
+ asl
  tax
  stx bc_x
  lda bc_lo,x
  cmp pEA
  bne :new
  lda bc_bk,x
- cmp pEA+2
+ cmp sh_key
  bne :new
  inc bc_same               ; (the same store as before: no strike against its page whatever follows)
  lda bc_tr,x
@@ -715,6 +1018,8 @@ smc0
  clc
  rtl
 :new
+ lda 3,s                   ; (the data bank it was called with: the running piece's bank of code)
+ jsr wh_bank
  pla
  jsr which
  sty sh_run
@@ -739,24 +1044,22 @@ smc0
  lda e_bank,y
  cmp pEA+2
  bne :next
- lda e_hi,y                ; (its bytes among the sixteens the word is in?)
- cmp sh_clo
- beq :far
+ lda sh_clo                ; (its bytes among the sixteens the store is in?)
+ sta sh_a
+ lda sh_chi
+ sta sh_b
+ jsr e_touch
  bcc :far
- lda e_lo,y
- cmp sh_chi
- bcs :far
  inc sh_cell
 :far
  lda pEA
+ sta sh_a
+ lda sh_last
  inc
- beq :next                 ; (a word across the bank's end: its second byte is no piece's here)
- cmp e_lo,y
+ sta sh_b
+ jsr e_touch
  bcc :next
- lda pEA
- cmp e_hi,y
- bcs :next
- jsr in_runs               ; (between its first byte and its last: in one of its runs?)
+ jsr in_runs               ; (between a first byte and a last of its: in one of its runs?)
  bcc :next
  inc sh_n
  cpy sh_run
@@ -764,6 +1067,8 @@ smc0
  inc sh_self
 :kill
  tyx
+ lda #1
+ sta kl_why
  lda #0
  jsr kill
  inc jt_nstale
@@ -788,13 +1093,15 @@ smc0
  lda jt_ntr
  sta bc_tr,x
 :np
- lda pEA+1                 ; the word's page, and the next one when it lies across two
+ lda pEA+1                 ; the store's page, and the next one when it lies across two
  and #$0FFF
  jsr :page
  lda pEA
- inc
  and #$00FF
- bne :out
+ clc
+ adc sm_len
+ cmp #$0100
+ bcc :out
  lda pEA+1
  inc
  and #$0FFF
@@ -805,7 +1112,7 @@ smc0
  ldx bc_x                  ; beside code: remembered
  lda pEA
  sta bc_lo,x
- lda pEA+2
+ lda sh_key
  sta bc_bk,x
  lda jt_ntr
  sta bc_tr,x
@@ -861,16 +1168,12 @@ smc0
  lda e_bank,y
  cmp sh_bank
  bne :pn
- lda e_hi,y                ; its bytes are lo to hi-1: on the page when hi > the page's first
- cmp sh_lo                 ; and lo < the page's end
- beq :pn
- bcc :pn
+ lda sh_lo                 ; its bytes are lo to hi-1: on the page when hi > the page's first
+ sta sh_a                  ; and lo < the page's end
  lda sh_hi
- beq :on
- lda e_lo,y
- cmp sh_hi
- bcs :pn
-:on
+ sta sh_b
+ jsr e_touch
+ bcc :pn
  inc sh_live
 :pn
  iny
@@ -902,7 +1205,7 @@ smc0
  inc
  inc
  sta pg_map,x
- cmp #17
+ cmp #33
  rep #$20
  mx %00
  bcs :mixed
@@ -924,21 +1227,19 @@ smc0
  lda e_bank,y
  cmp sh_bank
  bne :mn
- lda e_hi,y
- cmp sh_lo
- beq :mn
- bcc :mn
+ lda sh_lo
+ sta sh_a
  lda sh_hi
- beq :mk
- lda e_lo,y
- cmp sh_hi
- bcs :mn
-:mk
+ sta sh_b
+ jsr e_touch
+ bcc :mn
  cpy sh_run
  bne :mk2
  inc sh_self               ; (the running piece's own page: it ends here too)
 :mk2
  tyx
+ lda #2
+ sta kl_why
  lda #0                    ; (a life less: the page may be code alone the next time)
  jsr kill
 :mn
@@ -959,9 +1260,12 @@ cl_map     ds $2004          ; and a bit for each 16
 * The run-time routines: what the core enters and what
 * translated code calls (JSR or JMP: they are in its bank).
 * Assembled for JIT_RT, loaded here (rt_image) and moved by
-* jt_init. DBR is the core's in them, so everything outside
-* the direct page is reached long, and what is not done
-* every time is the image's (JSL).
+* jt_init. DBR is their own bank in them (sp_sync, at every
+* entry from the core, which takes its own back: jit_ret):
+* a piece's record and stub are reached by their addresses
+* in whichever bank of code is running, everything else
+* outside the direct page long, and what is not done every
+* time is the image's (JSL).
 *==========================================================
 rt_image
  org JIT_RT
@@ -973,12 +1277,98 @@ rt_start
  jmp jt_enter_r            ; +12 the same after one that wrote ES:tmp4 to ES:tmp5
  jmp jt_enter_b            ; +15 the same after one that may have written anywhere
 
+* Two banks of code, each with these routines at the same addresses (jt_init): a piece calls the ones in
+* its own bank. What differs is here: which bank this copy is in, and where the other is.
+rt_flag    dw 0              ; 0: this is JIT_RT's bank; 1: JIT_RT2's (bit 0 of a stub's word in the map)
+rt_me      adrl rt_start     ; this bank (the byte at +2),
+rt_ot      adrl rt_start+$20000  ; and the other
+
+* x_go - come from the other bank's copy (st_far, by RTL) with A = where to go on here, less one
+x_go
+ mx %00
+ phk
+ plb
+ pha
+ rts
+* st_far - on in the other bank of code at A + 1
+st_far
+ mx %00
+ tax
+ sep #$20
+ mx %10
+ lda rt_ot+2
+ pha
+ rep #$20
+ mx %00
+ pea x_go-1
+ txa
+ rtl
+* st_same - A = a word of the map that is a stub's ($0100 and over: the stub less one, bit 0 its bank of
+* code): is it the stub of IP Y under this CS? C set: it is. tmp4 = the word. Keeps Y.
+st_same
+ mx %00
+ sta tmp4
+ eor rt_flag
+ lsr
+ bcs :other
+ asl
+ tax
+ tya
+ cmp rt_start+ST_IP+1,x
+ bne :no
+ lda rCS
+ cmp rt_start+ST_CS+1,x
+ bne :no
+ sec
+ rts
+:other                     ; in the other bank: by a pointer
+ asl
+ sta pSTK
+ lda rt_ot+2
+ sta pSTK+2
+ phy
+ ldy #ST_IP+1
+ lda [pSTK],y
+ cmp 1,s
+ bne :no2
+ ldy #ST_CS+1
+ lda [pSTK],y
+ cmp rCS
+ bne :no2
+ ply
+ sec
+ rts
+:no2
+ ply
+:no
+ clc
+ rts
+* st_go - on at the stub of the word in tmp4, A + 1 bytes in, whichever bank of code it is in
+st_go
+ mx %00
+ sta jT
+ lda tmp4
+ eor rt_flag
+ lsr
+ bcs :other
+ asl
+ clc
+ adc jT
+ pha
+ rts
+:other
+ asl
+ clc
+ adc jT
+ jmp st_far
+
 *--- the dispatcher. Y = the IP, A 16 bits wide.
 
 * jt_enter - from the interpreter: whatever it did since translated
 * code last ran may have written anywhere
 jt_enter
  mx %00
+ jsr sp_sync
  lda >jt_nep
  inc
  sta >jt_nep
@@ -992,6 +1382,7 @@ je_on
  jmp jt_look
 jt_enter_b
  mx %00
+ jsr sp_sync
  lda >jt_nep2
  inc
  sta >jt_nep2
@@ -1001,6 +1392,7 @@ jt_enter_b
 * from?
 jt_enter_s
  mx %00
+ jsr sp_sync
  lda rSP
  clc
  adc bSS
@@ -1012,6 +1404,8 @@ jt_enter_s
  ora #GUEST_BANK
 :nc
  sta pEA+2
+ lda #1
+ sta >sm_len
  jsr pg_chk
  bne :on
  lda pEA
@@ -1035,6 +1429,7 @@ jt_enter_s
  jmp je_on
 jt_enter_n
  mx %00
+ jsr sp_sync
  lda >jt_ndisp
  inc
  sta >jt_ndisp
@@ -1044,6 +1439,7 @@ jt_enter_n
 * code is made from? (A 256 of the segment is on two pages of memory.)
 jt_enter_r
  mx %00
+ jsr sp_sync
  lda tmp4
  and #$FF00
  sta tmp4
@@ -1092,7 +1488,8 @@ jt_enter_r
 h_disp
  mx %00
  dec jG
- beq h_gx
+ bne jt_look
+ jmp h_gx
 jt_look
  mx %00
  tya
@@ -1103,10 +1500,17 @@ jt_look
  lda >JIT_MAP,x
  cmp #$0100
  bcc :cnt
- pha                       ; a stub, which looks at the IP, at CS and at the epoch (not this
- rts                       ; address's: h_miss, and the second word)
+ eor rt_flag               ; a stub, which looks at the IP, at CS and at the epoch (not this address's:
+ lsr                       ; h_miss, and the second word). Bit 0: in the other bank of code
+ bcs :far
+ asl
+ pha
+ rts
+:far
+ asl
+ jmp st_far
 :cnt                       ; a count: the piece may be at the second word all the same
- sta tmp4
+ pha
  stx tmp5
  txa
  eor #$8000
@@ -1114,21 +1518,14 @@ jt_look
  lda >JIT_MAP,x
  cmp #$0100
  bcc :count
- tax
- tya
- cmp >JIT_RT+ST_IP+1,x
- bne :count
- lda rCS
- cmp >JIT_RT+ST_CS+1,x
- bne :count
- txa
- clc
- adc #ST_LF
- pha
- rts
+ jsr st_same
+ bcc :count
+ pla
+ lda #ST_LF
+ jmp st_go
 :count
  ldx tmp5
- lda tmp4
+ pla
 jl_cnt                     ; X = the word's place, A = the word: count there. (jSTEP at a time: four, so
  mx %00                    ; that an address translated code comes to is wanted at the fourth asking;
  cmp #M_STEP               ; one, sixteen askings, for a program that has filled the cache four times.)
@@ -1157,8 +1554,9 @@ jl_cnt                     ; X = the word's place, A = the word: count there. (j
  jsl jt_tr0
  ldy rIP
  bcc :not
- pha
- rts
+ sta tmp4                  ; (its word of the map: the stub less one, and the bank of code)
+ lda #0
+ jmp st_go
 :not
  rtl                       ; (A = 0, or 5 to 8)
 h_gx                       ; the guard ran out: the slot, then on from Y
@@ -1177,19 +1575,13 @@ h_miss
  tax
  lda >JIT_MAP,x
  cmp #$0100
- bcc jl_cnt
- tax
- tya
- cmp >JIT_RT+ST_IP+1,x
- bne :none
- lda rCS
- cmp >JIT_RT+ST_CS+1,x
- bne :none
- txa
- clc
- adc #ST_LF
- pha
- rts
+ bcs :stub
+ jmp jl_cnt
+:stub
+ jsr st_same
+ bcc :none
+ lda #ST_LF
+ jmp st_go
 :none                      ; both are others': the interpreter's
  lda >jt_nmiss
  inc
@@ -1225,7 +1617,7 @@ h_linkf
  lda #ST_LF+1
 lk_go
  mx %00
- sta jT
+ sta >lk_ofs
  tya
  clc
  adc rCS
@@ -1235,14 +1627,8 @@ lk_go
  lda >JIT_MAP,x
  cmp #$0100
  bcc :two
- sta tmp4
- tax
- tya
- cmp >JIT_RT+ST_IP+1,x
- bne :two
- lda rCS
- cmp >JIT_RT+ST_CS+1,x
- beq :ours
+ jsr st_same
+ bcs :ours
 :two                       ; (the address's second word)
  lda tmp5
  eor #$8000
@@ -1250,27 +1636,27 @@ lk_go
  lda >JIT_MAP,x
  cmp #$0100
  bcc :no
- sta tmp4
- tax
- tya
- cmp >JIT_RT+ST_IP+1,x
- bne :no
- lda rCS
- cmp >JIT_RT+ST_CS+1,x
- bne :no
+ jsr st_same
+ bcc :no
 :ours
+ lda tmp4                  ; in this bank of code the JSR becomes the JMP; a piece in the other is come to
+ eor rt_flag               ; by this way every time
+ lsr
+ bcs :cross
+ asl
+ sta tmp4
  pla                       ; the JSR's last byte
  dec
  dec
  tax
- lda tmp4
+ lda >lk_ofs
  clc
- adc jT
- sta >JIT_RT+1,x
+ adc tmp4
+ sta rt_start+1,x
  sep #$20
  mx %10
  lda #$4C
- sta >JIT_RT,x
+ sta rt_start,x
  rep #$20
  mx %00
  lda tmp4                  ; and into the piece (this once the guard is counted already)
@@ -1278,6 +1664,10 @@ lk_go
  adc #ST_LF
  pha
  rts
+:cross
+ pla
+ lda #ST_LF
+ jmp st_go
 :no
  pla
  jmp jt_look
@@ -1286,6 +1676,7 @@ lk_go
 * did for it (the STEP template left the place in jtmp)
 jt_resume
  mx %00
+ jsr sp_sync
  lda jtmp
  dec
  pha
@@ -1301,44 +1692,49 @@ h_verify
  lda >jt_nver
  inc
  sta >jt_nver
- stz pEA
- lda >JIT_RT+4,x
- sta pEA+2
- lda >JIT_RT+6,x
+ lda rt_start+4,x
+ sta pEA+2                 ; the guest's bank,
+ lda rt_me+2
+ sta pSTK+2                ; and the record's
+ lda rt_start+6,x
  sta tmp5
  txa
  clc
  adc #8
  tax
-:run
- lda >JIT_RT,x
- tay
- lda >JIT_RT+2,x
+:run                       ; a run: where it is in the guest's bank, its words, the words (never past
+ lda rt_start,x             ; the bank's end: sc_scan)
+ sta pEA
+ lda rt_start+2,x
+ asl
  sta tmp4
- inx
- inx
- inx
- inx
+ txa
+ clc
+ adc #4
+ sta pSTK
+ clc
+ adc tmp4
+ tax                       ; (the run after it)
+ ldy tmp4
+ dey
+ dey
 :l
  lda [pEA],y
- cmp >JIT_RT,x
+ cmp [pSTK],y
  bne :bad
- iny
- iny
- inx
- inx
- dec tmp4
- bne :l
+ dey
+ dey
+ bpl :l
  dec tmp5
  bne :run
  ldx jT
  lda jEP
- sta >JIT_RT,x
+ sta rt_start,x
  ply
  rts
 :bad
  ldx jT
- lda >JIT_RT+2,x
+ lda rt_start+2,x
  tax
  jsl stale0
  ply
@@ -1355,7 +1751,7 @@ h_bailr
  sec
  sbc #4
  tax
- lda >JIT_RT,x
+ lda rt_start,x
  tay
  lda #0
  rtl
@@ -1414,9 +1810,11 @@ pg_chk
  lsr                       ; (odd: code)
  bcs :yes
  lda pEA
- inc
  and #$00FF
- bne :no                   ; (the word is on one page)
+ clc
+ adc >sm_len
+ cmp #$0100
+ bcc :no                   ; (all of the store is on the one page)
  lda pEA+1
  inc
  and #$0FFF
@@ -1484,10 +1882,12 @@ cl_chk
  lda >cl_bits,x
  and #$00FF
  sta pSTK+2
- lda pEA                   ; (its second byte in the next sixteen: that one's bit too)
+ lda pEA                   ; (its last byte in the next sixteen: that one's bit too)
  and #$000F
- cmp #$000F
- bne :one
+ clc
+ adc >sm_len
+ cmp #$0010
+ bcc :one
  lda pSTK+2
  asl
  tsb pSTK+2
@@ -1497,12 +1897,27 @@ cl_chk
  and pSTK+2
  rts
 
-* h_smc - a store (pEA) into a bank this CS's code can be in. Onto a
-* page translated code was made from: the pieces it lands in are dead
-* (smc0), and when the running one is among them the interpreter does
-* the store.
-h_smc
+* h_smc - a store (pEA) onto a page translated code was made from, or
+* for a word or four bytes with such a page next (the pointer routines
+* come here by JMP, by the entry for the store's length: sm_len). The
+* pieces it lands in are dead (smc0), and when the running one is among
+* them the interpreter does the store. A byte in the byte before a
+* piece's code is beside it, not in it: a program's variable there
+* (Arkanoid's, before the routine that sets it) costs the piece nothing.
+h_smcb                     ; a byte
  mx %00
+ lda #0
+ bra h_smcx
+h_smcf                     ; four bytes
+ mx %00
+ lda #3
+ bra h_smcx
+h_smc                      ; a word
+ mx %00
+ lda #1
+h_smcx
+ mx %00
+ sta >sm_len
  jsr pg_chk
  bne :hit
  rts
@@ -1521,37 +1936,33 @@ h_smc
 :self
  jmp h_bailr
 
-* h_push - PUSH: A = the word. The bytes the word goes to are looked
-* up once (the page's flag, the sixteen's bit), and remembered by SS
-* and offset (jSPS, jSPO, jSPO2: two places; a new piece forgets them):
-* a whole 256 of offsets when no code is made from any of it, else the
-* sixteen (jSPM). While the stack stays there the store is through
-* SS's base, which is known to be low enough for that.
+* h_push - PUSH: A = the word. The offsets under SS that are known to
+* hold no translated code's bytes and to be plain memory are a range
+* (jSPO to jSPO2, the last one a word may begin at; FFFFh and FFFFh:
+* none): a word pushed inside it goes through SS's base with no more
+* asked. Outside it the bytes are looked up (the page's flag, the
+* sixteen's bit), and when no code is made from the two pages that the
+* 256 of offsets lies on, the 256 is the range, or is added to the range
+* when it lies next to it; else the sixteen is. The range is this SS's
+* (sp_sync, wherever SS may have changed), and a new piece forgets it
+* (pg_mark).
 h_push
  mx %00
- tax
  ldy rSP
  dey
  dey
- lda rSS
- cmp jSPS
- bne :look
- tya
- eor jSPO
- and jSPM
- beq :ok
- tya
- eor jSPO2
- and jSPM
- bne :look
-:ok
+ cpy jSPO
+ bcc :look
+ cpy jSPO2
+ bcs :look
  sty rSP
- txa
  sta [bSS],y
  rts
 :look
- stx tmp4
+ sta tmp4
  sty tmp5
+ lda #1
+ sta >sm_len
  cpy #$FFFF                ; (the word would lie across the segment's end)
  beq :bail
  tya
@@ -1579,11 +1990,8 @@ h_push
 :bail                      ; (a push into the running piece's own code, or to where the interpreter must look)
  jmp h_bailr
 :clean
- lda tmp5                  ; remembered, when the store through SS's base is right for it: an even
- lsr                       ; offset, below the video memory
- bcs :store
- lda pEA+2
- cmp #^H_HIGH9
+ lda pEA+2                 ; remembered, when the store through SS's base is right for it: below the
+ cmp #^H_HIGH9             ; video memory
  bcs :store
  lda tmp5                  ; the 256 of offsets the word is in: on two pages of memory. A sixteen
  and #$FF00                ; of code on either?
@@ -1603,32 +2011,41 @@ h_push
  tax
  lda >cl_map,x
  ora >cl_map+2,x
- beq :wide
- lda #$FFF1
- bra :key
-:wide
- lda #$FF01
-:key
+ bne :cell
+ lda tmp5                  ; none: the 256, from its first offset to its last
+ and #$FF00
+ sta pSTK
+ ora #$00FF
  sta pSTK+2
- cmp jSPM
- bne :other
- lda rSS
- cmp jSPS
- beq :same
-:other                     ; (another SS, or another width: the second place is nothing's)
- lda #$FFFF
- sta jSPO
- lda rSS
- sta jSPS
- lda pSTK+2
- sta jSPM
-:same
- lda jSPO
+ lda jSPO2
+ inc
+ beq :new                  ; (no range, or one with nothing above it)
+ cmp pSTK
+ bne :below
+ lda pSTK+2                ; on top of the range
  sta jSPO2
+ bra :store
+:below
+ lda pSTK+2
+ inc
+ beq :new
+ cmp jSPO
+ bne :new
+ lda pSTK                  ; under it
+ sta jSPO
+ bra :store
+:new
+ lda pSTK
+ sta jSPO
+ lda pSTK+2
+ sta jSPO2
+ bra :store
+:cell                      ; the sixteen the word begins in, which was found to be no code's
  lda tmp5
- and jSPM
  and #$FFF0
  sta jSPO
+ ora #$000F
+ sta jSPO2
 :store
  lda tmp5
  sta rSP
@@ -1636,16 +2053,38 @@ h_push
  sta [pEA]
  rts
 
+* sp_sync - translated code is about to run, or has loaded SS: the
+* range h_push keeps is this SS's or none, and jSPM says whether SS's
+* base is low enough for a pop to read through it (FFFFh: every offset
+* but the last; 0: none). Keeps X and Y.
+sp_sync
+ mx %00
+ phk                       ; (and the data bank is this one from here on: the routines and the pieces reach
+ plb                       ; what is theirs in it by its own addresses, whichever bank of code they are in)
+ lda bSS+2
+ cmp #^H_HIGH9
+ lda #$FFFF
+ bcc :low
+ lda #0
+:low
+ sta jSPM
+ lda rSS
+ cmp jSPS
+ beq :same
+ sta jSPS
+ lda #$FFFF
+ sta jSPO
+ sta jSPO2
+:same
+ rts
+
 * h_pop - POP: A = the word. (pEA is kept: POP to memory has its
 * operand's pointer there.)
 h_pop
  mx %00
- lda bSS+2
- cmp #^H_HIGH9
- bcs :slow
  ldy rSP
- cpy #$FFFF
- beq :slow
+ cpy jSPM
+ bcs :slow
  lda [bSS],y
  iny
  iny
@@ -1681,11 +2120,10 @@ h_pop
 * interpreter's, which writes nothing doing it.
 h_retf
  mx %00
- lda bSS+2
- cmp #^H_HIGH9
- bcs :far
  ldy rSP
  cpy #$FFFD
+ bcs :far
+ cpy jSPM
  bcs :far
  iny
  iny
@@ -1707,7 +2145,7 @@ h_retf
  sec
  sbc #4
  tax
- lda >JIT_RT,x
+ lda rt_start,x
  tay
  lda #7
  rtl

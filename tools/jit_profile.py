@@ -194,6 +194,207 @@ end
 """
 
 
+# ---- count: how often, not how long. Taps where the sampler has a clock: the first byte of each of the
+# translator's run-time routines as the 65816 fetches it (a call), every store of the lazy flags (vLP) with
+# where it was made and whether anything read the flags before the next one, and every stub put in the map
+# from the start of the run (a piece made, and for which address).
+LUA_CTOP = r"""
+local XC = {from=@FROM@, to=@TO@, on=false, done=false, c={}, fj=0, fo=0, dead=0, used=0, pj=false, rd=false,
+            mk={}, made=0, mwin=0, mapon=false, f0=0, f1=0}
+local xcpu = manager.machine.devices[":maincpu"]
+local xsp = xcpu.spaces["program"]
+local xPB, xPC = xcpu.state["PB"], xcpu.state["PC"]
+local XR = {@ROUT@}
+local xtaps = {}
+local function xmap()
+    local mp = at(@MAP@)
+    if mp == nil then return end
+    XC.mapon = true
+    XC.xm = xsp:install_write_tap(mp, mp + 0xFFFF, "xmap", function(o, d, m)
+        if (o & 1) == 1 and (d & 0xFF) >= 2 then
+            local k = (o - mp) >> 1
+            XC.mk[k] = (XC.mk[k] or 0) + 1
+            XC.made = XC.made + 1
+            if XC.on then XC.mwin = XC.mwin + 1 end
+        end
+    end)
+end
+local function xon()
+    for i, a0 in ipairs(XR) do
+        local a = at(a0)
+        XC.c[i] = 0
+        xtaps[#xtaps + 1] = xsp:install_read_tap(a, a, "xc" .. i, function(o, d, m) XC.c[i] = XC.c[i] + 1 end)
+        if (a0 >> 16) == 7 then                             -- (and its copy in the second bank of code)
+            local b = a + 0x20000
+            xtaps[#xtaps + 1] = xsp:install_read_tap(b, b, "xd" .. i, function(o, d, m) XC.c[i] = XC.c[i] + 1 end)
+        end
+    end
+    local dp = at(0x001000)
+    local lo = at(@CACHE@)
+    local hi = lo | 0xFFFF
+    xtaps[#xtaps + 1] = xsp:install_write_tap(dp + @VLP@, dp + @VLP@, "xlp", function(o, d, m)
+        if XC.pj then
+            if XC.rd then XC.used = XC.used + 1 else XC.dead = XC.dead + 1 end
+        end
+        local pc = ((xPB.value << 16) | xPC.value) & 0xFFFFFF
+        if (pc >= lo and pc <= hi) or (pc >= lo + 0x20000 and pc <= hi + 0x20000) then
+            XC.pj = true
+            XC.fj = XC.fj + 1
+        else
+            XC.pj = false
+            XC.fo = XC.fo + 1
+        end
+        XC.rd = false
+    end)
+    xtaps[#xtaps + 1] = xsp:install_read_tap(dp + @VLP@, dp + @VLP@ + 3, "xlr", function(o, d, m) XC.rd = true end)
+    local jp = at(@JRPLAIN@)
+    if jp ~= 0 then                                         -- the interpreter given the run: why (X, twice), where (Y), under which CS
+        XC.pl = {}
+        xtaps[#xtaps + 1] = xsp:install_read_tap(jp, jp, "xjp", function(o, d, m)
+            local k = (xcpu.state["X"].value << 32) | (xsp:read_u16(dp + 0x12) << 16) | xcpu.state["Y"].value
+            XC.pl[k] = (XC.pl[k] or 0) + 1
+            XC.free, XC.wrote, XC.fn = true, false, 0
+        end)
+        -- and what it wrote while it had the run: did any of it land on a page translated code was made from
+        -- (pg_map)? That is what watching its stores would know, and the epoch would then go on for those alone.
+        local pg, gb, je = at(@PGMAP@), at(0x200000), at(@JTENTER@)
+        XC.runs, XC.dirty, XC.fins = 0, 0, 0
+        xtaps[#xtaps + 1] = xsp:install_write_tap(gb, gb + 0xFFFFF, "xfw", function(o, d, m)
+            if XC.free and not XC.wrote and (xsp:read_u8(pg + ((o - gb) >> 8)) & 1) == 1 then XC.wrote = true end
+        end)
+        xtaps[#xtaps + 1] = xsp:install_read_tap(dp + 0x20, dp + 0x20, "xfi", function(o, d, m)
+            if XC.free then XC.fn = XC.fn + 1 end
+        end)
+        xtaps[#xtaps + 1] = xsp:install_read_tap(je, je, "xje", function(o, d, m)
+            if XC.free then
+                XC.runs = XC.runs + 1
+                XC.fins = XC.fins + XC.fn
+                if XC.wrote then XC.dirty = XC.dirty + 1 end
+                XC.free = false
+            end
+        end)
+    end
+    XC.on, XC.f0 = true, frame
+end
+local function xoff()
+    for _, t in ipairs(xtaps) do t:remove() end
+    XC.f1 = frame
+    XC.on, XC.done = false, true
+end
+xreport = function()
+    if XC.on then xoff() end
+    print(string.format("MAMERUN-X N %d %d %d %d %d %d", XC.f0, XC.f1, XC.fj, XC.fo, XC.dead, XC.used))
+    for i, n in ipairs(XC.c) do print(string.format("MAMERUN-X K %d %d", i, n)) end
+    local u, again, h = 0, 0, {}
+    for k, n in pairs(XC.mk) do
+        u = u + 1
+        if n > 1 then again = again + 1 end
+        local b = n > 8 and 9 or n
+        h[b] = (h[b] or 0) + 1
+    end
+    print(string.format("MAMERUN-X M %d %d %d %d", XC.made, u, again, XC.mwin))
+    for b = 1, 9 do print(string.format("MAMERUN-X H %d %d", b, h[b] or 0)) end
+    for k, n in pairs(XC.pl or {}) do print(string.format("MAMERUN-X P %x %d", k, n)) end
+    if XC.runs then print(string.format("MAMERUN-X R %d %d %d", XC.runs, XC.dirty, XC.fins)) end
+end
+"""
+LUA_CTAIL = r"""
+while true do
+    emu.wait(0.05)
+    if not XC.mapon then xmap() end
+    if not XC.on and not XC.done and frame >= XC.from then xon() end
+    if XC.on and frame >= XC.to then xoff() end
+end
+"""
+
+
+def count(name, w, args):
+    """count NAME: the workload with the translator, counted (above); kept in build/jitprof/jit/NAME.count."""
+    import json
+    import mamerun
+    import symbols
+    work = os.path.join(WORK, "jit")
+    os.makedirs(work, exist_ok=True)
+    syms = symbols.read(os.path.join(ROOT, "build", "xtgs.lst"))
+    jit = symbols.read(os.path.join(ROOT, "build", "jit.lst"))
+    f0, f1 = (args.frm, args.to) if args.frm else w["window"]
+    names = ["jt_enter", "jt_enter_b", "jt_enter_s", "jt_enter_n", "jt_enter_r", "h_disp", "jt_look", "h_linkb",
+             "h_linkf", "h_verify", "h_bailr", "h_hi", "pg_chk", "pg_dead", "cl_chk", "h_smc", "h_push", "h_pop",
+             "h_retf", "smc0", "stale0", "give0", "jt_tr0", "jt_flush", "kill"]
+    names += sorted(n for n in jit if n.startswith("ea_") and len(n) == 8 and n[5] == "_")
+    names += ["jl_cnt", "h_miss", "h_gx"]
+    names = [n for n in names if n in jit]
+    core = symbols.read(os.path.join(ROOT, "build", "core.lst"))
+    cnames = [n for n in ("jr_plain", "jr_guard", "jr_step", "jr_any", "jr_stack", "jr_pure", "jr_str", "jit_bk", "jit_hook",
+                          "jh_bump", "jh_back", "jit_slotret") if n in core]
+    for n in cnames:                                        # (the core's side of the ways out, counted the same way)
+        jit["core:" + n] = core[n]
+    names += ["core:" + n for n in cnames]
+    copy = os.path.join(work, "run-%d.po" % os.getpid())
+    shutil.copyfile(os.path.join(ROOT, "build", "boot", w["image"]), copy)
+    refresh(copy, True)
+    sub = {"@FROM@": str(f0), "@TO@": str(f1), "@ROUT@": ",".join(str(jit[n]) for n in names),
+           "@MAP@": str((jit["jt_cache"] & 0xFF0000) + 0x10000), "@CACHE@": str(jit["jt_cache"]), "@VLP@": "0x4C",
+           "@JRPLAIN@": str(core.get("jr_plain", 0)), "@PGMAP@": str(jit.get("pg_map", 0)),
+           "@JTENTER@": str(jit.get("jt_enter", 0))}
+    top, tail = LUA_CTOP, LUA_CTAIL
+    for k, v in sub.items():
+        top, tail = top.replace(k, v), tail.replace(k, v)
+    try:
+        r = mamerun.run(copy, waits=[(syms["mb_magic"], 0x5A5A)], dumps=[("jstats", jit["jt_stats"], 20)],
+                        seconds=(f1 + 30) / 60.0, settle=5, zip=not args.stock, inputs=inputs_for(w),
+                        extra={"top": top, "tail": tail}, timeout=7200)
+    finally:
+        os.remove(copy)
+    out = dict(name=name, calls={}, hist={})
+    for line in r.get("extra", []):
+        t = line.split()
+        if t[0] == "N":
+            out["window"] = (int(t[1]), int(t[2]))
+            out["flags"] = dict(translated=int(t[3]), other=int(t[4]), dead=int(t[5]), used=int(t[6]))
+        elif t[0] == "K":
+            out["calls"][names[int(t[1]) - 1]] = int(t[2])
+        elif t[0] == "M":
+            out["pieces"] = dict(made=int(t[1]), addresses=int(t[2]), again=int(t[3]), in_window=int(t[4]))
+        elif t[0] == "H":
+            out["hist"][t[1]] = int(t[2])
+        elif t[0] == "P":
+            out.setdefault("plain", {})[t[1]] = int(t[2])
+        elif t[0] == "R":
+            out["freeruns"] = dict(runs=int(t[1]), wrote_code_page=int(t[2]), fetches=int(t[3]))
+    if "window" not in out:
+        sys.exit("no counts came back: " + r["status"])
+    # a read's entry for a word or four bytes goes on into the byte's: what is the byte's own
+    for n in list(out["calls"]):
+        if n.startswith("ea_") and n.endswith("rb"):
+            out["calls"][n] -= out["calls"].get(n[:-1] + "w", 0) + out["calls"].get(n[:-1] + "f", 0)
+    out["hz"] = STOCK_HZ if args.stock else ZIP_HZ
+    with open(os.path.join(work, name + ".count"), "w") as f:
+        json.dump(out, f, indent=1)
+    secs = (out["window"][1] - out["window"][0]) / 60.0
+    print("%s, frames %d-%d (%.1f s): a second" % (name, *out["window"], secs))
+    for n, c in sorted(out["calls"].items(), key=lambda x: -x[1]):
+        if c:
+            print("  %-12s %9.0f" % (n, c / secs))
+    fl = out["flags"]
+    print("  the lazy flags stored by translated code %.0f a second; nothing read them before the next store %.1f%% of "
+          "the time; stored by the interpreter and the routines %.0f" %
+          (fl["translated"] / secs, 100.0 * fl["dead"] / max(fl["dead"] + fl["used"], 1), fl["other"] / secs))
+    pc = out["pieces"]
+    print("  pieces made since the run began %d, for %d addresses (%d of them more than once); %d in the window" %
+          (pc["made"], pc["addresses"], pc["again"], pc["in_window"]))
+    print("  made once, twice, ...: " + " ".join("%s:%d" % (k, out["hist"][k]) for k in sorted(out["hist"])))
+    fr = out.get("freeruns")
+    if fr and fr["runs"]:
+        print("  the interpreter's runs by itself that ended back in translated code: %.0f a second, %.0f instructions "
+              "each; in %.1f%% of them a store landed on a page translated code was made from" %
+              (fr["runs"] / secs, fr["fetches"] / fr["runs"], 100.0 * fr["wrote_code_page"] / fr["runs"]))
+    pl = sorted(((n, int(k, 16)) for k, n in out.get("plain", {}).items()), reverse=True)
+    if pl:
+        print("  the interpreter given the run (why, CS:IP, times a second): " +
+              ", ".join("%d %04X:%04X %.1f" % ((k >> 33) & 0x7FFF, (k >> 16) & 0xFFFF, k & 0xFFFF, n / secs) for n, k in pl[:14]))
+
+
 def refresh(image, jit):
     """The copy of a workload's volume gets this build's XTGS.SYSTEM, CORE and SVC (the listings the
     report reads are this build's), and for a run with the translator the file JIT and the line JIT=ON."""
@@ -270,6 +471,8 @@ def collect(name, w, args):
             dumps.append(("jeslot", jit["e_slot"], 1000))
         if "jt_rej" in jit:
             dumps.append(("jrej", jit["jt_rej"], 384))
+        if "jt_kil" in jit:
+            dumps.append(("jkil", jit["jt_kil"], 256))
         if "jit_pl" in core:
             dumps.append(("cpl", core["jit_pl"], 384))
         if "jit_dbg" in core:
@@ -322,6 +525,7 @@ def collect(name, w, args):
                 jdbg=bytes.fromhex(r["dumps"]["jdbg"]["hex"]) if "jdbg" in r["dumps"] else b"",
                 cdbg=bytes.fromhex(r["dumps"]["cdbg"]["hex"]) if "cdbg" in r["dumps"] else b"",
                 jrej=bytes.fromhex(r["dumps"]["jrej"]["hex"]) if "jrej" in r["dumps"] else b"",
+                jkil=bytes.fromhex(r["dumps"]["jkil"]["hex"]) if "jkil" in r["dumps"] else b"",
                 jbes=bytes.fromhex(r["dumps"]["jbes"]["hex"]) if "jbes" in r["dumps"] else b"",
                 cpl=bytes.fromhex(r["dumps"]["cpl"]["hex"]) if "cpl" in r["dumps"] else b"",
                 mode=bytes.fromhex(r["dumps"]["bda"]["hex"])[0x49])
@@ -483,6 +687,14 @@ def report(name, args, quiet=False):
             rj = [(w(i + 2), w(i), w(i + 4)) for i in range(0, len(g), 6) if w(i + 4)]
             P("  the last refusals (CS:IP why; 1 the scan, 2 a page of data and code, 3 no room): " +
               ", ".join("%04X:%04X %d" % t for t in rj[:40]))
+        g = d.get("jkil") or b""
+        if g:
+            w = lambda i: g[i] | g[i + 1] << 8  # noqa: E731
+            kl = Counter((w(i + 2), w(i), w(i + 4) & 0xFF, ((w(i + 4) >> 8) & 0x0F) << 16 | w(i + 6))
+                         for i in range(0, len(g), 8) if w(i + 4) & 0xFF)
+            P("  the last pieces to die (CS:IP, why: 1 a store into its bytes, 2 its page became one of data and code, "
+              "3 found changed, 4 the EGA's planes; where the store was; times among the last 32): " +
+              ", ".join("%04X:%04X %d %05X %d" % (c, i, y, a, n) for (c, i, y, a), n in kl.most_common(20)))
         g = d.get("cdbg") or b""
         if g:
             w = lambda i: g[i] | g[i + 1] << 8  # noqa: E731
@@ -505,6 +717,8 @@ def report(name, args, quiet=False):
     oth_k = Counter()
     for (a, k), n in samp.items():
         bank = a >> 16
+        if bank == 0x09 and jl:                              # (the second bank of code: the same routines, and more pieces)
+            a, bank = a - 0x020000, 0x07
         if bank == 0x03:
             r = core.find(a)
             if r in SLOTNAMES:
@@ -1002,7 +1216,7 @@ def summary(args):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["list", "collect", "report", "look", "summary", "compare"])
+    ap.add_argument("cmd", choices=["list", "collect", "report", "look", "summary", "compare", "count"])
     ap.add_argument("name", nargs="?")
     ap.add_argument("frames", nargs="*", type=int)
     ap.add_argument("--from", dest="frm", type=int)
@@ -1031,6 +1245,8 @@ def main():
     if args.cmd == "compare":
         return compare(args)
     w = WORKLOADS[args.name]
+    if args.cmd == "count":
+        return count(args.name, w, args)
     if args.cmd == "look":
         if not args.frames:
             sys.exit("look NAME FRAME...")

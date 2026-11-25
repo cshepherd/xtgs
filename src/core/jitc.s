@@ -40,6 +40,8 @@
 jit_on     dw 0              ; nonzero: the translator is used in this run
 jit_sv     ds 6              ; vNEXT, vnext0 and CS, kept over an instruction
 jit_after  dw 0              ; what jit_hook does: 0 back into the piece, 2 4 6 jt_enter and its kin
+jit_cb     dw 0              ; what translated code last came back with,
+jit_sb     dw 0              ; and which bank of code a piece that is to be gone on with is in (0, 1)
 jit_pli    dw 0
 jit_pl     ds 384
 jit_dbgi   dw 0
@@ -92,9 +94,19 @@ jit_bk                     ; a jump back was taken, to Y
 :go
  lda #JIT_GUARD
  sta jG
- jsl JIT_RT                ; jt_enter
-jit_ret                    ; A = why, Y = the IP
+ lda vNEXT                 ; the jump was the one instruction the interpreter was given (the hook is
+ cmp #jit_hook             ; waiting still): a jump writes nothing, and nothing else has run
+ bne :ran
+ jsl JIT_RT+6              ; jt_enter_n
+ bra jit_ret
+:ran
+ jsl JIT_RT                ; jt_enter: the interpreter has run by itself, and may have written anywhere
+jit_ret                    ; A = why (and above it, for 3, which bank of code), Y = the IP
  mx %00
+ phk                       ; (translated code's data bank is its own: jit.s)
+ plb
+ sta jit_cb
+ and #$00FF
  asl
  tax
  jmp (jr_tab,x)
@@ -156,6 +168,10 @@ jit_slotret                ; Y = the IP now (an interrupt's handler, when one wa
  jmp jit_ret
 jr_step
  mx %00
+ lda jit_cb                ; (the step's way out says which bank of code its piece is in: 0 or 1, above the 3)
+ xba
+ and #$00FF
+ sta jit_sb
  lda rCS
  sta jit_sv+4
  lda jEP
@@ -281,7 +297,12 @@ jh_back
  lda jEP
  cmp jSV
  bne jh_bump
+ lda jit_sb                ; (the piece's bank of code: each has the routines)
+ bne :second
  jsl JIT_RT+9              ; jt_resume
+ jmp jit_ret
+:second
+ jsl JIT_RT2+9
  jmp jit_ret
 jh_any
  mx %00

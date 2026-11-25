@@ -75,6 +75,7 @@ CORE_BASE   = CORE_BANK*$10000
 JIT_BASE    = JIT_BANK*$10000        ; the translator's image (src/jit): +0 a PC starts
 JIT_RT      = JIT_BASE+$10000        ; its run-time routines (entries at +0, +3, +6, +9) and the code it makes
 JIT_MAP     = JIT_BASE+$20000        ; a word for a guest IP (jit_bk in the core)
+JIT_RT2     = JIT_BASE+$30000        ; the same routines again, and the code made when JIT_RT's bank is full
 SVC_BASE    = SVC_BANK*$10000
 RES_BASE    = RES_BANK*$10000        ; harness results / trace ring
 GUEST_BASE  = GUEST_BANK*$10000      ; guest physical memory: 1 MiB, 1 MiB-aligned

@@ -2317,7 +2317,7 @@ msg_pages  asc 'PAGES',00
 * for, its size in banks (the data region's is set from the
 * file), and the mask its first bank must be clear of.
 rg_asm     dw CORE_BANK,SVC_BANK,RES_BANK,JIT_BANK,GUEST_BANK,DATA_BANK,DISK_BANK
-rg_banks   dw 1,1,1,3,16,0,DISK_BANKS
+rg_banks   dw 1,1,1,4,16,0,DISK_BANKS
 rg_align   dw 0,0,0,0,$000F,0,0
  err rg_banks-rg_asm-RG_BANKS-RG_BANKS
  err rg_align-rg_banks-RG_BANKS-RG_BANKS

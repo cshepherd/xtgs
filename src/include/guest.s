@@ -123,10 +123,10 @@ jEP        = pEMIT+2         ; $CA  the epoch: goes on whenever translated code 
 jT         = jEntry          ; $CC  scratch
 jSV        = pMAP            ; $CE  the epoch before an instruction the interpreter did for a loop
 jCLN       = pMAP+2          ; $D0  SVC: the hypercall it has just done wrote no memory but the BIOS's data and the stack
-jSPS       = jPrevFlag       ; $DA  h_push: the SS, and the two sixteens of offsets under it, that are known to
-jSPO       = pENTER          ; $DC  hold no translated code's bytes and to be plain memory (an odd value: none)
-jSPO2      = pENTER+2        ; $DE
-jSPM       = jLIN            ; $D2  and which bits of the offset say so: FF01 a whole 256 of them, FFF1 a sixteen
+jSPS       = jPrevFlag       ; $DA  h_push: the SS, and the range of offsets under it that are known to hold no
+jSPO       = pENTER          ; $DC  translated code's bytes and to be plain memory: its first, and the last a word
+jSPO2      = pENTER+2        ; $DE  may begin at (FFFFh and FFFFh: none; sp_sync keeps it this SS's)
+jSPM       = jLIN            ; $D2  h_pop: FFFFh while SS's base is low enough to read through, 0 when it is not (sp_sync)
 jSTEP      = jLIN+2          ; $D4  what an asking adds to an address's count (16: a piece is made)
 JIT_GUARD  = 24
 

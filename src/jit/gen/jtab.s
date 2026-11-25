@@ -31,44 +31,45 @@ TS_SREG = 8
 TS_FAR = 16
 TS_CIN = 32
 TS_CINV = 64
-TP_W8 = 457
-TP_W16 = 458
-TP_LINKF = 459
-TP_LINKB = 460
-TP_JMP = 461
-TP_GUARD = 462
-TP_STEP = 463
-TP_X0 = 464
-TP_X5 = 465
-TP_X6 = 466
-TP_X7 = 467
-TP_CALL = 470
-TP_CIN = 363
-TP_CINV = 364
-TP_CFLIP = 365
-TP_EA_Y = 382
-TP_FETCH_B = 383
-TP_FETCH_W = 384
-TP_FETCH_BD = 385
-TP_FETCH_WD = 386
-TP_LOOP = 455
-TP_JCXZ = 456
-TP_LODS_B = 387
-TP_LODS_W = 388
-TP_STOS_B = 389
-TP_STOS_W = 390
-TP_MOVS_LD_B = 391
-TP_MOVS_LD_W = 392
-TP_MOVS_ST_B = 393
-TP_MOVS_ST_W = 394
-TP_ADV_SI1 = 395
-TP_ADV_SI2 = 396
-TP_ADV_DI1 = 397
-TP_ADV_DI2 = 398
+TP_W8 = 458
+TP_W16 = 459
+TP_LINKF = 460
+TP_LINKB = 461
+TP_JMP = 462
+TP_GUARD = 463
+TP_STEP = 464
+TP_X0 = 465
+TP_X5 = 466
+TP_X6 = 467
+TP_X7 = 468
+TP_CALL = 471
+TP_CIN = 364
+TP_CINV = 365
+TP_CFLIP = 366
+TP_EA_Y = 383
+TP_FETCH_B = 384
+TP_FETCH_W = 385
+TP_FETCH_BD = 386
+TP_FETCH_WD = 387
+TP_LOOP = 456
+TP_JCXZ = 457
+TP_LODS_B = 388
+TP_LODS_W = 389
+TP_STOS_B = 390
+TP_STOS_W = 391
+TP_MOVS_LD_B = 392
+TP_MOVS_LD_W = 393
+TP_MOVS_ST_B = 394
+TP_MOVS_ST_W = 395
+TP_ADV_SI1 = 396
+TP_ADV_SI2 = 397
+TP_ADV_DI1 = 398
+TP_ADV_DI2 = 399
+TP_SPSYNC = 363
 JF_ALWAYS = $FFFF
 JF_NEVER = $FFFE
-TP_COUNT = 478
-TP_STEP_LEN = 17
+TP_COUNT = 479
+TP_STEP_LEN = 21
 SET_MOV_SR = 101
 
 sl_size dfb $00,$01,$01,$01,$02,$02,$01,$01,$02,$02,$02,$02,$01,$02,$02
@@ -400,20 +401,20 @@ ts_tab                     ; flags, class; then words: register form, with flags
  dfb $04,$00
  dw 351,351,352,352
 one_tab                    ; K_ONE's templates (0: nothing)
- dw 0,356,358,359,361,357,360,362,355,353,354,472,471,473,476,474,475,477,478
+ dw 0,356,358,359,361,357,360,362,355,353,354,473,472,474,477,475,476,478,479
 eo_tab                     ; the offset's template: r/m, then r/m with a displacement
- dw 366,367,368,369,370,371,372,373,374,375,376,377,378,379,380,381
+ dw 367,368,369,370,371,372,373,374,375,376,377,378,379,380,381,382
 ea_seg                     ; and the segment base it is from, when no prefix says
  dfb $28,$28,$24,$24,$28,$28,$24,$28
 jf_tab                     ; a jump on native flags: class 1-6, sixteen conditions each
- dw 399,400,401,402,403,404,405,406,407,408,0,0,409,410,411,412
- dw 413,414,415,416,417,418,419,420,421,422,0,0,423,424,425,426
- dw 65534,65535,65534,65535,427,428,429,430,431,432,0,0,433,434,435,436
- dw 0,0,0,0,437,438,0,0,439,440,0,0,0,0,0,0
- dw 0,0,415,416,417,418,419,420,421,422,0,0,0,0,0,0
- dw 0,0,415,416,0,0,0,0,0,0,0,0,0,0,0,0
+ dw 400,401,402,403,404,405,406,407,408,409,0,0,410,411,412,413
+ dw 414,415,416,417,418,419,420,421,422,423,0,0,424,425,426,427
+ dw 65534,65535,65534,65535,428,429,430,431,432,433,0,0,434,435,436,437
+ dw 0,0,0,0,438,439,0,0,440,441,0,0,0,0,0,0
+ dw 0,0,416,417,418,419,420,421,422,423,0,0,0,0,0,0
+ dw 0,0,416,417,0,0,0,0,0,0,0,0,0,0,0,0
 jg_tab                     ; and on the lazy ones
- dw 441,442,443,444,445,446,447,448,449,450,0,0,451,452,453,454
+ dw 442,443,444,445,446,447,448,449,450,451,0,0,452,453,454,455
 tp_tab
  da tp_add_rm_r_w_rr,tp_add_rm_r_w_rrf,tp_add_rm_r_w_m,tp_add_rm_r_w_mf,tp_add_r_rm_w_rr,tp_add_r_rm_w_rrf,tp_add_r_rm_w_m,tp_add_r_rm_w_mf
  da tp_add_rm_i_w_rr,tp_add_rm_i_w_rrf,tp_add_rm_i_w_m,tp_add_rm_i_w_mf,tp_or_rm_r_w_rr,tp_or_rm_r_w_rrf,tp_or_rm_r_w_m,tp_or_rm_r_w_mf
@@ -460,21 +461,21 @@ tp_tab
  da tp_lea_m,tp_push_r_rr,tp_pop_r_rr,tp_push_rm_m,tp_pop_rm_rr,tp_pop_rm_m,tp_mov_sr_rm_rr,tp_mov_sr_rm_m
  da tp_mov_rm_sr_rr,tp_mov_rm_sr_m,tp_les_m,tp_lds_m,tp_jmp_ind_rr,tp_jmp_ind_m,tp_call_ind_rr,tp_call_ind_m
  da tp_cbw,tp_cwd,tp_xchg_ax,tp_push_es,tp_pop_es,tp_push_cs,tp_push_ss,tp_pop_ss
- da tp_push_ds,tp_pop_ds,tp_cin,tp_cinv,tp_cflip,tp_eo_0,tp_eo_1,tp_eo_2
- da tp_eo_3,tp_eo_4,tp_eo_5,tp_eo_d16,tp_eo_7,tp_eo_0d,tp_eo_1d,tp_eo_2d
- da tp_eo_3d,tp_eo_4d,tp_eo_5d,tp_eo_6d,tp_eo_7d,tp_ea_y,tp_fetch_b,tp_fetch_w
- da tp_fetch_bd,tp_fetch_wd,tp_lods_b,tp_lods_w,tp_stos_b,tp_stos_w,tp_movs_ld_b,tp_movs_ld_w
- da tp_movs_st_b,tp_movs_st_w,tp_adv_si1,tp_adv_si2,tp_adv_di1,tp_adv_di2,tp_jf_sub_0,tp_jf_sub_1
- da tp_jf_sub_2,tp_jf_sub_3,tp_jf_sub_4,tp_jf_sub_5,tp_jf_sub_6,tp_jf_sub_7,tp_jf_sub_8,tp_jf_sub_9
- da tp_jf_sub_12,tp_jf_sub_13,tp_jf_sub_14,tp_jf_sub_15,tp_jf_add_0,tp_jf_add_1,tp_jf_add_2,tp_jf_add_3
- da tp_jf_add_4,tp_jf_add_5,tp_jf_add_6,tp_jf_add_7,tp_jf_add_8,tp_jf_add_9,tp_jf_add_12,tp_jf_add_13
- da tp_jf_add_14,tp_jf_add_15,tp_jf_log_4,tp_jf_log_5,tp_jf_log_6,tp_jf_log_7,tp_jf_log_8,tp_jf_log_9
- da tp_jf_log_12,tp_jf_log_13,tp_jf_log_14,tp_jf_log_15,tp_jf_incdec_4,tp_jf_incdec_5,tp_jf_incdec_8,tp_jf_incdec_9
- da tp_jg_0,tp_jg_1,tp_jg_2,tp_jg_3,tp_jg_4,tp_jg_5,tp_jg_6,tp_jg_7
- da tp_jg_8,tp_jg_9,tp_jg_12,tp_jg_13,tp_jg_14,tp_jg_15,tp_loop,tp_jcxz
- da tp_w8,tp_w16,tp_linkf,tp_linkb,tp_jmp,tp_guard,tp_step,tp_x0
- da tp_x5,tp_x6,tp_x7,tp_x8,tp_x9,tp_call,tp_ret,tp_retn
- da tp_retf,tp_clc,tp_stc,tp_cmc,tp_cld,tp_std
+ da tp_push_ds,tp_pop_ds,tp_spsync,tp_cin,tp_cinv,tp_cflip,tp_eo_0,tp_eo_1
+ da tp_eo_2,tp_eo_3,tp_eo_4,tp_eo_5,tp_eo_d16,tp_eo_7,tp_eo_0d,tp_eo_1d
+ da tp_eo_2d,tp_eo_3d,tp_eo_4d,tp_eo_5d,tp_eo_6d,tp_eo_7d,tp_ea_y,tp_fetch_b
+ da tp_fetch_w,tp_fetch_bd,tp_fetch_wd,tp_lods_b,tp_lods_w,tp_stos_b,tp_stos_w,tp_movs_ld_b
+ da tp_movs_ld_w,tp_movs_st_b,tp_movs_st_w,tp_adv_si1,tp_adv_si2,tp_adv_di1,tp_adv_di2,tp_jf_sub_0
+ da tp_jf_sub_1,tp_jf_sub_2,tp_jf_sub_3,tp_jf_sub_4,tp_jf_sub_5,tp_jf_sub_6,tp_jf_sub_7,tp_jf_sub_8
+ da tp_jf_sub_9,tp_jf_sub_12,tp_jf_sub_13,tp_jf_sub_14,tp_jf_sub_15,tp_jf_add_0,tp_jf_add_1,tp_jf_add_2
+ da tp_jf_add_3,tp_jf_add_4,tp_jf_add_5,tp_jf_add_6,tp_jf_add_7,tp_jf_add_8,tp_jf_add_9,tp_jf_add_12
+ da tp_jf_add_13,tp_jf_add_14,tp_jf_add_15,tp_jf_log_4,tp_jf_log_5,tp_jf_log_6,tp_jf_log_7,tp_jf_log_8
+ da tp_jf_log_9,tp_jf_log_12,tp_jf_log_13,tp_jf_log_14,tp_jf_log_15,tp_jf_incdec_4,tp_jf_incdec_5,tp_jf_incdec_8
+ da tp_jf_incdec_9,tp_jg_0,tp_jg_1,tp_jg_2,tp_jg_3,tp_jg_4,tp_jg_5,tp_jg_6
+ da tp_jg_7,tp_jg_8,tp_jg_9,tp_jg_12,tp_jg_13,tp_jg_14,tp_jg_15,tp_loop
+ da tp_jcxz,tp_w8,tp_w16,tp_linkf,tp_linkb,tp_jmp,tp_guard,tp_step
+ da tp_x0,tp_x5,tp_x6,tp_x7,tp_x8,tp_x9,tp_call,tp_ret
+ da tp_retn,tp_retf,tp_clc,tp_stc,tp_cmc,tp_cld,tp_std
 tp_add_rm_r_w_rr
  dfb $07,$03,$00
  dfb $A5,$00,$18,$65,$00,$85,$00
@@ -2084,9 +2085,9 @@ tp_push_ss
  dfb $A5,$14,$A0,$00,$00,$20,<h_push,>h_push
  dfb $03,$08
 tp_pop_ss
- dfb $1D,$01,$00
+ dfb $20,$01,$00
  dfb $A0,$00,$00,$20,<h_pop,>h_pop,$85,$14,$0A,$0A,$0A,$0A,$85,$24,$A5,$14
- dfb $EB,$4A,$4A,$4A,$4A,$29,$0F,$00,$09,<GUEST_BANK,>GUEST_BANK,$85,$26
+ dfb $EB,$4A,$4A,$4A,$4A,$29,$0F,$00,$09,<GUEST_BANK,>GUEST_BANK,$85,$26,$20,<sp_sync,>sp_sync
  dfb $01,$08
 tp_push_ds
  dfb $08,$01,$00
@@ -2097,6 +2098,9 @@ tp_pop_ds
  dfb $A0,$00,$00,$20,<h_pop,>h_pop,$85,$16,$0A,$0A,$0A,$0A,$85,$28,$A5,$16
  dfb $EB,$4A,$4A,$4A,$4A,$29,$0F,$00,$09,<GUEST_BANK,>GUEST_BANK,$85,$2A
  dfb $01,$08
+tp_spsync
+ dfb $03,$00,$00
+ dfb $20,<sp_sync,>sp_sync
 tp_cin
  dfb $03,$00,$00
  dfb $A5,$4C,$4A
@@ -2424,9 +2428,9 @@ tp_guard
  dfb $C6,$C8,$D0,$06,$A0,$00,$00,$4C,<h_gx,>h_gx
  dfb $05,$0B
 tp_step
- dfb $11,$03,$00
- dfb $A9,$00,$00,$85,$D8,$A9,$00,$00,$85,$D6,$A0,$00,$00,$A9,$03,$00
- dfb $6B
+ dfb $15,$03,$00
+ dfb $A9,$00,$00,$85,$D8,$A9,$00,$00,$85,$D6,$A0,$00,$00,$AD,<rt_flag,>rt_flag
+ dfb $EB,$09,$03,$00,$6B
  dfb $01,$09,$06,$0B,$0B,$08
 tp_x0
  dfb $07,$01,$00

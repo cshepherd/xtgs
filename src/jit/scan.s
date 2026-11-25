@@ -47,47 +47,51 @@ sc_t2      dw 0
 sc_cb      dw 0              ; the code's host bank
 sc_lo      dw 0              ; and its first byte and the one after its last, there
 sc_hi      dw 0
+sc_bc      dw 0              ; the carry from its IPs into that bank (0 or 1)
 
-* sc_scan - C set: the i_ tables hold a loop worth translating
-sc_scan
+* What the code a piece goes on to does with the flags (sc_ways, sc_look): for a jump or a call out of
+* the piece, and for where a piece goes on at an address that is not its next instruction, the flags that
+* are read from there on before they are written. sc_live takes that in place of "all of them", and an
+* instruction whose flags nobody reads stores none. What was looked at is the piece's as much as its own
+* code is: the stretches (la_s, la_e) are runs of its record (em_ver), their sixteens and pages are
+* marked, and a store into one kills the piece. smc0 asks of a piece where its bytes are by bounds, and
+* bounds that take in what lies between a piece and a far place it looked at would make all of that the
+* piece's (pages of data and code, pieces killed for nothing: it was tried). So a stretch must fit one of
+* three: the piece's own bounds when it is within SC_NEAR bytes of its code, or one of two more (bx_lo,
+* bx_hi; e_xlo and e_ylo) that hold what lies within 64 bytes; a look whose stretch fits none has learned
+* nothing.
+LA_N       = 10              ; instructions a look may take
+LA_R       = 8               ; stretches kept for a piece
+i_la       ds MAXI*2         ; an instruction's: the flags read where its jump or its call goes,
+i_lf       ds MAXI*2         ; and where it goes on, when that is not the next of these
+la_s       ds LA_R*2         ; a stretch looked at: its first IP,
+la_e       ds LA_R*2         ; and the IP after its last
+la_n       dw 0              ; how many, twice
+la_n0      dw 0
+la_ip      dw 0
+la_st      dw 0              ; where the stretch in hand begins
+la_live    dw 0              ; the flags found read
+la_pend    dw 0              ; the flags not written yet
+la_left    dw 0
+la_x       dw 0
+la_t       dw 0
+la_t2      dw 0
+la_lo      dw 0              ; the stretch in hand in the piece's bank: its first byte, the byte after its last
+la_hi      dw 0
+bx_lo      ds 6              ; the three bounds: the piece's own code's (as sc_scan left them, and wider by what
+bx_hi      ds 6              ; is near), and two for what is far (0: nothing in it)
+bs_lo      ds 6              ; (as they were when a look began)
+bs_hi      ds 6
+sc_lo0     dw 0              ; the piece's own code's, as sc_scan left them
+sc_hi0     dw 0
+
+* sc_dec - the instruction at IP Y, by the tables: sc_op its opcode,
+* sc_seg the base a prefix names, sc_k and sc_p its kind and parameter
+* (a group's by the ModR/M byte's middle), sc_l what follows the
+* opcode, sc_s and sc_u the flags it sets and reads, sc_mod, sc_x
+* (X_MEM), sc_y the IP after it, sc_tg where a near jump or call goes.
+sc_dec
  mx %00
- stz sc_n
- stz sc_max
- ldy rIP
-:ins
- ldx sc_n
- cpx #MAXI*2
- bcc :room
- jmp :end
-:room
- cpx #0
- beq :own
- tya                       ; an IP that has a piece already (for this CS): this one does not go
- clc                       ; into it, it goes on to it
- adc rCS
- asl
- jsr sc_head
- bcs :head
- tya
- clc
- adc rCS
- asl
- eor #$8000                ; (the address's second word of the map)
- jsr sc_head
- bcc :nohead
-:head
- tya
- inc
- jsr sc_ahead              ; (and on at a place past it that a jump here goes to)
- bcc :toend
- jmp :ins
-:toend
- jmp :end
-:nohead
- ldx sc_n
-:own
- tya
- sta i_ip,x
  stz sc_seg
 :pfx
  lda [bCS],y
@@ -219,12 +223,6 @@ sc_scan
 :immdone
  sty sc_y
  lda sc_k
- cmp #K_GEN
- beq :gen
- cmp #K_LEA
- beq :gen
- cmp #K_IND
- beq :gen
  cmp #K_JCC
  beq :rel8
  cmp #K_LOOP
@@ -236,7 +234,8 @@ sc_scan
  cmp #K_CALL
  beq :rel16
  cmp #K_JMP16
- bne :store
+ beq :rel16
+ rts
 :rel16
  dey                       ; a near jump or call: the 16 bits before the next instruction
  dey
@@ -244,7 +243,7 @@ sc_scan
  clc
  adc sc_y
  sta sc_tg
- bra :store
+ rts
 :rel8
  dey
  lda [bCS],y
@@ -256,7 +255,57 @@ sc_scan
  clc
  adc sc_y
  sta sc_tg
- bra :store
+ rts
+
+* sc_scan - C set: the i_ tables hold a loop worth translating
+sc_scan
+ mx %00
+ stz sc_n
+ stz sc_max
+ ldy rIP
+:ins
+ ldx sc_n
+ cpx #MAXI*2
+ bcc :room
+ jmp :end
+:room
+ cpx #0
+ beq :own
+ tya                       ; an IP that has a piece already (for this CS): this one does not go
+ clc                       ; into it, it goes on to it
+ adc rCS
+ asl
+ jsr sc_head
+ bcs :head
+ tya
+ clc
+ adc rCS
+ asl
+ eor #$8000                ; (the address's second word of the map)
+ jsr sc_head
+ bcc :nohead
+:head
+ tya
+ inc
+ jsr sc_ahead              ; (and on at a place past it that a jump here goes to)
+ bcc :toend
+ jmp :ins
+:toend
+ jmp :end
+:nohead
+ ldx sc_n
+:own
+ tya
+ sta i_ip,x
+ jsr sc_dec
+ lda sc_k
+ cmp #K_GEN
+ beq :gen
+ cmp #K_LEA
+ beq :gen
+ cmp #K_IND
+ beq :gen
+ jmp :store
 :gen                       ; is there a template for this form? (if not: the interpreter's, and back)
  lda sc_p
  asl
@@ -414,6 +463,7 @@ sc_scan
  lda #0
  rol
  sta sc_t
+ sta sc_bc
  lda sc_max
  beq :rej
  dec
@@ -447,18 +497,32 @@ sc_head
  lda >JIT_MAP,x
  cmp #$0100
  bcc :no
+ pha                       ; (the stub less one, and in bit 0 which bank of code: jit.s, c_get)
+ and #$0001
+ sta c_rb
+ pla
+ and #$FFFE
+ clc
+ adc #ST_IP+1
  tax
+ jsr c_get
+ sta sc_hw
  tya
- cmp >JIT_RT+ST_IP+1,x
+ cmp sc_hw
  bne :no
- lda rCS
- cmp >JIT_RT+ST_CS+1,x
+ txa
+ clc
+ adc #ST_CS-ST_IP
+ tax
+ jsr c_get
+ cmp rCS
  bne :no
  sec
  rts
 :no
  clc
  rts
+sc_hw      dw 0
 
 * sc_ahead - C set and Y = the lowest target of a jump among the
 * instructions that is at A or past it, and no more than SC_NEAR bytes
@@ -675,6 +739,311 @@ sc_fclass
  cmp #0
  rts
 
+* sc_ways - before sc_live: for every way out of the piece that goes
+* to a known address, the flags read there (i_la, i_lf; all of them
+* where nothing is known), and the stretches of code that says so.
+sc_ways
+ mx %00
+ stz la_n
+ lda sc_lo
+ sta sc_lo0
+ sta bx_lo
+ lda sc_hi
+ sta sc_hi0
+ sta bx_hi
+ stz bx_lo+2
+ stz bx_hi+2
+ stz bx_lo+4
+ stz bx_hi+4
+ ldx #0
+:l
+ cpx sc_n
+ bcc :go
+ lda bx_lo                 ; (the piece's bounds with what was looked at near it)
+ sta sc_lo
+ lda bx_hi
+ sta sc_hi
+ rts
+:go
+ stx la_x
+ lda #ALLF
+ sta i_la,x
+ sta i_lf,x
+ lda i_k,x
+ and #$00FF
+ cmp #K_STEP+1
+ bcc :next                 ; (the interpreter's: it stores what it sets)
+ cmp #K_CALL
+ beq :tg
+ cmp #K_JCC
+ bcc :fall
+ cmp #K_JCXZ+1
+ bcs :fall
+ lda i_x,x                 ; a jump: out of the piece?
+ and #X_INT
+ bne :fall
+:tg
+ lda i_tg,x
+ jsr sc_look
+ ldx la_x
+ sta i_la,x
+:fall                      ; does it go on, and not at the next of these?
+ lda i_k,x
+ and #$00FF
+ tay
+ lda kt_tab,y
+ and #$00FF
+ bne :next
+ txa
+ inc
+ inc
+ cmp sc_n
+ bcs :off
+ lda i_nx,x
+ cmp i_ip+2,x
+ beq :next
+:off
+ lda i_nx,x
+ jsr sc_look
+ ldx la_x
+ sta i_lf,x
+:next
+ ldx la_x
+ inx
+ inx
+ jmp :l
+
+* sc_look - A = an IP under this CS: the flags that are read from
+* there on before they are written (A; ALLF: not known), by the first
+* LA_N instructions at most, through a jump or into a call, as far as
+* a conditional jump, a return, or an instruction of the interpreter's.
+* The bytes that were looked at are kept in la_s and la_e when that is
+* less than all the flags, and only bytes of the piece's own bank on
+* pages that may be code.
+sc_look
+ mx %00
+ sta la_ip
+ sta la_st
+ lda la_n
+ sta la_n0
+ ldx #4
+:sv
+ lda bx_lo,x
+ sta bs_lo,x
+ lda bx_hi,x
+ sta bs_hi,x
+ dex
+ dex
+ bpl :sv
+ stz la_live
+ lda #ALLF
+ sta la_pend
+ lda #LA_N
+ sta la_left
+ bra :ins
+:allj
+ jmp :all
+:ins
+ lda la_ip                 ; (sixteen bytes clear of the segment's end and of the bank's: an instruction
+ cmp #$FFF0                ; is all in one place)
+ bcs :allj
+ clc
+ adc bCS
+ tax
+ lda #0
+ rol
+ cmp sc_bc
+ bne :allj                  ; (another bank than the piece's)
+ cpx #$FFF0
+ bcs :allj
+ txa
+ xba
+ and #$00FF
+ sta la_t
+ lda sc_cb
+ and #$000F
+ xba
+ ora la_t
+ tax
+ lda pg_map,x
+ and #$00FF
+ cmp #4
+ beq :allj                  ; (a page that is never code: stores there are not looked at)
+ ldy la_ip
+ jsr sc_dec
+ lda sc_k
+ cmp #K_STEP+1
+ bcc :allj                  ; the interpreter's: it reads what it likes
+ cmp #K_RET
+ bcs :allj                  ; a return, a jump through a register: who knows where
+ cmp #K_JCC
+ beq :allj                  ; a conditional jump: two ways on
+ cmp #K_LOOP
+ beq :allj
+ cmp #K_JCXZ
+ beq :allj
+ lda sc_u
+ and la_pend
+ tsb la_live
+ lda sc_s
+ eor #$FFFF
+ and la_pend
+ sta la_pend
+ beq :close                ; every flag written: what follows is nothing to this
+ lda sc_k
+ cmp #K_JMP8
+ beq :on
+ cmp #K_JMP16
+ beq :on
+ cmp #K_CALL
+ beq :on
+ lda sc_y
+ sta la_ip
+ bra :cnt
+:on                        ; on where it goes: this stretch ends, another begins
+ lda sc_y
+ jsr :keep
+ bcs :fail
+ lda sc_tg
+ sta la_ip
+ sta la_st
+:cnt
+ dec la_left
+ beq :all
+ jmp :ins
+:all                       ; what is not written yet counts as read; the bytes so far are what said so
+ lda la_pend
+ tsb la_live
+ lda la_ip
+ bra :end
+:close
+ lda sc_y
+:end
+ jsr :keep
+ bcs :fail
+ lda la_live
+ cmp #ALLF
+ beq :fail                 ; (nothing learned: nothing kept)
+ rts
+:fail
+ lda la_n0
+ sta la_n
+ ldx #4
+:rs
+ lda bs_lo,x
+ sta bx_lo,x
+ lda bs_hi,x
+ sta bx_hi,x
+ dex
+ dex
+ bpl :rs
+ lda #ALLF
+ rts
+:keep                      ; the stretch from la_st up to A. C set: no room for it
+ cmp la_st
+ bne :some
+:kept0                     ; (nothing in it, or it is kept already)
+ clc
+ rts
+:some
+ sta la_t
+ ldx #0
+:dup
+ cpx la_n
+ bcs :new
+ lda la_s,x
+ cmp la_st
+ bne :dn
+ lda la_e,x
+ cmp la_t
+ beq :kept0
+:dn
+ inx
+ inx
+ bra :dup
+:new
+ cpx #LA_R*2
+ bcs :full
+ lda la_st                 ; where it is in the bank
+ clc
+ adc bCS
+ sta la_lo
+ lda la_t
+ clc
+ adc bCS
+ sta la_hi
+ lda la_lo                 ; within SC_NEAR bytes of the piece's own code: inside its bounds
+ clc
+ adc #SC_NEAR
+ bcs :b0lo
+ cmp sc_lo0
+ bcc :far
+:b0lo
+ lda sc_hi0
+ clc
+ adc #SC_NEAR
+ bcs :b0
+ cmp la_hi
+ bcc :far
+:b0
+ ldy #0
+ bra :join
+:far
+ ldy #2
+:box
+ lda bx_hi,y
+ beq :take                 ; (nothing in this one yet)
+ lda la_lo                 ; with what is in it: no more than 64 bytes from end to end?
+ cmp bx_lo,y
+ bcc :l1
+ lda bx_lo,y
+:l1
+ sta la_t2
+ lda la_hi
+ cmp bx_hi,y
+ bcs :h1
+ lda bx_hi,y
+:h1
+ sec
+ sbc la_t2
+ cmp #65
+ bcc :join
+ iny
+ iny
+ cpy #6
+ bcc :box
+:full
+ sec
+ rts
+:take
+ lda la_lo
+ sta bx_lo,y
+ lda la_hi
+ sta bx_hi,y
+ bra :add
+:join
+ lda la_lo
+ cmp bx_lo,y
+ bcs :j1
+ sta bx_lo,y
+:j1
+ lda la_hi
+ cmp bx_hi,y
+ bcc :add
+ sta bx_hi,y
+:add
+ ldx la_n
+ lda la_st
+ sta la_s,x
+ lda la_t
+ sta la_e,x
+ inx
+ inx
+ stx la_n
+:kept
+ clc
+ rts
+
 * sc_live - one pass from the last instruction to the first: the flags
 * read from each on (i_li), and X_NEED where one that it sets is among
 * those read after it. Outside the piece everything is read. Twice, so
@@ -698,12 +1067,21 @@ sc_live
  sta i_li,x
  bra :l
 :ours
- lda #ALLF                 ; what is read after it when it falls through
+ lda #ALLF                 ; what is read after it
  sta sc_t
  ldy sc_k
  lda kt_tab,y
  and #$00FF
- bne :fell                 ; (nothing falls through it: a call, a return)
+ beq :thru
+ lda sc_k                  ; (nothing falls through it; a call: what the routine reads)
+ cmp #K_CALL
+ bne :fell
+ lda i_la,x
+ sta sc_t
+ bra :fell
+:thru
+ lda i_lf,x                ; when it goes on outside the piece: what was seen there
+ sta sc_t
  txa
  inc
  inc
@@ -720,7 +1098,7 @@ sc_live
  bcc :set
  cmp #K_JCXZ+1
  bcs :set
- lda #ALLF                 ; a jump: what its target reads
+ lda i_la,x                ; a jump: what its target reads
  sta sc_t2
  lda i_x,x
  and #X_INT

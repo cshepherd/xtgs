@@ -61,21 +61,17 @@ st_s       dw 0
 st_v       dw 0
 r8off      dfb 0,2,4,6,1,3,5,7   ; AL CL DL BL AH CH DH BH in the direct page
 
-em_b                       ; a byte (A) into the cache
+em_b                       ; a byte (A) into the cache (the bank being filled: jit.s, ce_b)
  mx %00
  ldx c_ptr
- sep #$20
- mx %10
- sta >JIT_RT,x
- rep #$20
- mx %00
+ jsr ce_b
  inx
  stx c_ptr
  rts
 em_w                       ; a word
  mx %00
  ldx c_ptr
- sta >JIT_RT,x
+ jsr ce_w
  inx
  inx
  stx c_ptr
@@ -133,9 +129,17 @@ stamp
  adc #3
  tax
  ldy c_ptr
+ lda c_bk
+ bne :second
  lda st_len
  dec
  mvn JIT_BASE,JIT_RT
+ bra :moved
+:second
+ lda st_len
+ dec
+ mvn JIT_BASE,JIT_RT2
+:moved
  phk                       ; (the move left the cache's bank the data bank)
  plb
  sty c_ptr
@@ -169,17 +173,13 @@ stamp
  cmp #2
  beq :two
  ldx st_at
- sep #$20
- mx %10
  lda st_v
- sta >JIT_RT,x
- rep #$20
- mx %00
+ jsr ce_b
  bra :nx
 :two
  ldx st_at
  lda st_v
- sta >JIT_RT,x
+ jsr ce_w
 :nx
  inc st_f
  inc st_f
@@ -258,7 +258,7 @@ em_region
  ldx fx_ix,y
  lda i_na,x
  ldx fx_at,y
- sta >JIT_RT,x
+ jsr ce_w
  iny
  iny
  bra :f
@@ -366,13 +366,27 @@ em_ver
  plx
  bra :run
 :runs
+ ldx #0                    ; and the stretches its ways out were looked ahead at (scan.s: sc_look)
+:la
+ cpx la_n
+ bcs :lad
+ lda la_s,x
+ sta em_t
+ lda la_e,x
+ sta em_t2
+ phx
+ jsr em_same
+ plx
+ inx
+ inx
+ bra :la
+:lad
  lda em_desc
  clc
  adc #6
  tax
  lda em_nr
- sta >JIT_RT,x
- rts
+ jmp ce_w
 
 * em_stub - the piece's entries. For a link back: the guard, and on
 * into the one for a link ahead. For the dispatcher, Y the IP: is this
@@ -381,6 +395,12 @@ em_ver
 * epoch?
 em_stub
  mx %00
+ lda c_ptr                 ; (the stub, seven bytes on, less one is to be even: the map's word for it has
+ lsr                       ; the bank of code in bit 0)
+ bcc :even
+ lda #$00EA
+ jsr em_b
+:even
  lda #$C8C6                ; dec jG
  jsr em_w
  lda #$0FD0                ; bne (the link ahead's)
@@ -411,7 +431,13 @@ em_stub
  jsr em_b
  lda em_desc
  jsr em_w
+ lda c_bk
+ beq :first
+ lda #^JIT_RT2
+ bra :bank
+:first
  lda #^jt_cache
+:bank
  jsr em_b
  lda #$0BF0                ; beq body
  jsr em_w
@@ -617,6 +643,7 @@ em_gen
  lda #TP_CFLIP
  jsr stamp
 :tmpl
+ stz em_ss
  lda em_fl
  and #TS_SREG
  beq :nosr
@@ -625,6 +652,10 @@ em_gen
  lsr
  lsr
  sta em_t
+ cmp #4                    ; (SS: the stack's remembered range is asked about again after it, sp_sync)
+ bne :nss
+ inc em_ss
+:nss
  clc
  adc #rES
  sta sl_val+SL_SR+SL_SR
@@ -653,7 +684,14 @@ em_gen
  inx
 :plain
  lda ts_tab+2,x
- jmp stamp
+ jsr stamp
+ lda em_ss
+ beq :done
+ lda #TP_SPSYNC
+ jsr stamp
+:done
+ rts
+em_ss      dw 0
 
 * em_imm - the instruction's immediate into the slots (I8 and I16; an
 * 8-bit one sign-extended for the 16 when the opcode says)
@@ -1094,11 +1132,7 @@ em_cond
  sbc em_sk
  dec
  ldx em_sk
- sep #$20
- mx %10
- sta >JIT_RT,x
- rep #$20
- mx %00
+ jsr ce_b
  rts
 
 * em_jmp - to the instruction's target: one of the loop's own (back:

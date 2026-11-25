@@ -336,6 +336,15 @@ mov si, .k;inc byte [si+2];.k:;xor dx, 0x1100|push ax;push dx;mov bp, sp;add wor
 push ax;pop word [bx]|push dx;pop word [buf+6]|push word [si];pop word [di]|push cx;mov cx, 5;rep movsb;pop cx|push cx;mov cx, 3;rep stosw;pop cx
 push cx;mov cx, 4;rep lodsb;pop cx|push cx;mov cx, 9;repne scasb;pop cx|push cx;mov cx, 0;rep movsw;pop cx|push cx;push di;mov di, .q+1;mov cx, 1;rep stosb;pop di;pop cx;.q:;mov al, 7
 push cx;push di;mov di, sub7+1;mov cx, 2;rep stosb;pop di;pop cx;call sub7|push cx;std;mov cx, 3;rep movsb;cld;pop cx|pushf;popf|cli;sti|int 3
+jmp .s;.v:;db 0;.s:;inc byte [.v];add al, [.v]|jmp .s;.v:;db 0;.s:;nop;mov word [.v], 0x4000|jmp .s;.v:;db 0, 0;.s:;add word [.v], 3;add ax, [.v]
+mov bx, sp;sub sp, 300;push ax;push dx;pop dx;pop ax;mov sp, bx|mov bx, ss;mov ss, bx;push ax;pop dx|push ss;pop ss;push dx;pop ax
+cli;mov bx, sp;mov sp, buf+200;push ax;push dx;pop dx;pop ax;mov sp, bx;sti|cli;mov bx, sp;mov sp, buf+201;push ax;push dx;pop ax;pop dx;mov sp, bx;sti
+cli;mov bx, sp;mov sp, .t+2;mov si, 0x9040;push si;mov sp, bx;sti;.t:;nop;nop|cli;mov bx, sp;mov sp, buf+0x102;push ax;push dx;push ax;pop dx;pop dx;pop dx;mov sp, bx;sti
+cmp ax, dx;jmp .f;times 50 nop;.f:;jc .x;inc dx;.x:|add ax, dx;jmp .f;times 50 nop;.f:;mov bx, ax;sub bx, dx;adc ax, 0|add ax, 0x9000;jmp .f;times 50 nop;.f:;inc dx;adc ax, 0
+jmp .o;.r:;adc dx, 0;ret;.o:;add ax, 0x9000;call .r|jmp .o;.r:;mov bx, 5;add bx, ax;ret;.o:;add ax, 0x9000;call .r;adc dx, bx|sub ax, dx;jns .f;neg ax;jmp .g;times 50 nop;.f:;sbb dx, 0;.g:
+add ax, 0x9000;jmp .f;times 50 nop;.f:;stc;adc dx, 0;xor byte [.f], 0x69|add ax, dx;jmp .f;times 50 nop;.f:;jmp .h;times 50 nop;.h:;xor bx, bx;adc ax, bx|add ax, 0x9000;jmp .f;times 50 nop;.f:;lahf;mov dl, ah
+add ax, 0x9000;jmp .f;times 50 nop;.f:;cmp dx, 5;adc ax, 0;xor byte [.f+1], 0x38|sub ax, 3;jmp .f;times 50 nop;.f:;mov bx, [buf+2];push bx;pop dx;rcl dx, 1|add ax, dx;jmp .f;times 50 nop;.f:;dec dx;jmp .h;times 50 nop;.h:;jc .x;inc ax;.x:
+jmp .s;.v:;db 0;.s:;nop;mov byte [.s], 0x40|jmp .s;.v:;db 0, 0, 0;.s:;nop;mov word [.v+2], 0x4200|jmp .s;.s:;mov byte [.e], 0x42;nop;.e:;nop
 """
 
 
@@ -359,6 +368,9 @@ def build(seed, run, cases, micro=False):
     return "\n".join(lines) + "\n" + POST, per
 
 
+SMALL = False                                               # --small: the first bank of code holds next to nothing
+
+
 def execute(binary, jit, syms):
     stage = os.path.join(ROOT, "build", "stage")
     staged = os.path.join(WORK, "FUZZ.COM#060000")
@@ -377,7 +389,20 @@ def execute(binary, jit, syms):
     jt = symbols.read(os.path.join(ROOT, "build", "jit.lst"))
     if jit and "jt_stats" in jt:
         dumps.append(("stats", jt["jt_stats"], 20))
-    r = mamerun.run(image, waits=[(syms["mb_magic"], 0x5A5A)], dumps=dumps, seconds=600, settle=2, zip=True)
+    extra = None
+    if jit and SMALL and "c_lim" in jt:
+        # the translator's first bank of code is full after a few pieces (c_lim, jit.s): nearly everything is made
+        # in the second, and what runs goes from one bank to the other all the time
+        import layout
+        extra = {"top": "", "tail": """
+local xs = manager.machine.devices[":maincpu"].spaces["program"]
+while true do
+    emu.wait(0.02)
+    if xs:read_u16(%d) ~= %d then xs:write_u16(%d, %d) end
+end
+""" % (layout.to_actual(jt["c_lim"]), (jt["jt_cache"] & 0xFFFF) + 0x0500, layout.to_actual(jt["c_lim"]),
+       (jt["jt_cache"] & 0xFFFF) + 0x0500)}
+    r = mamerun.run(image, waits=[(syms["mb_magic"], 0x5A5A)], dumps=dumps, seconds=600, settle=2, zip=True, extra=extra)
     os.remove(image)
     n = int.from_bytes(bytes.fromhex(r["dumps"]["len"]["hex"]), "little")
     out = bytes.fromhex(r["dumps"]["cap"]["hex"])[:n].decode("latin-1")
@@ -396,7 +421,11 @@ def main():
     ap.add_argument("--keep", action="store_true")
     ap.add_argument("--show", type=int)
     ap.add_argument("--micro", action="store_true", help="one instruction form a loop, from a fixed list")
+    ap.add_argument("--small", action="store_true",
+                    help="the translator's first bank of code made to hold a few pieces only: the second bank's turn")
     args = ap.parse_args()
+    global SMALL
+    SMALL = args.small
     os.makedirs(WORK, exist_ok=True)
     syms = symbols.read(os.path.join(ROOT, "build", "xtgs.lst"))
     bad = 0

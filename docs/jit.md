@@ -576,10 +576,12 @@ memory and jump nowhere (`MUL`, `DIV`, `IN`, `OUT`, `LAHF`, the decimal
 adjusts...) are done by the interpreter *inside* a piece, which then goes
 on.
 
-Three banks, the JIT region: the translator and its tables; a bank of
-run-time routines and the code cache (62K); a bank of map, a word for an
+Four banks, the JIT region: the translator and its tables; a bank of
+run-time routines and code (62K of it); a bank of map, a word for an
 address at `(IP + CS) * 2` and, when that one is another address's, the
-word 8000h from it. A full cache or 500 pieces empties everything.
+word 8000h from it; and a second bank of code with the same routines at
+the same addresses, filled when the first is full (see "Two banks of
+code" below). Both full, or 500 pieces, empties everything.
 
 | | |
 | --- | --- |
@@ -601,9 +603,22 @@ on a register straight after one that left a carry takes it from the
 65816's carry. So `shl bx,1 / rcl dx,1 / rcl di,1 / rcl bp,1` is four
 65816 instructions.
 
-Known deviation: none in what the guest can read. (The first design let an
-interrupt see stale arithmetic flags; this one stores what any way out can
-be asked for.)
+A way out to a known address (a jump or a call out of the piece, or where
+the piece goes on at an address that is not its next instruction) is looked
+ahead at: the flags read from there on before they are written (`sc_ways`,
+`sc_look`: ten instructions at most, through a jump and into a call, as far
+as a conditional jump, a return or an instruction of the interpreter's).
+`sc_live` takes that in place of "everything", so the `CMP` before a jump
+to a loop's head that begins with another `CMP` stores nothing. The bytes
+looked at are the piece's as much as its own code: runs of its record,
+their sixteens and pages marked, a store into them its death. A return
+cannot be looked ahead at, and the flags before it are stored.
+
+Known deviation: an interrupt taken between two pieces can see arithmetic
+flags that are not the last instruction's, when the code it interrupted is
+about to write them all before reading any (the look ahead said so). What
+the guest's own code reads is right; the word of flags on the handler's
+stack is not, in those bits, and comes back as it went.
 
 ## Memory
 
@@ -634,24 +649,31 @@ stack is on a page of code; the slot does the same for an interrupt's
 frame, and the frame's work writes only what is never code (the vectors
 and the BIOS's data, which no piece is made from: SVC's promise).
 
-Translated code's own stores are looked at as they are made. A store into
-a bank that translated code was made from (`bk_code`) looks its page up
-(`pg_map`), then its sixteen bytes (`cl_map`: a bit for each sixteen that a
-run of some piece's code is in); only then is every piece asked (`smc0`,
-against the runs of bytes in its record, not the span from its first to
-its last): the ones the word lands in are dead, their entries made jumps to
-the dispatcher so that whatever was linked to them asks the map again; if
-the running piece is among them the interpreter does the store. A store
-that lands beside code is remembered (`bc_lo`: the same store, with no
-piece made since, is let by at once: a counter next to a handler). Eight
+Translated code's own stores are looked at as they are made. The pointer
+routine reads the flag of the store's page (`pg_map`; for a word or four
+bytes the next page's too, in the same word read), and only a store onto a
+page that translated code was made from goes on (`h_smcb`, `h_smc`,
+`h_smcf`, by the store's length, which is carried all the way: `sm_len`):
+to its sixteen bytes (`cl_map`: a bit for each sixteen that a run of some
+piece's code is in), and only then is every piece asked (`smc0`, against
+the runs of bytes in its record, not the span from its first to its last):
+the ones the store lands in are dead, their entries made jumps to the
+dispatcher so that whatever was linked to them asks the map again; if the
+running piece is among them the interpreter does the store. A store that
+lands beside code is remembered (`bc_lo`, 128 of them by address and
+length: the same store, with no piece made since, is let by at once: a
+counter next to a handler, a routine's variables after its `RET`). Sixteen
 different ones on a page make it a page of data and code together: its
 pieces go, each a life less, and its stores are looked at no more, until
 code on it is wanted again, when it is a page of code once more. (The
 stores are as often a program being loaded past the code of the one before
-it, whose pieces nothing has told that their code is gone.) A push looks
-the sixteen bytes it writes up once and remembers them by SS and offset
-(`jSPS`, `jSPO`). A `REP MOVS` or `STOS` is the interpreter's, and the
-bytes between the two values of DI are then held against `pg_map`.
+it, whose pieces nothing has told that their code is gone.) A push inside
+the range of offsets that is known to be plain memory with no code
+(`jSPO` to `jSPO2`, kept this SS's by `sp_sync`) is a store through SS's
+base and no more; outside it the bytes are looked up, and the 256 of
+offsets they are in becomes the range or is added to it. A `REP MOVS` or
+`STOS` is the interpreter's, and the bytes between the two values of DI
+are then held against `pg_map`.
 
 A helper that has to give the instruction back to the interpreter (a word
 at FFFFh, the EGA's planes, a store into the running piece) needs its IP:
@@ -756,25 +778,23 @@ ED the only failures, as before).
 
 ## What it does not do, and what is left
 
-- **Flags at a piece's end.** Everything is read outside a piece, so the
-  last instruction that sets flags before each way out stores them the
-  lazy way (some 40 cycles), though the code it goes to nearly always sets
-  them again first. To leave that out the piece must know the piece it goes
-  to and die with it; nothing of that is built.
-- **A store costs more than a read.** A read is fetched through the
-  segment's base; a store still goes through the pointer routine and its
-  look at `bk_code`.
+(As it stood when it was first measured; "What was done about it", at the
+end, is what has changed since, and what is still so.)
+
+- **Flags before a return.** A way out to a known address is looked ahead
+  at; a return's is not known, and the last instruction that sets flags
+  before one stores them the lazy way (some 40 cycles), though the code it
+  returns to nearly always sets them again first. A tenth of Keen's time.
 - **The interpreter is not watched.** Whenever it has run by itself, every
-  piece compares its bytes before it runs again: some 600 to 1200 cycles a
+  piece compares its bytes before it runs again: some 700 to 900 cycles a
   piece. A program that leaves translated code often (code the translator
   will not take, a cache that keeps filling) pays that every time. The
   report's line "the epoch went on" is the count.
-- **62K of cache.** A piece is its stub and record (some 55 bytes) and some
-  18 bytes an instruction; about 300 pieces fit. A program with more warm
-  code than that empties the cache again and again (Larry 2: fifteen times
-  in four minutes), and after the fourth time an address has to be asked
-  for sixteen times, not four, before it gets a piece. Two cache banks
-  would need links across banks.
+- **Two banks of code, 125K.** A program with more warm code than that
+  empties both again and again (Larry 2: eight times in four minutes), and
+  then an address has to be asked for sixteen times, not four, before it
+  gets a piece. Pieces of the same code made from different ways in are
+  not shared.
 - **Pieces of code that is gone** stay until a store lands in them or the
   cache is emptied: a program loaded where another was pays the walks.
 - Far calls and returns to another CS, `INT`, `REP` and the port
@@ -784,3 +804,232 @@ ED the only failures, as before).
 - Not run on a real IIGS. The run-time routines patch code in their own
   bank and the core patches three of its own jumps; nothing here depends on
   the accelerator, but none of it has met one.
+
+## A closer look at what is left (2026-11-24)
+
+The four things the list above begins with, measured. `tools/jit_profile.py
+count NAME` runs a workload with the translator and counts where the
+sampler times: a tap on the first byte of each run-time routine as the
+65816 fetches it (a call), on every store of the lazy flags (who made it,
+and whether anything read the flags before the next one), and on every
+stub put in the map since the run began. `tools/jit_look.py` puts the
+counts beside the samples (cycles a call) and beside the run without the
+translator (what the code a piece goes on to does with the flags; how much
+code the window has). Its output is `docs/jitprof/closer-look.txt`. A
+16 MHz ZipGS in MAME, 16.0 million cycles a second.
+
+| | Keen's start | BASIC | Thexder | Arkanoid | Larry 2 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| flags stored a second by translated code | 52,964 | 61,836 | 42,523 | 9,998 | 16,516 |
+| never read before the next store | 95.6% | 48.9% | 92.5% | 64.8% | 72.8% |
+| those stores, of all time | 10-13% | 6-8% | 8-10% | 1-2% | 2-3% |
+| ways out with flags to store that go where a look shows them unwanted | 37% | 27% | 70% | 18% | 16% |
+| stores a second (the pointer routine: 45 to 54 cycles) | 20,706 | 17,311 | 18,777 | 10,134 | 10,280 |
+| of them on to the look for code (52 to 84 cycles more) | 71% | 100% | 17% | 30% | 90% |
+| which finds a page no code was made from | 99.8% | 99.8% | 98.8% | 71.2% | 94.6% |
+| pushes and pops a second (53 to 57 and 38 to 41 cycles) | 62,885 | 51,907 | 14,216 | 17,568 | 10,685 |
+| the stack's routines, of all time | 22.7% | 14.9% | 4.4% | 5.3% | 3.1% |
+| pieces comparing their bytes a second (726 to 969 cycles) | 0 | 4 | 863 | 2,641 | 2,613 |
+| that, of all time | 0 | 0 | 5.2% | 13.4% | 11.9% |
+| pieces made in the window; the window's code as cache | 0; 5 KB | 0; 21 KB | 51; 38 KB | 13; 29 KB | 738; 101 KB |
+
+**Flags at a piece's end.** Half to nearly all of the flags that
+translated code stores are never read: a tenth of Keen's and of
+Thexder's time. What a piece cannot know is where it goes. It need not
+know the piece: the guest's code at the way out's own address says it, when
+a few instructions from there write every flag before any reads one. From
+the runs without the translator: where a way out is a jump or a call, that
+look settles nearly every case (twelve instructions at most, two
+conditional jumps deep: `jit_look.py`'s `look`); where it is a return,
+nothing can be looked at, and returns are most of the ways out with flags
+to store in everything but Thexder. So a look ahead is worth some 4% to Keen and to BASIC, 7% to
+Thexder, under 1% to the other two as they stand. The bytes looked at
+become bytes the piece was made from: a run of its record like any other
+(compared when the epoch has gone on, their sixteens marked), which is the
+machinery that is there, with more for a store to land beside. For the
+returns the store itself could be 10 cycles less where no conditional jump
+follows to use the 65816's own flags (one `PHP` in place of three and a
+`PLP`).
+
+**Stores.** The pointer routine asks whether the store's 64K bank has
+translated code in it. In a program that has its code and data in one
+segment, or near each other, the answer is always yes (BASIC: every
+store), and the routine goes on to `h_smc` and `pg_chk`, which find, 99.8%
+of the time in Keen and BASIC, that the page has none: 52 cycles to learn
+what four more in the pointer routine would have (the page's flag in place
+of the bank's). That is 4.5% of Keen's time, 5.3% of BASIC's, 2.7% of
+Larry 2's, 1% or less of the others'. Thexder's stores are to the screen
+(`h_hi`, 42 cycles to mark the 256) and its reads are single `LODSW`s by
+the pointer routine: 9% of its time between them, which a path of their
+own for `LODS` and `STOS` without `REP` would cut.
+
+**The stack**, which was not on the list, costs more than either in Keen
+and BASIC: a push is 53 cycles and a pop 40, nearly all by the quick way
+(the look-up `h_push` remembers is by SS, by two places and by a mask;
+bounds that a change of SS undoes would be some 15 cycles less, and the
+same in the piece's own code 28 less at 18 bytes a push). Keen pushes
+41,000 words a second.
+
+**The cache.** Only Larry 2 fills it: 4,716 instructions run in its thirty
+seconds, about 100 KB as translated code, where the bank held some 206
+pieces between one emptying and the next (3,718 pieces made for 1,090
+addresses over four minutes, 135 of those addresses nine times or more;
+738 pieces in the window). The four others hold their window's code in a
+third of the bank or less. With the code staying translated, Larry 2's
+interpreter time (44%, 72% of it instructions of the kinds the translator
+takes), its translator's (7%) and most of its comparing (12%) would go:
+from 1.46 times the interpreter to something like 2.3, by those shares (an
+estimate, not a measurement). A second bank is
+the run-time routines copied to it with their own bank byte, links that
+cross as `JML` in the six bytes a link has, a bank in the map's word, and
+every place the translator's side says `>JIT_RT` (the emitter, the
+records `kill`, `which`, `in_runs` and `smc0` read): most of `jit.s` and
+`emit.s` touched. Short of that, each flag store left out is some 20 bytes
+of a piece, and the copy of the guest's bytes in each record (a seventh of
+a piece) is there only for the comparing.
+
+**The interpreter not watched.** A comparison is 726 to 969 cycles a
+piece, and three workloads pay it for three reasons:
+
+- *Arkanoid*: 41 times a second the interpreter is given the run, 73 times
+  in 96 at `5250:311F`, whose word of the map says "never". The
+  instruction there is `MOV BYTE [311Eh],1`: a variable in the byte before
+  the code that sets it. `in_runs` (and `cl_chk`) take every store for a
+  word, so the store is found to land on the piece's own first byte: the
+  piece dies, seven times, and the address is the interpreter's for good.
+  Every frame then begins in the interpreter, the epoch goes on, and the 67
+  pieces of the frame compare their bytes: 13.4% of the time. A byte
+  store's length carried to `h_smc` is the remedy, and it is a small one.
+  (Nothing is wrong in what is executed: a store taken for longer than it
+  is only kills more.)
+- *Larry 2*: 387 times a second, at addresses the emptied cache no longer
+  has pieces for. It goes with the cache.
+- *Thexder*: 24 times a second, at code run once a frame that has to be
+  asked for sixteen times after each emptying before it is translated
+  again.
+
+Watching the interpreter's own stores, so that the epoch only goes on when
+one lands on a page of code, means a look at the page in its
+effective-address tails (some 15 cycles a memory operand, with the
+translator on), in its pushes and in its string instructions, and the
+opcode's class to tell a store from a read (`eg_class` has it): every way
+the interpreter writes must be found, or the epoch kept for the ones that
+are not. The comparison's own loop is 33 cycles a word by its
+instructions, and one that indexes both sides by Y would be 23.
+
+In order of what each gives for what it costs: the byte store's length
+(Arkanoid's 13%; a few lines in the pointer routines and `in_runs`); the
+page's flag in the pointer routine (5% of Keen and BASIC; the generator's
+`ea_routines`); the stack's bounds and the comparison's loop (4% and 2 to
+4%; `h_push`, `h_pop`, `h_verify`); the look ahead for flags (4 to 7%, and
+the first that touches the scan and the records); the second bank (Larry 2
+and whatever else is as large: the most by far for those, and the most
+work); the interpreter watched last, when the others have shown what is
+left of the comparing. (What came of that is the next section.)
+
+## What was done about it (2026-11-24)
+
+All of the list but the last, in that order, and four things the work
+turned up on the way. Measured the same way (`docs/jitprof/*-jit.txt`,
+`compare-jit.txt`, `closer-look-after.txt`); "before" is the table at
+"Measurements".
+
+| workload | interpreter | before | now |
+| --- | ---: | ---: | ---: |
+| Keen 1 decompressing its graphics | 44,526 writes a second | 2.69x | **2.99x** |
+| GW-BASIC, a `FOR` loop of floating point | 31,544 | 2.66x | **2.83x** |
+| Larry 2, the title's animation | 38,849 | 1.46x | **1.75x** |
+| Thexder on a Tandy, its demo | 15,548 | 1.36x | **1.57x** |
+| Arkanoid on a Tandy, its demo | 23,444 | 1.13x | **1.7x to 1.9x** |
+
+Thexder's demo and Arkanoid's take a different course from run to run:
+Thexder between 1.45 and 1.57 over the runs of this build, Arkanoid 1.70,
+1.71 and 1.88 with one run of five at 1.26 in which the demo itself did
+less.
+
+**A store's length** (`h_smcb`, `h_smc`, `h_smcf`; `sm_len`, `sh_last`):
+a byte beside code is not a word on it. Arkanoid's frame begins with a
+routine that sets the byte before its own first instruction; the piece
+died of it seven times and the address was the interpreter's for good,
+every frame. With that right it was the next thing: the routine that
+clears its four bytes as two words and then sets them one at a time had the
+word and the byte at one address take each other's place in the four
+remembered stores beside code, each time a strike against the page, until
+the page was one "of data and code" and its pieces dead; the pieces came
+back, and it went round, a life each time. `bc_lo` is 128 places now, by
+the address and the length, and a page takes sixteen strikes. Arkanoid has
+no such page left, and is not waiting for its timer after all.
+
+**The page's flag in the pointer routine** (`gen/jrt.s`): 14,600 of Keen's
+20,700 stores a second went on to `h_smc` to be told their page had no
+code; 37 do. A store costs five cycles more and those cost fifty less.
+
+**The stack.** `h_push` keeps a range of offsets (`jSPO`, `jSPO2`) in place
+of two places and a mask, and no longer compares SS (`sp_sync` keeps the
+range this SS's at every entry from the core and after a `MOV` or `POP` to
+SS): 38 cycles from 53. `h_pop` asks one thing of SP, not two (`jSPM`): 33
+from 40. The comparison's loop indexes both sides by Y.
+
+**The look ahead** (`sc_ways`, `sc_look`; "Flags" above). Thexder's stores
+of flags went from 42,500 a second to 17,700. Keen's stayed at 50,000: its
+ways out with flags to store are returns, as the count had said, and a
+return goes nowhere that can be looked at. What it cost to learn: the
+bytes looked at are the piece's, and the first try gave a piece one pair of
+bounds round all of them. A call to a routine thirty kilobytes off made
+everything between them the piece's as far as `smc0` knew: Arkanoid went
+from 9 pages of data and code to 62, emptied its cache twelve times and ran
+slower than the interpreter. A piece has three pairs now (its own code and
+what is within `SC_NEAR` of it; two more of 64 bytes at most for what is
+far), and a look whose bytes fit none has learned nothing.
+
+**Two banks of code** (`JIT_RT2`). The run-time routines are in both at
+the same addresses, and run with the data bank register their own bank:
+they reach a piece's record and stub by address alone, so one copy of the
+bytes serves both (`rt_flag`, `rt_me`, `rt_ot` are what differs). A stub's
+word in the map has the bank in bit 0 (stubs begin at odd addresses for
+it); the dispatcher goes across by `st_far` and `x_go`; a link to a piece
+in the other bank is not made a `JMP` and goes the long way each time (216
+times a second in Larry 2). The translator's side reaches either bank by
+`c_get` and `c_set`. Larry 2 empties its cache 8 times in four minutes, not
+19, and the interpreter has 31% of its time, not 46%. The plumbing costs a
+program that never needed it some 3% (BASIC, which asks the dispatcher
+21,000 times a second: ten cycles each).
+
+**Other things found.**
+
+- A jump back that is the one instruction the interpreter was given
+  (`JP`, `LOOPE`: `jit_bk` with the hook still waiting) is no run of the
+  interpreter's: the epoch stays.
+- An address is translated at its fourth asking again once the cache has
+  lasted half a minute (`jt_age`): the sixteen askings that a program
+  with too much code is held to were being asked of every program that
+  had filled the cache five times as it loaded, and each asking is the
+  interpreter given the run and every piece comparing its bytes after.
+- `tools/jit_profile.py count` also says why and where the interpreter is
+  given the run, which pieces die and of what (`jt_kil`), and whether the
+  interpreter, when it ran by itself, stored onto a page of code.
+
+**What was tried and taken out.** A price on new pieces as the cache
+filled (one asking in 4, 16, 64 counting): it kept Larry 2's cache longer
+(+5%), and left Thexder's full of the code it had loaded with while the
+code it ran each tick waited its turn at sixty-four times the price.
+
+**What was not built: the interpreter watched.** The count for it: Larry 2
+gives the interpreter the run 188 times a second, 283 instructions at a
+time, and in 17% of those runs a store lands on a page translated code was
+made from; Thexder 6 times a second, never; Arkanoid once or twice. So for
+Larry 2 five compares in six are for nothing, some 10% of its time, and
+watching would cost it 2 or 3% (a look at `pg_map` for every memory
+operand the interpreter touches while the translator is on); for Thexder
+2%, for Arkanoid 1 or 2, for the other two nothing. It means a hook in the
+interpreter's effective-address tails, in its pushes, in its string
+instructions and in whatever else of it writes memory, each of which has to
+be found or the epoch kept for it: the one change on the list that touches
+the interpreter every program runs on, and for one workload's 7%. It waits.
+
+What is left of the time, by `closer-look-after.txt`: Keen's flags before
+returns (a tenth of it); the stack (16% of Keen, 12% of BASIC, at 38 and 33
+cycles); the pointer routine for stores (53 cycles: 8% of Keen); Larry 2's
+comparing (13%) and its translator (9%: 23 pieces a second); Thexder's
+single `LODS` and `STOS` by the pointer routines and its stores to the
+screen (12%).

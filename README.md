@@ -497,10 +497,10 @@ that keeps time by counting ticks stays within a second of the IIGS
 A runtime translator (8086 code to 65816 code) is there as an option: the
 line `JIT=ON` in `XTGS.CMD`, with the file `JIT` beside `CORE`. The code a
 program runs most is translated a piece at a time and run in place of the
-interpreter. In MAME at 16 MHz it makes Commander Keen's start and a
-GW-BASIC loop some 2.7 times as fast, Leisure Suit Larry 2 and Thexder 1.4
-to 1.5 times, and a game that waits for its timer no faster; the DOS boot
-is the same. It is new, it is off without the line, and it has not run on a
+interpreter. In MAME at 16 MHz it makes Commander Keen's start three times
+as fast and a GW-BASIC loop 2.8 times, Leisure Suit Larry 2 and Arkanoid
+some 1.7 times and Thexder 1.5, and a game that waits for its timer no
+faster; the DOS boot is the same. It is new, it is off without the line, and it has not run on a
 real IIGS (`docs/jit.md`).
 
 ## Testing and speed

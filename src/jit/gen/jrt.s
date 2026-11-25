@@ -27,16 +27,6 @@ ea_es_rb
  rts
 :hi
  jmp h_hi
-ea_es_wf
- mx %00
- cmp #$FFFD
- bcc ea_es_wb
- jmp ea_bail
-ea_es_ww
- mx %00
- cmp #$FFFF
- bne ea_es_wb
- jmp ea_bail
 ea_es_wb
  mx %00
  clc
@@ -51,14 +41,73 @@ ea_es_wb
  sta pEA+2
  cmp #^H_EGA
  bcs :hi
- and #$000F
- asl
+ lda pEA+1
+ and #$0FFF
  tax
- lda >bk_code,x
+ lda >pg_map,x
+ and #$0001
+ bne :smc
+ rts
+:smc
+ jmp h_smcb
+:hi
+ jmp h_hi
+ea_es_ww
+ mx %00
+ cmp #$FFFF
+ bne :in
+ jmp ea_bail
+:in
+ clc
+ adc bES
+ sta pEA
+ lda bES+2
+ bcc :nc
+ adc #0
+ and #$000F
+ ora #GUEST_BANK
+:nc
+ sta pEA+2
+ cmp #^H_EGA
+ bcs :hi
+ lda pEA+1
+ and #$0FFF
+ tax
+ lda >pg_map,x
+ and #$0101
  bne :smc
  rts
 :smc
  jmp h_smc
+:hi
+ jmp h_hi
+ea_es_wf
+ mx %00
+ cmp #$FFFD
+ bcc :in
+ jmp ea_bail
+:in
+ clc
+ adc bES
+ sta pEA
+ lda bES+2
+ bcc :nc
+ adc #0
+ and #$000F
+ ora #GUEST_BANK
+:nc
+ sta pEA+2
+ cmp #^H_EGA
+ bcs :hi
+ lda pEA+1
+ and #$0FFF
+ tax
+ lda >pg_map,x
+ and #$0101
+ bne :smc
+ rts
+:smc
+ jmp h_smcf
 :hi
  jmp h_hi
 ea_cs_rf
@@ -88,16 +137,6 @@ ea_cs_rb
  rts
 :hi
  jmp h_hi
-ea_cs_wf
- mx %00
- cmp #$FFFD
- bcc ea_cs_wb
- jmp ea_bail
-ea_cs_ww
- mx %00
- cmp #$FFFF
- bne ea_cs_wb
- jmp ea_bail
 ea_cs_wb
  mx %00
  clc
@@ -112,14 +151,73 @@ ea_cs_wb
  sta pEA+2
  cmp #^H_EGA
  bcs :hi
- and #$000F
- asl
+ lda pEA+1
+ and #$0FFF
  tax
- lda >bk_code,x
+ lda >pg_map,x
+ and #$0001
+ bne :smc
+ rts
+:smc
+ jmp h_smcb
+:hi
+ jmp h_hi
+ea_cs_ww
+ mx %00
+ cmp #$FFFF
+ bne :in
+ jmp ea_bail
+:in
+ clc
+ adc bCS
+ sta pEA
+ lda bCS+2
+ bcc :nc
+ adc #0
+ and #$000F
+ ora #GUEST_BANK
+:nc
+ sta pEA+2
+ cmp #^H_EGA
+ bcs :hi
+ lda pEA+1
+ and #$0FFF
+ tax
+ lda >pg_map,x
+ and #$0101
  bne :smc
  rts
 :smc
  jmp h_smc
+:hi
+ jmp h_hi
+ea_cs_wf
+ mx %00
+ cmp #$FFFD
+ bcc :in
+ jmp ea_bail
+:in
+ clc
+ adc bCS
+ sta pEA
+ lda bCS+2
+ bcc :nc
+ adc #0
+ and #$000F
+ ora #GUEST_BANK
+:nc
+ sta pEA+2
+ cmp #^H_EGA
+ bcs :hi
+ lda pEA+1
+ and #$0FFF
+ tax
+ lda >pg_map,x
+ and #$0101
+ bne :smc
+ rts
+:smc
+ jmp h_smcf
 :hi
  jmp h_hi
 ea_ss_rf
@@ -149,16 +247,6 @@ ea_ss_rb
  rts
 :hi
  jmp h_hi
-ea_ss_wf
- mx %00
- cmp #$FFFD
- bcc ea_ss_wb
- jmp ea_bail
-ea_ss_ww
- mx %00
- cmp #$FFFF
- bne ea_ss_wb
- jmp ea_bail
 ea_ss_wb
  mx %00
  clc
@@ -173,14 +261,73 @@ ea_ss_wb
  sta pEA+2
  cmp #^H_EGA
  bcs :hi
- and #$000F
- asl
+ lda pEA+1
+ and #$0FFF
  tax
- lda >bk_code,x
+ lda >pg_map,x
+ and #$0001
+ bne :smc
+ rts
+:smc
+ jmp h_smcb
+:hi
+ jmp h_hi
+ea_ss_ww
+ mx %00
+ cmp #$FFFF
+ bne :in
+ jmp ea_bail
+:in
+ clc
+ adc bSS
+ sta pEA
+ lda bSS+2
+ bcc :nc
+ adc #0
+ and #$000F
+ ora #GUEST_BANK
+:nc
+ sta pEA+2
+ cmp #^H_EGA
+ bcs :hi
+ lda pEA+1
+ and #$0FFF
+ tax
+ lda >pg_map,x
+ and #$0101
  bne :smc
  rts
 :smc
  jmp h_smc
+:hi
+ jmp h_hi
+ea_ss_wf
+ mx %00
+ cmp #$FFFD
+ bcc :in
+ jmp ea_bail
+:in
+ clc
+ adc bSS
+ sta pEA
+ lda bSS+2
+ bcc :nc
+ adc #0
+ and #$000F
+ ora #GUEST_BANK
+:nc
+ sta pEA+2
+ cmp #^H_EGA
+ bcs :hi
+ lda pEA+1
+ and #$0FFF
+ tax
+ lda >pg_map,x
+ and #$0101
+ bne :smc
+ rts
+:smc
+ jmp h_smcf
 :hi
  jmp h_hi
 ea_ds_rf
@@ -210,16 +357,6 @@ ea_ds_rb
  rts
 :hi
  jmp h_hi
-ea_ds_wf
- mx %00
- cmp #$FFFD
- bcc ea_ds_wb
- jmp ea_bail
-ea_ds_ww
- mx %00
- cmp #$FFFF
- bne ea_ds_wb
- jmp ea_bail
 ea_ds_wb
  mx %00
  clc
@@ -234,14 +371,73 @@ ea_ds_wb
  sta pEA+2
  cmp #^H_EGA
  bcs :hi
- and #$000F
- asl
+ lda pEA+1
+ and #$0FFF
  tax
- lda >bk_code,x
+ lda >pg_map,x
+ and #$0001
+ bne :smc
+ rts
+:smc
+ jmp h_smcb
+:hi
+ jmp h_hi
+ea_ds_ww
+ mx %00
+ cmp #$FFFF
+ bne :in
+ jmp ea_bail
+:in
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcc :nc
+ adc #0
+ and #$000F
+ ora #GUEST_BANK
+:nc
+ sta pEA+2
+ cmp #^H_EGA
+ bcs :hi
+ lda pEA+1
+ and #$0FFF
+ tax
+ lda >pg_map,x
+ and #$0101
  bne :smc
  rts
 :smc
  jmp h_smc
+:hi
+ jmp h_hi
+ea_ds_wf
+ mx %00
+ cmp #$FFFD
+ bcc :in
+ jmp ea_bail
+:in
+ clc
+ adc bDS
+ sta pEA
+ lda bDS+2
+ bcc :nc
+ adc #0
+ and #$000F
+ ora #GUEST_BANK
+:nc
+ sta pEA+2
+ cmp #^H_EGA
+ bcs :hi
+ lda pEA+1
+ and #$0FFF
+ tax
+ lda >pg_map,x
+ and #$0101
+ bne :smc
+ rts
+:smc
+ jmp h_smcf
 :hi
  jmp h_hi
 ea_bail

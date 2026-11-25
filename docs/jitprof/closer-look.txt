@@ -1,0 +1,94 @@
+==== keen-load (16 MHz): translated code 60.1% of the time, its routines 38.3%
+  flags: stored 52964 times a second by translated code, 95.6% of them never read: 10.1% to 13.3% of all time (32 to 42 cycles a store)
+    without the translator, a jump of 48 bytes or less:   7844 a second,   7825 with flags the code before it left,   7825 (100%) unwanted by the first instructions of where it goes
+    without the translator, a jump further:               2018 a second,   2018 with flags the code before it left,   2009 (100%) unwanted by the first instructions of where it goes
+    without the translator, a call:                       3924 a second,   3406 with flags the code before it left,   3402 (100%) unwanted by the first instructions of where it goes
+    without the translator, a return:                    11606 a second,   9031 with flags the code before it left,      0 (0%) unwanted by the first instructions of where it goes
+    of the ways out of a piece that have flags to store, 37% go where a look shows them unwanted
+  stores, the pointer routine                  20706 a second,   6.9% of the time,   54 cycles each
+  reads by a pointer routine                    4524 a second,   1.0% of the time,   35 cycles each
+    on to the look for code (h_smc, pg_chk)    14643 a second,   4.8% of the time,   52 cycles each
+  pushes (h_push)                              41280 a second,  13.6% of the time,   53 cycles each
+  pops (h_pop)                                 21605 a second,   5.3% of the time,   40 cycles each
+  far returns (h_retf)                          9094 a second,   3.8% of the time,   67 cycles each
+  looks in the map (h_disp, jt_look)           10954 a second,   2.6% of the time,   38 cycles each
+    of the stores that go on to the look for code, 99.8% find a page no code was made from (37 a second get as far as the sixteens, 37 as far as the pieces)
+  pieces: 1040 made since the run began, for 604 addresses (221 of them more than once, 0 nine times or more); 0 made in the window
+  the window's code: 239 instructions, 5 KB of cache at 22 bytes each; 90% of what is executed: 3 KB; 95% of what is executed: 4 KB; 99% of what is executed: 4 KB
+
+==== basic (16 MHz): translated code 48.6% of the time, its routines 35.0%
+  flags: stored 61836 times a second by translated code, 48.9% of them never read: 6.1% to 7.9% of all time (32 to 42 cycles a store)
+    without the translator, a jump of 48 bytes or less:  14137 a second,  11936 with flags the code before it left,  10261 (86%) unwanted by the first instructions of where it goes
+    without the translator, a jump further:               3090 a second,   1138 with flags the code before it left,    813 (71%) unwanted by the first instructions of where it goes
+    without the translator, a call:                       4943 a second,   1673 with flags the code before it left,   1208 (72%) unwanted by the first instructions of where it goes
+    without the translator, a return:                     7161 a second,   4746 with flags the code before it left,      0 (0%) unwanted by the first instructions of where it goes
+    of the ways out of a piece that have flags to store, 27% go where a look shows them unwanted
+  stores, the pointer routine                  17311 a second,   5.4% of the time,   50 cycles each
+  reads by a pointer routine                    3540 a second,   0.8% of the time,   36 cycles each
+    on to the look for code (h_smc, pg_chk)    17311 a second,   6.4% of the time,   59 cycles each
+  pushes (h_push)                              26152 a second,   8.7% of the time,   53 cycles each
+  pops (h_pop)                                 25755 a second,   6.2% of the time,   38 cycles each
+  looks in the map (h_disp, jt_look)           21067 a second,   5.2% of the time,   39 cycles each
+  pieces comparing their bytes (h_verify)          4 a second,   0.0% of the time,  877 cycles each
+    of the stores that go on to the look for code, 99.8% find a page no code was made from (37 a second get as far as the sixteens, 37 as far as the pieces)
+  pieces: 1075 made since the run began, for 754 addresses (203 of them more than once, 0 nine times or more); 0 made in the window
+  the window's code: 955 instructions, 21 KB of cache at 22 bytes each; 90% of what is executed: 13 KB; 95% of what is executed: 16 KB; 99% of what is executed: 19 KB
+
+==== thexder-tandy (16 MHz): translated code 43.6% of the time, its routines 26.8%
+  flags: stored 42523 times a second by translated code, 92.5% of them never read: 7.9% to 10.3% of all time (32 to 42 cycles a store)
+    without the translator, a jump of 48 bytes or less:  18670 a second,  18662 with flags the code before it left,  14616 (78%) unwanted by the first instructions of where it goes
+    without the translator, a jump further:               7819 a second,   7731 with flags the code before it left,   7715 (100%) unwanted by the first instructions of where it goes
+    without the translator, a call:                       1406 a second,   1358 with flags the code before it left,   1338 (99%) unwanted by the first instructions of where it goes
+    without the translator, a return:                     4098 a second,   3890 with flags the code before it left,      0 (0%) unwanted by the first instructions of where it goes
+    of the ways out of a piece that have flags to store, 70% go where a look shows them unwanted
+  stores, the pointer routine                  18777 a second,   5.3% of the time,   45 cycles each
+  reads by a pointer routine                   22555 a second,   5.3% of the time,   37 cycles each
+    on to the look for code (h_smc, pg_chk)     3217 a second,   1.3% of the time,   65 cycles each
+    to video memory (h_hi)                     15583 a second,   4.1% of the time,   42 cycles each
+  pushes (h_push)                               7111 a second,   2.6% of the time,   57 cycles each
+  pops (h_pop)                                  7105 a second,   1.8% of the time,   41 cycles each
+  looks in the map (h_disp, jt_look)            2594 a second,   0.8% of the time,   46 cycles each
+  pieces comparing their bytes (h_verify)        863 a second,   5.2% of the time,  969 cycles each
+    of the stores that go on to the look for code, 98.8% find a page no code was made from (40 a second get as far as the sixteens, 40 as far as the pieces)
+  pieces: 1230 made since the run began, for 753 addresses (274 of them more than once, 0 nine times or more); 51 made in the window
+  the window's code: 1789 instructions, 38 KB of cache at 22 bytes each; 90% of what is executed: 5 KB; 95% of what is executed: 8 KB; 99% of what is executed: 19 KB
+
+==== arkanoid (16 MHz): translated code 16.2% of the time, its routines 29.6%
+  flags: stored 9998 times a second by translated code, 64.8% of them never read: 1.3% to 1.7% of all time (32 to 42 cycles a store)
+    without the translator, a jump of 48 bytes or less:   8366 a second,   8176 with flags the code before it left,   6283 (77%) unwanted by the first instructions of where it goes
+    without the translator, a jump further:                934 a second,    822 with flags the code before it left,    663 (81%) unwanted by the first instructions of where it goes
+    without the translator, a call:                       1591 a second,   1281 with flags the code before it left,   1262 (98%) unwanted by the first instructions of where it goes
+    without the translator, a return:                    10426 a second,   8555 with flags the code before it left,      0 (0%) unwanted by the first instructions of where it goes
+    of the ways out of a piece that have flags to store, 18% go where a look shows them unwanted
+  stores, the pointer routine                  10134 a second,   2.8% of the time,   45 cycles each
+  reads by a pointer routine                    7057 a second,   2.2% of the time,   49 cycles each
+    on to the look for code (h_smc, pg_chk)     3075 a second,   1.6% of the time,   84 cycles each
+    to video memory (h_hi)                      7058 a second,   1.9% of the time,   42 cycles each
+  pushes (h_push)                               8850 a second,   3.1% of the time,   56 cycles each
+  pops (h_pop)                                  8718 a second,   2.2% of the time,   41 cycles each
+  looks in the map (h_disp, jt_look)            3184 a second,   0.9% of the time,   43 cycles each
+  pieces comparing their bytes (h_verify)       2641 a second,  13.4% of the time,  810 cycles each
+    of the stores that go on to the look for code, 71.2% find a page no code was made from (886 a second get as far as the sixteens, 309 as far as the pieces)
+  pieces: 1277 made since the run began, for 793 addresses (281 of them more than once, 0 nine times or more); 13 made in the window
+  the window's code: 1372 instructions, 29 KB of cache at 22 bytes each; 90% of what is executed: 6 KB; 95% of what is executed: 10 KB; 99% of what is executed: 15 KB
+
+==== lsl2 (16 MHz): translated code 18.9% of the time, its routines 24.8%
+  flags: stored 16516 times a second by translated code, 72.8% of them never read: 2.4% to 3.2% of all time (32 to 42 cycles a store)
+    without the translator, a jump of 48 bytes or less:   6729 a second,   6667 with flags the code before it left,   5633 (84%) unwanted by the first instructions of where it goes
+    without the translator, a jump further:               2855 a second,   2497 with flags the code before it left,   2451 (98%) unwanted by the first instructions of where it goes
+    without the translator, a call:                       1253 a second,    767 with flags the code before it left,    590 (77%) unwanted by the first instructions of where it goes
+    without the translator, a return:                    18829 a second,  16062 with flags the code before it left,      0 (0%) unwanted by the first instructions of where it goes
+    of the ways out of a piece that have flags to store, 16% go where a look shows them unwanted
+  stores, the pointer routine                  10280 a second,   3.3% of the time,   51 cycles each
+  reads by a pointer routine                    2925 a second,   0.6% of the time,   33 cycles each
+    on to the look for code (h_smc, pg_chk)     9201 a second,   3.1% of the time,   53 cycles each
+    to video memory (h_hi)                        35 a second,   0.0% of the time,   42 cycles each
+  pushes (h_push)                               4759 a second,   1.6% of the time,   54 cycles each
+  pops (h_pop)                                  5926 a second,   1.5% of the time,   40 cycles each
+  far returns (h_retf)                            48 a second,   0.0% of the time,  123 cycles each
+  looks in the map (h_disp, jt_look)            4924 a second,   1.2% of the time,   39 cycles each
+  pieces comparing their bytes (h_verify)       2613 a second,  11.9% of the time,  726 cycles each
+    of the stores that go on to the look for code, 94.6% find a page no code was made from (497 a second get as far as the sixteens, 12 as far as the pieces)
+  pieces: 3718 made since the run began, for 1090 addresses (631 of them more than once, 135 nine times or more); 738 made in the window
+  the window's code: 4716 instructions, 101 KB of cache at 22 bytes each; 90% of what is executed: 32 KB; 95% of what is executed: 50 KB; 99% of what is executed: 81 KB
+
