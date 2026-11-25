@@ -1327,6 +1327,9 @@ fp_arith
 fp_x       ds 8              ; the multiplicand / the divisor
 fp_y       ds 8              ; the multiplier
 fp_p       ds 16             ; the product; the dividend's remainder (+8: a word above it)
+           ds 2              ; (fp_mulsig's carry may look at the word at fp_p+15)
+fp_xb      ds 16             ; fp_mulsig: the multiplicand's bytes, doubled, a word each
+fp_pr      ds 16             ; fp_mulsig: a row's eight products, a word each
 fp_qd      ds 8              ; the quotient
 fp_rsig    ds 8              ; the result's significand, before rounding
 fp_g       dw 0              ; the bit below it
@@ -1358,7 +1361,7 @@ fp_md
  cmp #6
  bne *+5
  jmp :div
-*--- multiply: the operand with more zero words is the multiplier
+*--- multiply: the operand with more zero bytes is the multiplier
  jsr :zw
  bcs :swap
  ldx #6
@@ -1434,9 +1437,11 @@ fp_md
  jsr fp_divsig
  bcs :no
  bra fp_mdr
-* :zw - carry set when fp_a has more zero words than fp_b
+* :zw - carry set when fp_a has more zero bytes than fp_b
 :zw
- ldx #6
+ sep #$20
+ mx %10
+ ldx #7
  ldy #0
 :z1
  lda fp_a,x
@@ -1448,8 +1453,9 @@ fp_md
  dey
 :z3
  dex
- dex
  bpl :z1
+ rep #$20
+ mx %00
  tya
  dec
  bmi :zc
@@ -1491,73 +1497,130 @@ fp_mdr
  sec
  rts
 
-* fp_mulsig - fp_p = fp_x * fp_y: the multiplier's bits from the
-* least, a zero word of it a shift of sixteen
+* fp_mulsig - fp_p = fp_x * fp_y by bytes. Each byte of the
+* multiplier that is not 0 is a row: its products with the
+* multiplicand's eight bytes, from the table of quarter squares
+* (a*b = f(a+b) - f(b-a), f(n) = n*n/4 rounded down: a+b and b-a
+* have the same parity, so the two roundings cancel), the even
+* ones a 64-bit number at the row's byte and the odd ones at the
+* byte after, each added into fp_p. The table is read through
+* two pointers on the stack, f(a) and f(-a), by Y = 2b.
 fp_mulsig
  mx %00
- ldx #14
+ ldx #16
 :z
  stz fp_p,x
  dex
  dex
  bpl :z
- ldx #0
-:wl
- lda fp_y,x
- bne :bits
- lda fp_p+2
- sta fp_p
- lda fp_p+4
- sta fp_p+2
- lda fp_p+6
- sta fp_p+4
- lda fp_p+8
- sta fp_p+6
- lda fp_p+10
- sta fp_p+8
- lda fp_p+12
- sta fp_p+10
- lda fp_p+14
- sta fp_p+12
- stz fp_p+14
- bra :next
-:bits
- sta fp_mw
- ldy #16
-:bl
- lsr fp_mw
- bcc :sh
- clc
- lda fp_p+8
- adc fp_x
- sta fp_p+8
- lda fp_p+10
- adc fp_x+2
- sta fp_p+10
- lda fp_p+12
- adc fp_x+4
- sta fp_p+12
- lda fp_p+14
- adc fp_x+6
- sta fp_p+14
-:sh
- ror fp_p+14
- ror fp_p+12
- ror fp_p+10
- ror fp_p+8
- ror fp_p+6
- ror fp_p+4
- ror fp_p+2
- ror fp_p
- dey
- bne :bl
-:next
+ ldx #0                    ; the multiplicand's bytes, doubled
+ txy
+:xb
+ lda fp_x,y
+ and #$00FF
+ asl
+ sta fp_xb,x
+ iny
  inx
+ inx
+ cpx #16
+ bcc :xb
+ ldx #0                    ; X: the row's byte
+:row
+ lda fp_y,x
+ and #$00FF
+ bne :do
+:nx
  inx
  cpx #8
- bcs *+5
- jmp :wl
+ bcc :row
  rts
+:do
+ asl
+ sta fp_mw
+ clc
+ adc #fp_qs0
+ pha                       ; f(a) at 3,s
+ lda #fp_qs0
+ sec
+ sbc fp_mw
+ pha                       ; f(-a) at 1,s
+]j = 0
+ lup 8
+ ldy ]j*2+fp_xb
+ lda (3,s),y
+ sec
+ sbc (1,s),y
+ sta ]j*2+fp_pr
+]j = ]j+1
+ --^
+ pla
+ pla
+ clc                       ; the even products at the row's byte
+ lda fp_pr
+ adc fp_p,x
+ sta fp_p,x
+ lda fp_pr+4
+ adc fp_p+2,x
+ sta fp_p+2,x
+ lda fp_pr+8
+ adc fp_p+4,x
+ sta fp_p+4,x
+ lda fp_pr+12
+ adc fp_p+6,x
+ sta fp_p+6,x
+ bcc :od
+ phx
+:c1
+ inc fp_p+8,x
+ bne :c1e
+ inx
+ inx
+ bra :c1
+:c1e
+ plx
+:od
+ clc                       ; the odd ones at the byte after
+ lda fp_pr+2
+ adc fp_p+1,x
+ sta fp_p+1,x
+ lda fp_pr+6
+ adc fp_p+3,x
+ sta fp_p+3,x
+ lda fp_pr+10
+ adc fp_p+5,x
+ sta fp_p+5,x
+ lda fp_pr+14
+ adc fp_p+7,x
+ sta fp_p+7,x
+ bcs *+5
+ jmp :nx
+ phx
+:c2
+ inc fp_p+9,x
+ bne :c2e
+ inx
+ inx
+ bra :c2
+:c2e
+ plx
+ jmp :nx
+
+* fp_qsq - f(n) = n*n/4 rounded down, a word each, n from -255
+* (f(-n) = f(n)) to 510; fp_qs0 is f(0)
+fp_qsq
+]n = 255
+ lup 255
+ dw ]n*]n/4
+]n = ]n-1
+ --^
+fp_qs0
+]n = 0
+ lup 511
+ dw ]n*]n/4
+]n = ]n+1
+ --^
+ err *-fp_qsq-1532
 
 * fp_divsig - fp_rsig = fp_a / fp_b's significands, 64 bits and
 * a guard bit and the sticky, fp_re the exponent; carry set when
